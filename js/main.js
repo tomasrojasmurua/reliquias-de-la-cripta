@@ -48,6 +48,7 @@ const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
+const botonUsar = $('#t-usar');
 const entrada = new Entrada(vista, { zona: $('#zona-tactil'), base: $('#joy-base'), palanca: $('#joy-palanca'), botones });
 
 let juego = null;
@@ -126,7 +127,34 @@ function pintarColeccion() {
 
 function pintarOpciones() {
   for (const b of document.querySelectorAll('[data-calidad]')) b.classList.toggle('activo', b.dataset.calidad === calidad);
+  pintarControles();
 }
+
+// Controles táctiles: sensibilidad, modo zurdo y vibración.
+const SENSIBILIDAD = { baja: 0.6, media: 1, alta: 1.5 };
+function aplicarControles() {
+  const o = progreso.opciones;
+  entrada.sensTactil = 0.006 * SENSIBILIDAD[o.sens || 'media'];
+  entrada.zurdo = !!o.zurdo;
+  document.body.classList.toggle('zurdo', !!o.zurdo);
+}
+function pintarControles() {
+  const o = progreso.opciones;
+  for (const b of document.querySelectorAll('[data-sens]')) b.classList.toggle('activo', b.dataset.sens === (o.sens || 'media'));
+  $('#btn-zurdo').textContent = o.zurdo ? 'Zurdo: sí' : 'Zurdo: no';
+  $('#btn-vibrar').textContent = o.sinVibrar ? 'Vibración: no' : 'Vibración: sí';
+}
+for (const b of document.querySelectorAll('[data-sens]')) b.onclick = () => { progreso.opciones.sens = b.dataset.sens; guardar(); aplicarControles(); pintarControles(); };
+$('#btn-zurdo').onclick = () => { progreso.opciones.zurdo = !progreso.opciones.zurdo; guardar(); aplicarControles(); pintarControles(); };
+$('#btn-vibrar').onclick = () => {
+  progreso.opciones.sinVibrar = !progreso.opciones.sinVibrar; guardar(); pintarControles();
+  if (!progreso.opciones.sinVibrar) vibrar(40);
+};
+function vibrar(ms) {
+  if (progreso.opciones.sinVibrar || !document.body.classList.contains('tactil')) return;
+  try { navigator.vibrate?.(ms); } catch (e) { /* sin vibración */ }
+}
+aplicarControles();
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-ir]');
@@ -170,6 +198,7 @@ function empezar(def) {
       actualizarHUD();
     },
     daño() { destello('rojo'); },
+    vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     salida: r => terminar(r, true),
     muerte: r => setTimeout(() => terminar(r, false), 1400),
@@ -290,6 +319,7 @@ function cuadro(t) {
     dibujarAutomapa(ctxMapa, w, h, juego);
   }
   actualizarHUD();
+  botonUsar.classList.toggle('listo', juego.puedeUsar());
 
   fpsN++; fpsT += dt;
   if (fpsT > 1) { $('#fps').textContent = `${Math.round(fpsN / fpsT)} fps`; fpsN = 0; fpsT = 0; }
