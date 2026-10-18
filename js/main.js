@@ -4,6 +4,7 @@ import { Entrada } from './entrada.js';
 import { Juego } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa } from './automapa.js';
+import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { MAZMORRAS } from '../datos/mazmorras.js';
@@ -40,6 +41,7 @@ try {
   $('#portada .error').textContent = 'No se pudo iniciar el gráfico 3D: ' + e.message;
 }
 
+iniciarEscena($('#escena'));
 const capaArma = $('#arma');
 const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
@@ -55,6 +57,15 @@ let msgTimer = 0;
 
 function mostrar(id) {
   for (const p of document.querySelectorAll('.pantalla')) p.hidden = p.id !== id;
+  // la escena de la entrada se ve detrás de los menús; al pasar de la portada, la cámara se acerca a la puerta
+  animarEscena(id !== 'juego');
+  document.body.classList.toggle('adentro', id !== 'portada');
+  if (id === 'portada') pintarPortada();
+}
+
+function pintarPortada() {
+  const total = TESOROS.length, tengo = progreso.tesoros.length;
+  $('#pie-portada').textContent = tengo ? `Tesoros reunidos: ${tengo} de ${total}` : `${MAZMORRAS.length} mazmorras · ${total} tesoros por descubrir`;
 }
 
 function mensaje(t, seg = 3) {
@@ -71,6 +82,8 @@ function destello(clase) {
 
 // ---------- Menús ----------
 
+const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+
 function pintarMazmorras() {
   const lista = $('#lista-mazmorras');
   lista.innerHTML = '';
@@ -80,8 +93,9 @@ function pintarMazmorras() {
     const est = progreso.mazmorras[m.id] || {};
     const b = document.createElement('button');
     b.className = 'mazmorra';
-    b.innerHTML = `<strong>${m.nombre}</strong><span>${m.descripcion}</span>
-      <small>Tesoros ${tengo}/${ids.length}${est.completada ? ' · Completada' : ''}</small>`;
+    b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><strong>${m.nombre}</strong><span>${m.descripcion}</span>
+      <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
+      <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}</small>`;
     b.onclick = () => empezar(m);
     lista.appendChild(b);
   }
