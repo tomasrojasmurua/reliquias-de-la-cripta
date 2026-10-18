@@ -448,7 +448,7 @@ registrar('tablilla_catacumba', b => dibujaTablilla(b, b => dibujaCatacumba(b, r
 
 // ---------- Sprites (fondo transparente) ----------
 
-function sprite(fn) {
+function sprite(fn, opciones = {}) {
   return b => {
     const c = document.createElement('canvas');
     c.width = c.height = T;
@@ -457,14 +457,38 @@ function sprite(fn) {
     fn(g);
     const d = g.getImageData(0, 0, T, T).data;
     for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) d[i + 3] = 0; else d[i + 3] = 255; }
+    if (opciones.relieve !== false) relieve(d);
     b.d.set(d);
   };
+}
+
+// Da volumen a un sprite plano: luz desde arriba a la izquierda, sombra abajo a la derecha,
+// un leve degradado hacia los pies y un contorno oscuro de 1 píxel para que se lea contra el fondo.
+function relieve(d) {
+  const a = (x, y) => x >= 0 && y >= 0 && x < T && y < T && d[(y * T + x) * 4 + 3] > 0;
+  const orig = new Uint8ClampedArray(d);
+  const borde = [];
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = (y * T + x) * 4;
+    if (!orig[i + 3]) {
+      if (a(x - 1, y) || a(x + 1, y) || a(x, y - 1) || a(x, y + 1)) borde.push(i);
+      continue;
+    }
+    let f = 1.08 - (y / T) * 0.22;
+    if (!a(x - 1, y) || !a(x, y - 1)) f *= 1.28;
+    else if (!a(x - 2, y) || !a(x, y - 2)) f *= 1.1;
+    if (!a(x + 1, y) || !a(x, y + 1)) f *= 0.62;
+    else if (!a(x + 2, y) || !a(x, y + 2)) f *= 0.84;
+    d[i] = orig[i] * f; d[i + 1] = orig[i + 1] * f; d[i + 2] = orig[i + 2] * f;
+  }
+  for (const i of borde) { d[i] = 18; d[i + 1] = 12; d[i + 2] = 8; d[i + 3] = 255; }
 }
 
 function r(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
 // Humanoide genérico. estilo: cuerpo 'momia' (vendado, macizo) o 'huesos' (esqueleto),
-// colores y un accesorio opcional. pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto.
+// colores y un accesorio opcional. pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto,
+// 5 y 6 cayendo (animación de muerte), 7 lanzar (brazos al frente).
 const ESTILOS = {
   momia: { cuerpo: 'momia', piel: '#c9b98f', sombra: '#8f7f5b', ojo: '#ff5a1f' },
   esqueleto: { cuerpo: 'huesos', piel: '#e4ddc8', sombra: '#a8a08a', ojo: '#2a1a10' },
@@ -484,6 +508,7 @@ function humanoide(g, tipo, pose) {
   const e = ESTILOS[tipo];
   const momia = e.cuerpo === 'momia';
   const piel = e.piel, sombra = e.sombra;
+  if (pose === 5 || pose === 6) { caer(g, e, momia, pose); return; }
   if (pose === 4) {
     if (momia) { r(g, 8, 52, 48, 9, sombra); r(g, 10, 52, 44, 6, piel); r(g, 48, 50, 10, 9, piel); }
     else { r(g, 10, 56, 40, 4, piel); r(g, 46, 50, 10, 9, piel); r(g, 20, 54, 4, 4, sombra); r(g, 30, 54, 4, 4, sombra); }
@@ -512,7 +537,7 @@ function humanoide(g, tipo, pose) {
     r(g, 24, 38 + dy, 16, 4, piel);
   }
   // brazos
-  const alza = pose === 2 ? -10 : 0;
+  const alza = pose === 2 ? -10 : pose === 7 ? -6 : 0;
   if (momia) {
     r(g, 13, 22 + dy + alza, 7, 18, sombra); r(g, 44, 22 + dy + alza, 7, 18, sombra);
     r(g, 14, 22 + dy + alza, 5, 17, piel); r(g, 45, 22 + dy + alza, 5, 17, piel);
@@ -560,11 +585,63 @@ function humanoide(g, tipo, pose) {
     r(g, 50, 4 + dy + alza, 2, 26, '#d8dde4'); r(g, 46, 28 + dy + alza, 10, 2, '#8a6a2a'); // espada
   }
   if (pose === 3) { r(g, 26, 26, 6, 4, '#7a1010'); }
+  if (pose === 7) { // conjuro: fuego entre las manos
+    r(g, 26, 12 + alza + 14, 12, 10, '#ff8a1a'); r(g, 28, 14 + alza + 14, 8, 6, '#ffe14a'); r(g, 30, 16 + alza + 14, 4, 2, '#fff8d0');
+  }
+}
+
+// Fotogramas intermedios de la muerte: 5 de rodillas, 6 desplomándose.
+function caer(g, e, momia, pose) {
+  const piel = e.piel, sombra = e.sombra;
+  const dy = pose === 5 ? 12 : 26;
+  const inclina = pose === 5 ? 3 : 10;
+  // piernas dobladas
+  if (momia) { r(g, 18, 52, 28, 10, sombra); r(g, 19, 52, 26, 8, piel); }
+  else { r(g, 20, 56, 24, 3, piel); r(g, 22, 52, 3, 6, piel); r(g, 38, 52, 3, 6, piel); }
+  // torso caído hacia delante
+  if (momia) { r(g, 20 + inclina, 20 + dy, 24, 52 - (20 + dy) + 2, sombra); r(g, 21 + inclina, 20 + dy, 22, 52 - (20 + dy), piel); }
+  else { r(g, 30 + inclina, 20 + dy, 4, 52 - (20 + dy), piel); for (let i = 0; i < 3; i++) r(g, 23 + inclina, 22 + i * 4 + dy, 18, 2, piel); }
+  // brazos colgando
+  const brazo = momia ? 6 : 3;
+  r(g, 14 + inclina, 24 + dy, brazo, Math.max(6, 60 - (24 + dy)), piel);
+  r(g, 44 + inclina, 24 + dy, brazo, Math.max(6, 60 - (24 + dy)), piel);
+  // cabeza
+  r(g, 24 + inclina * 1.5, 6 + dy, 16, 15, momia ? sombra : piel);
+  r(g, 25 + inclina * 1.5, 6 + dy, 14, 14, piel);
+  const ojo = pose === 6 ? sombra : e.ojo;
+  r(g, 27 + inclina * 1.5, 11 + dy, 4, 2, ojo); r(g, 33 + inclina * 1.5, 11 + dy, 4, 2, ojo);
+  if (e.accesorio === 'yelmo') r(g, 24 + inclina * 1.5, 4 + dy, 16, 17, '#8a9098');
+  if (e.accesorio === 'mascara') r(g, 26 + inclina * 1.5, 9 + dy, 12, 11, '#e8e0c8');
+  if (e.accesorio === 'pañuelo') r(g, 24 + inclina * 1.5, 5 + dy, 16, 4, '#b02020');
+  if (e.accesorio === 'cuernos') { r(g, 18 + inclina * 1.5, dy, 4, 6, '#e8e0c8'); r(g, 42 + inclina * 1.5, dy, 4, 6, '#e8e0c8'); }
+  if (e.accesorio === 'plumas') r(g, 23 + inclina * 1.5, 2 + dy, 18, 5, '#2fa860');
+  r(g, 26, 26 + dy, 6, 4, '#7a1010');
 }
 
 for (const tipo of Object.keys(ESTILOS)) {
-  for (let pose = 0; pose < 5; pose++) registrar(`${tipo}_${pose}`, sprite(g => humanoide(g, tipo, pose)));
+  for (let pose = 0; pose < 8; pose++) registrar(`${tipo}_${pose}`, sprite(g => humanoide(g, tipo, pose)));
 }
+
+// Partículas de impacto y proyectiles (sin relieve: son manchas pequeñas de luz o polvo).
+function mancha(g, colores, semilla, n = 14) {
+  const rnd = rng(semilla);
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * Math.PI * 2, d = rnd() * 22;
+    const t = 4 + Math.floor(rnd() * 8);
+    r(g, 32 + Math.cos(a) * d - t / 2, 32 + Math.sin(a) * d - t / 2, t, t, colores[i % colores.length]);
+  }
+}
+registrar('polvo', sprite(g => mancha(g, ['#b8a888', '#8a7c62', '#d8cbb0'], 3), { relieve: false }));
+registrar('sangre', sprite(g => mancha(g, ['#9a1010', '#6a0808', '#c02020'], 5), { relieve: false }));
+registrar('chispa', sprite(g => mancha(g, ['#ffe14a', '#ffb627', '#fff8d0'], 7, 10), { relieve: false }));
+registrar('hueso', sprite(g => mancha(g, ['#e4ddc8', '#a8a08a'], 9, 10), { relieve: false }));
+for (let k = 0; k < 2; k++) registrar('fuego_' + k, sprite(g => {
+  const rnd = rng(31 + k);
+  g.fillStyle = '#c2410c'; g.beginPath(); g.arc(32, 32, 22, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ff8a1a'; g.beginPath(); g.arc(32, 32, 16, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ffe14a'; g.beginPath(); g.arc(32, 32, 9, 0, Math.PI * 2); g.fill();
+  for (let i = 0; i < 10; i++) { const a = rnd() * Math.PI * 2; r(g, 32 + Math.cos(a) * 22 - 3, 32 + Math.sin(a) * 22 - 3, 6, 6, i % 2 ? '#ff8a1a' : '#c2410c'); }
+}, { relieve: false }));
 
 registrar('revolver', sprite(g => {
   r(g, 12, 38, 34, 6, '#3a3a40'); r(g, 12, 38, 34, 2, '#6a6a74');
@@ -614,6 +691,9 @@ const FORMAS = {
   piedra(g, c, o) { g.fillStyle = o; g.beginPath(); g.ellipse(32, 42, 14, 17, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = c; g.beginPath(); g.ellipse(31, 41, 11, 14, 0, 0, Math.PI * 2); g.fill(); r(g, 22, 36, 20, 2, o); r(g, 22, 44, 20, 2, o); r(g, 24, 40, 16, 2, o); },
   libro(g, c, o) { r(g, 16, 26, 32, 30, o); r(g, 18, 26, 28, 28, c); r(g, 46, 28, 3, 26, '#efe6cc'); r(g, 24, 32, 16, 2, o); r(g, 24, 37, 12, 2, o); r(g, 30, 42, 4, 8, '#b02020'); r(g, 27, 45, 10, 2, '#b02020'); },
   escudo(g, c, o) { g.fillStyle = o; g.beginPath(); g.moveTo(16, 20); g.lineTo(48, 20); g.lineTo(46, 42); g.lineTo(32, 58); g.lineTo(18, 42); g.closePath(); g.fill(); g.fillStyle = c; g.beginPath(); g.moveTo(19, 23); g.lineTo(45, 23); g.lineTo(43, 41); g.lineTo(32, 54); g.lineTo(21, 41); g.closePath(); g.fill(); r(g, 30, 25, 4, 26, '#b02020'); r(g, 22, 32, 20, 4, '#b02020'); },
+  ankh(g, c, o) { g.strokeStyle = o; g.lineWidth = 7; g.beginPath(); g.ellipse(32, 24, 8, 10, 0, 0, Math.PI * 2); g.stroke(); g.strokeStyle = c; g.lineWidth = 4; g.beginPath(); g.ellipse(32, 24, 8, 10, 0, 0, Math.PI * 2); g.stroke(); r(g, 18, 34, 28, 6, o); r(g, 19, 35, 26, 4, c); r(g, 28, 36, 8, 24, o); r(g, 29, 36, 6, 23, c); },
+  anillo(g, c, o) { g.strokeStyle = o; g.lineWidth = 9; g.beginPath(); g.ellipse(32, 42, 15, 11, 0, 0, Math.PI * 2); g.stroke(); g.strokeStyle = c; g.lineWidth = 5; g.beginPath(); g.ellipse(32, 42, 15, 11, 0, 0, Math.PI * 2); g.stroke(); r(g, 27, 26, 10, 7, '#c02030'); r(g, 29, 27, 4, 2, '#ff8a9a'); },
+  cruz(g, c, o) { r(g, 28, 12, 10, 46, o); r(g, 29, 12, 8, 45, c); r(g, 16, 24, 34, 9, o); r(g, 17, 25, 32, 7, c); r(g, 30, 26, 6, 5, '#c02030'); },
   escarabajo(g, c, o) { r(g, 22, 28, 20, 26, o); r(g, 24, 30, 16, 22, c); r(g, 31, 30, 2, 22, o); r(g, 26, 22, 12, 7, o); r(g, 18, 34, 4, 2, o); r(g, 42, 34, 4, 2, o); r(g, 18, 44, 4, 2, o); r(g, 42, 44, 4, 2, o); },
 };
 

@@ -60,12 +60,13 @@ button.activo { border-color: var(--oro); background: #4a3216; }
 #vista, #arma { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 body.retro #vista { image-rendering: pixelated; }
 #arma { pointer-events: none; image-rendering: pixelated; }
+#automapa { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 #mira { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255, 240, 200, .7); box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); pointer-events: none; }
 #destello { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
 #destello.rojo { animation: destello .45s ease-out; background: rgba(200, 20, 10, .45); }
 #destello.oro { animation: destello .8s ease-out; background: rgba(255, 200, 60, .35); }
 @keyframes destello { from { opacity: 1; } to { opacity: 0; } }
-#mensaje { position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); max-width: 90%; text-align: center; padding: 8px 14px; background: rgba(18, 13, 8, .75); border: 1px solid var(--borde); border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 17px; }
+#mensaje { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); max-width: 90%; text-align: center; padding: 8px 14px; background: rgba(18, 13, 8, .75); border: 1px solid var(--borde); border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 17px; }
 #mensaje.visible { opacity: 1; }
 #fps { position: absolute; right: 8px; top: 6px; font: 11px monospace; color: rgba(255, 255, 255, .4); pointer-events: none; }
 #btn-pausa { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px 12px; opacity: .75; z-index: 3; }
@@ -116,6 +117,7 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 #t-disparar { width: 92px; height: 92px; right: max(22px, env(safe-area-inset-right)); bottom: max(70px, calc(env(safe-area-inset-bottom) + 60px)); font-size: 15px !important; }
 #t-usar { width: 66px; height: 66px; right: max(128px, calc(env(safe-area-inset-right) + 108px)); bottom: max(46px, calc(env(safe-area-inset-bottom) + 40px)); }
 #t-recargar { width: 58px; height: 58px; right: max(124px, calc(env(safe-area-inset-right) + 104px)); bottom: max(130px, calc(env(safe-area-inset-bottom) + 124px)); }
+#t-mapa { width: 52px; height: 52px; right: max(12px, env(safe-area-inset-right)); top: max(40px, calc(env(safe-area-inset-top) + 34px)); font-size: 12px !important; }
 #t-arma { width: 58px; height: 58px; right: max(40px, calc(env(safe-area-inset-right) + 20px)); bottom: max(176px, calc(env(safe-area-inset-bottom) + 170px)); }
 body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-inset-bottom)); }
 @media (max-width: 520px) { #hud .caja { min-width: 62px; padding: 2px 6px; } #hud b { font-size: 17px; } }

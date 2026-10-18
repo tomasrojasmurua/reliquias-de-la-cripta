@@ -48,9 +48,9 @@
     <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro.</p>
     <p>Algunos muros tienen grietas. Empújalos: cada mazmorra esconde al menos un <b>pasadizo secreto</b>.</p>
     <h3>Computador</h3>
-    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, 1 y 2 o Q para cambiar de arma, Shift para correr, Esc para pausar.</p>
+    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, 1 y 2 o Q para cambiar de arma, Shift para correr, Tab o M para ver el mapa, Esc para pausar.</p>
     <h3>Celular</h3>
-    <p>Arrastra en la mitad izquierda para moverte y en la derecha para mirar. Usa los botones para atacar, usar, recargar y cambiar de arma. Se juega mejor en horizontal.</p>
+    <p>Arrastra en la mitad izquierda para moverte y en la derecha para mirar. Usa los botones para atacar, usar, recargar, cambiar de arma y ver el mapa. Se juega mejor en horizontal.</p>
   </div>
   <button data-ir="portada">Volver</button>
 </section>
@@ -65,12 +65,14 @@
   </div>
   <p class="nota">Retro dibuja a baja resolución, como el Doom original, y es la más liviana.</p>
   <button id="btn-sonido">Sonido: sí</button>
+  <button id="btn-musica">Música: sí</button>
   <button data-ir="portada">Volver</button>
 </section>
 
 <section id="juego" class="pantalla" hidden>
   <canvas id="vista"></canvas>
   <canvas id="arma"></canvas>
+  <canvas id="automapa" hidden></canvas>
   <div id="mira"></div>
   <div id="destello"></div>
   <div id="mensaje"></div>
@@ -89,6 +91,7 @@
     <button id="t-usar" data-tactil="usar">Usar</button>
     <button id="t-recargar" data-tactil="recargar">Recargar</button>
     <button id="t-arma" data-tactil="cambiarArma">Arma</button>
+    <button id="t-mapa" data-tactil="mapa">Mapa</button>
   </div>
   <div id="pausa" class="capa" hidden>
     <h2>Pausa</h2>

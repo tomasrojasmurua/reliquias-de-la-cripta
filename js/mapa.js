@@ -28,8 +28,18 @@ const LEYENDA_BASE = {
   'f': { tipo: 'suelo', objeto: 'falso' },
 };
 
+const ALTO = 1.25;       // altura de un tramo de muro (igual que ALTO_MURO en render.js)
+export const HONDO = 6.25; // profundidad del abismo
+
 const SOLIDOS_FIJOS = new Set(['muro', 'vacio', 'tablilla', 'aviso', 'salida']);
 export const MOVILES = new Set(['puerta', 'secreto', 'sello']);
+
+// Alturas del suelo: '1'..'9' suben 0.3 m por número; 'a'..'e' bajan 0.3 m por letra.
+export function altura(h) {
+  if (h >= '1' && h <= '9') return (h.charCodeAt(0) - 48) * 0.3;
+  if (h >= 'a' && h <= 'e') return -(h.charCodeAt(0) - 96) * 0.3;
+  return 0;
+}
 
 export function cargarMazmorra(def) {
   const alto = def.plano.length;
@@ -62,11 +72,14 @@ export function cargarMazmorra(def) {
         tex: l.tex || (l.tipo === 'suelo' ? null : def.muro),
         suelo: l.suelo || def.suelo, techo: l.techo || def.techo,
         luz: def.luz,
+        piso: 0, techoY: ALTO, // alturas del suelo y del techo de la casilla
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
         antorcha: !!l.antorcha,
         trampa: l.trampa || null, peligro: l.peligro || null, texto: l.texto || null,
       };
+      const h = def.alturas?.[y]?.[x];
+      if (h && h !== '.' && h !== ' ') { c.piso = altura(h); c.techoY = Math.max(ALTO, c.piso + ALTO); }
       if (l.peligro === 'lava') c.luz = 1.2;
       if (l.tipo === 'puerta' || l.tipo === 'sello') c.tex = l.tex;
       if (l.tipo === 'secreto') totalSecretos++;
@@ -93,6 +106,11 @@ export function cargarMazmorra(def) {
       if (MOVILES.has(c.tipo)) return c.abierto < 0.9;
       return false;
     },
+    // Altura del suelo en (x, y); las casillas sólidas no cuentan.
+    piso(x, y) {
+      const c = this.celda(x, y);
+      return c ? c.piso : 0;
+    },
     // Los enemigos además evitan la lava y el abismo.
     bloqueaEnemigo(x, y) {
       return this.solida(x, y) || !!this.celda(x, y).peligro;
@@ -104,16 +122,24 @@ export function cargarMazmorra(def) {
     },
   };
 
-  // Zonas con otro suelo, techo o muro: [x0, y0, x1, y1, {suelo, techo, muro}].
+  // Zonas con otro suelo, techo o muro: [x0, y0, x1, y1, {suelo, techo, muro, piso, cielo, desnivel}].
+  // piso: altura del suelo (escalones de 0.25 a 0.45 se suben caminando); cielo: altura del techo
+  // (por defecto piso + 1.25); desnivel: textura de los escalones y paredes entre alturas.
   for (const [x0, y0, x1, y1, z] of def.zonas || []) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const c = mapa.celda(x, y);
       if (!c) continue;
       if (z.suelo) c.suelo = z.suelo;
       if (z.techo) c.techo = z.techo;
+      if (z.piso !== undefined) { c.piso = z.piso; c.techoY = Math.max(c.techoY, z.piso + ALTO); }
+      if (z.cielo !== undefined) c.techoY = z.cielo;
+      if (z.desnivel) c.muroDesnivel = z.desnivel;
       if (z.muro && c.tipo === 'muro' && !c.antorcha && def.plano[y][x] === '#') c.tex = z.muro;
     }
   }
+
+  // El abismo se hunde bajo el suelo de su zona.
+  for (const c of celdas) if (c.peligro === 'abismo') c.piso -= HONDO;
 
   // Luces por zona y resplandor de antorchas.
   for (const [x0, y0, x1, y1, luz] of def.luces || []) {

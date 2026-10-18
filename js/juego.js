@@ -3,12 +3,15 @@
 import { cargarMazmorra } from './mapa.js';
 import { ALTO_MURO } from './render.js';
 import { sonar } from './audio.js';
+import { explorar } from './automapa.js';
 import { TESORO, RAREZAS } from '../datos/tesoros.js';
 
 const RADIO_JUGADOR = 0.24;
 const OJO = 0.64;
 const VEL = 2.6, VEL_CORRER = 4.2, GIRO_TECLAS = 2.4;
 const MAX_CABECEO = 0.45;
+const PASO = 0.45;            // el escalón más alto que se sube caminando
+const CAIDA_ENEMIGO = 0.5;    // los enemigos tampoco bajan desniveles mayores
 
 const ENEMIGOS = {
   momia: { vida: 60, vel: 1.05, daño: [8, 14], alcance: 0.95, espera: 1.2, vista: 11 },
@@ -16,7 +19,8 @@ const ENEMIGOS = {
   draugr: { vida: 75, vel: 1.25, daño: [9, 15], alcance: 1.0, espera: 1.3, vista: 11 },
   pirata: { vida: 45, vel: 1.7, daño: [7, 12], alcance: 1.05, espera: 0.9, vista: 13 },
   jaguar: { vida: 50, vel: 2.3, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 14 },
-  sectario: { vida: 40, vel: 1.9, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 13 },
+  // los sectarios además lanzan bolas de fuego desde lejos (se pueden esquivar)
+  sectario: { vida: 40, vel: 1.9, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 13, fuego: [9, 14] },
   caballero: { vida: 95, vel: 1.1, daño: [12, 18], alcance: 1.1, espera: 1.3, vista: 12 },
 };
 
@@ -33,6 +37,10 @@ const ARMAS = {
 
 const azar = ([a, b]) => a + Math.random() * (b - a);
 
+// Qué salpica cada enemigo al recibir un golpe.
+const SALPICA = { momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: 'hueso', jaguar: 'sangre', sectario: 'sangre', caballero: 'chispa' };
+const VEL_FUEGO = 5.5;
+
 export class Juego {
   constructor(def, eventos) {
     this.def = def;
@@ -40,11 +48,11 @@ export class Juego {
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte}
     const m = this.mapa;
     this.j = {
-      x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0, cabeceo: 0,
+      x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
       vida: 100, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
-    this.enemigos = m.enemigos.map(e => ({ ...e, ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
+    this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
     this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
     this.tesoros = [];
     this.secretos = 0;
@@ -52,22 +60,52 @@ export class Juego {
     this.ayudas = 0;
     this.tiempo = 0;
     this.fogonazo = 0;
+    this.particulas = [];
+    this.proyectiles = [];
     this.terminado = false;
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
   }
 
   // ---------- Física de rejilla ----------
 
-  choca(x, z, r, enemigo = false) {
+  // ¿Choca un cuerpo de radio r con los pies a la altura y? Los escalones altos también frenan.
+  choca(x, z, r, enemigo = false, y = 0) {
+    const m = this.mapa;
     for (let cz = Math.floor(z - r); cz <= Math.floor(z + r); cz++)
-      for (let cx = Math.floor(x - r); cx <= Math.floor(x + r); cx++)
-        if (enemigo ? this.mapa.bloqueaEnemigo(cx, cz) : this.mapa.solida(cx, cz)) return true;
+      for (let cx = Math.floor(x - r); cx <= Math.floor(x + r); cx++) {
+        if (enemigo ? m.bloqueaEnemigo(cx, cz) : m.solida(cx, cz)) return true;
+        const p = m.piso(cx, cz);
+        if (p > y + PASO) return true;
+        if (enemigo && p < y - CAIDA_ENEMIGO) return true;
+      }
     return false;
   }
 
+  // Suelo más alto bajo el cuerpo (como en Doom: te apoyas en el borde del escalón).
+  sueloBajo(x, z, r) {
+    const m = this.mapa;
+    let p = -Infinity;
+    for (let cz = Math.floor(z - r); cz <= Math.floor(z + r); cz++)
+      for (let cx = Math.floor(x - r); cx <= Math.floor(x + r); cx++)
+        if (!m.solida(cx, cz)) p = Math.max(p, m.piso(cx, cz));
+    return p === -Infinity ? m.piso(Math.floor(x), Math.floor(z)) : p;
+  }
+
   mover(e, dx, dz, r, enemigo = false) {
-    if (!this.choca(e.x + dx, e.z, r, enemigo)) e.x += dx;
-    if (!this.choca(e.x, e.z + dz, r, enemigo)) e.z += dz;
+    const y = e.y ?? 0;
+    if (!this.choca(e.x + dx, e.z, r, enemigo, y)) e.x += dx;
+    if (!this.choca(e.x, e.z + dz, r, enemigo, y)) e.z += dz;
+  }
+
+  // Los pies siguen al suelo: suben el escalón enseguida y bajan con gravedad.
+  apoyar(e, r, dt) {
+    const meta = this.sueloBajo(e.x, e.z, r);
+    if (meta >= e.y) { e.y = Math.min(meta, e.y + dt * 6); e.vy = 0; }
+    else {
+      e.vy = (e.vy || 0) + dt * 18;
+      e.y = Math.max(meta, e.y - e.vy * dt);
+      if (e.y === meta) { if (e.vy > 6 && e === this.j) sonar('caida'); e.vy = 0; }
+    }
   }
 
   // DDA: primera casilla sólida en la dirección (dx, dz). Devuelve {dist, cx, cz}.
@@ -110,7 +148,10 @@ export class Juego {
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
     this.mover(j, mx * vel, mz * vel, RADIO_JUGADOR);
+    if (j.cayendo === undefined) this.apoyar(j, RADIO_JUGADOR, dt);
+    const antes = Math.floor(j.paso / Math.PI);
     j.paso += Math.min(ml, 1) * vel * 3.2;
+    if (Math.floor(j.paso / Math.PI) !== antes && j.cayendo === undefined) sonar('paso_' + this.superficie());
 
     j.espera = Math.max(0, j.espera - dt);
     j.ataque = Math.max(0, j.ataque - dt);
@@ -130,9 +171,80 @@ export class Juego {
     if (p.has('usar')) this.usar();
     if (ent.disparar) this.atacar();
 
+    this.explorado = (this.explorado || 0) - dt;
+    if (this.explorado <= 0) { explorar(this); this.explorado = 0.15; }
     this.recoger();
     this.peligros(dt);
     this.actualizarEnemigos(dt);
+    this.actualizarProyectiles(dt);
+    this.actualizarParticulas(dt);
+  }
+
+  // ---------- Partículas y proyectiles ----------
+
+  salpicar(x, y, z, tex, n = 6, fuerza = 1.6) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.particulas.push({
+        x, y, z, tex,
+        vx: Math.cos(a) * fuerza * Math.random(), vz: Math.sin(a) * fuerza * Math.random(),
+        vy: 0.8 + Math.random() * 1.6, vida: 0.4 + Math.random() * 0.35,
+        tam: tex === 'chispa' ? 0.06 : 0.1,
+      });
+    }
+  }
+
+  actualizarParticulas(dt) {
+    const m = this.mapa;
+    for (const q of this.particulas) {
+      q.vida -= dt;
+      q.vy -= 7 * dt;
+      q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
+      const suelo = m.piso(Math.floor(q.x), Math.floor(q.z));
+      if (q.y < suelo) { q.y = suelo; q.vy *= -0.3; q.vx *= 0.5; q.vz *= 0.5; }
+    }
+    this.particulas = this.particulas.filter(q => q.vida > 0);
+  }
+
+  lanzarFuego(e) {
+    const j = this.j;
+    const dx = j.x - e.x, dz = j.z - e.z, d = Math.hypot(dx, dz);
+    this.proyectiles.push({ x: e.x + dx / d * 0.4, z: e.z + dz / d * 0.4, y: e.y + 0.55, vx: dx / d * VEL_FUEGO, vz: dz / d * VEL_FUEGO, daño: e.fuego, vida: 4 });
+    sonar('fuego');
+  }
+
+  actualizarProyectiles(dt) {
+    const j = this.j, m = this.mapa;
+    for (const f of this.proyectiles) {
+      f.vida -= dt;
+      f.x += f.vx * dt; f.z += f.vz * dt;
+      const cx = Math.floor(f.x), cz = Math.floor(f.z);
+      if (m.solida(cx, cz) || m.piso(cx, cz) > f.y) {
+        f.vida = 0; this.salpicar(f.x - f.vx * 0.02, f.y, f.z - f.vz * 0.02, 'chispa', 8); sonar('golpe');
+      } else if (!j.muerto && Math.hypot(f.x - j.x, f.z - j.z) < 0.38 && Math.abs(f.y - (j.y + 0.5)) < 0.7) {
+        f.vida = 0; this.salpicar(f.x, f.y, f.z, 'chispa', 8);
+        this.dañarJugador(azar(f.daño), 'Te alcanzó una bola de fuego.');
+      }
+    }
+    this.proyectiles = this.proyectiles.filter(f => f.vida > 0);
+  }
+
+  // Material del suelo bajo los pies (para el sonido de los pasos).
+  superficie() {
+    const c = this.mapa.celda(Math.floor(this.j.x), Math.floor(this.j.z));
+    const s = c?.suelo || '';
+    if (/nieve|hielo/.test(s)) return 'nieve';
+    if (/arena/.test(s)) return 'arena';
+    if (/madera|cubierta|puente/.test(s)) return 'madera';
+    if (/selva/.test(s) && !/losa/.test(s)) return 'hierba';
+    return 'piedra';
+  }
+
+  // De 0 a 1: cuántos enemigos te persiguen de cerca (para la música).
+  tension() {
+    let n = 0;
+    for (const e of this.enemigos) if ((e.estado === 'caza' || e.estado === 'ataca' || e.estado === 'lanza') && Math.hypot(e.x - this.j.x, e.z - this.j.z) < 12) n++;
+    return Math.min(1, n / 2.5);
   }
 
   // Trampas y peligros bajo los pies del jugador.
@@ -207,13 +319,22 @@ export class Juego {
       if (a > 0 && a < Math.min(muro, arma.alcance) && lat < 0.32 + a * 0.02 && a < mejorD) { mejor = e; mejorD = a; }
     }
     if (mejor) this.herir(mejor, azar(arma.daño));
-    else if (j.arma === 'latigo' && muro < arma.alcance) setTimeout(() => sonar('golpe'), 90);
+    else if (muro < arma.alcance) {
+      // impacto en el muro: polvo (y chispas si es una bala)
+      const d = muro - 0.05;
+      const ix = j.x + fx * d, iz = j.z + fz * d, iy = j.y + OJO + Math.tan(j.cabeceo) * d;
+      this.salpicar(ix, iy, iz, 'polvo', 4, 0.8);
+      if (j.arma === 'revolver') this.salpicar(ix, iy, iz, 'chispa', 3, 1.2);
+      else setTimeout(() => sonar('golpe'), 90);
+    }
   }
 
   herir(e, daño) {
     e.vida -= daño;
+    e.golpe = 0.12;
+    this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
     if (e.vida <= 0) {
-      e.estado = 'muerto'; this.abatidos++; sonar('muerteEnemigo');
+      e.estado = 'muerto'; e.tMuerte = 0; this.abatidos++; sonar('muerteEnemigo');
     } else {
       e.estado = 'dolor'; e.t = 0.25; sonar('dolorEnemigo');
     }
@@ -307,7 +428,8 @@ export class Juego {
   actualizarEnemigos(dt) {
     const j = this.j;
     for (const e of this.enemigos) {
-      if (e.estado === 'muerto') continue;
+      e.golpe = Math.max(0, (e.golpe || 0) - dt);
+      if (e.estado === 'muerto') { e.tMuerte += dt; continue; }
       e.anim += dt;
       e.espera = Math.max(0, e.espera - dt);
       const dx = j.x - e.x, dz = j.z - e.z, d = Math.hypot(dx, dz);
@@ -316,20 +438,30 @@ export class Juego {
         continue;
       }
       if (e.estado === 'dolor') { e.t -= dt; if (e.t <= 0) e.estado = 'caza'; continue; }
+      if (e.estado === 'lanza') {
+        e.t -= dt;
+        if (e.t <= 0) { if (this.seVe(e, j)) this.lanzarFuego(e); e.estado = 'caza'; }
+        continue;
+      }
       if (e.estado === 'ataca') {
         e.t -= dt;
         if (e.t <= 0) {
-          if (d < e.alcance + 0.25) this.dañarJugador(azar(e.daño), 'Has caído en la cripta.');
+          if (d < e.alcance + 0.25 && Math.abs(e.y - j.y) < 0.7) this.dañarJugador(azar(e.daño), 'Has caído en la cripta.');
           e.estado = 'caza'; e.espera = e.espera || 0.6;
         }
         continue;
       }
       // caza
-      if (d < e.alcance && e.espera <= 0) {
+      if (d < e.alcance && e.espera <= 0 && Math.abs(e.y - j.y) < 0.7) {
         e.estado = 'ataca'; e.t = 0.45; e.espera = 0.45 + 0.8; sonar('ataque');
         continue;
       }
-      if (this.seVe(e, j)) e.visto = { x: j.x, z: j.z };
+      const loVe = this.seVe(e, j);
+      if (loVe) e.visto = { x: j.x, z: j.z };
+      if (e.fuego && loVe && d > 2.2 && d < 11 && e.espera <= 0 && Math.random() < dt * 0.9) {
+        e.estado = 'lanza'; e.t = 0.5; e.espera = 2.2 + Math.random() * 1.5;
+        continue;
+      }
       const meta = e.visto || j;
       const mx = meta.x - e.x, mz = meta.z - e.z, ml = Math.hypot(mx, mz);
       if (ml > 0.6) {
@@ -342,6 +474,7 @@ export class Juego {
         const sx = e.x - o.x, sz = e.z - o.z, sd = Math.hypot(sx, sz);
         if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, 0.28, true);
       }
+      this.apoyar(e, 0.28, dt);
       if (Math.random() < dt * 0.08) sonar('gruñido');
     }
   }
@@ -361,32 +494,36 @@ export class Juego {
     const j = this.j;
     const bob = Math.sin(j.paso) * 0.025;
     const caida = j.cayendo !== undefined ? -j.cayendo * j.cayendo * 6 : 0;
-    return { x: j.x, y: (j.muerto && caida === 0 ? 0.2 : OJO) + bob + caida, z: j.z, yaw: j.yaw, pitch: j.cayendo !== undefined ? 0.5 : j.cabeceo };
+    return { x: j.x, y: j.y + (j.muerto && caida === 0 ? 0.2 : OJO) + bob + caida, z: j.z, yaw: j.yaw, pitch: j.cayendo !== undefined ? 0.5 : j.cabeceo };
   }
 
   sprites() {
     const s = [], m = this.mapa;
     const luzEn = (x, z) => m.celda(Math.floor(x), Math.floor(z))?.luz ?? 0.5;
+    const pisoEn = (x, z) => m.piso(Math.floor(x), Math.floor(z));
     for (const o of this.objetos) {
       if (o.cogido) continue;
       const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
-      if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: 1.2 });
-      else if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: 0.04 + flota + 0.04, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: 1.2 });
-      else s.push({ x: o.x, z: o.z, y: 0, ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
+      if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: 1.2 });
+      else if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: 1.2 });
+      else s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z), ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
     }
     for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
       const c = m.celdas[z * m.ancho + x];
-      if (c.trampa === 'pinchos' && pinchosArriba(x, this.tiempo)) s.push({ x: x + 0.5, z: z + 0.5, y: 0, ancho: 0.95, alto: 0.45, tex: 'pinchos', luz: c.luz });
+      if (c.trampa === 'pinchos' && pinchosArriba(x, this.tiempo)) s.push({ x: x + 0.5, z: z + 0.5, y: c.piso, ancho: 0.95, alto: 0.45, tex: 'pinchos', luz: c.luz });
     }
     for (const e of this.enemigos) {
       let pose;
-      if (e.estado === 'muerto') pose = 4;
+      if (e.estado === 'muerto') pose = e.tMuerte < 0.14 ? 5 : e.tMuerte < 0.3 ? 6 : 4;
+      else if (e.estado === 'lanza') pose = 7;
       else if (e.estado === 'dolor') pose = 3;
       else if (e.estado === 'ataca') pose = 2;
       else if (e.estado === 'dormido') pose = 0;
       else pose = Math.floor(e.anim * (e.vel * 3)) % 2;
-      s.push({ x: e.x, z: e.z, y: 0, ancho: 1.0, alto: 1.0, tex: `${e.tipo}_${pose}`, luz: luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
+      s.push({ x: e.x, z: e.z, y: e.y, ancho: 1.0, alto: 1.0, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
+    for (const f of this.proyectiles) s.push({ x: f.x, z: f.z, y: f.y - 0.15, ancho: 0.3, alto: 0.3, tex: 'fuego_' + (Math.floor(this.tiempo * 12) % 2), luz: 1.3 });
+    for (const q of this.particulas) s.push({ x: q.x, z: q.z, y: q.y - q.tam / 2, ancho: q.tam, alto: q.tam, tex: q.tex, luz: q.tex === 'chispa' ? 1.3 : luzEn(q.x, q.z) });
     return s;
   }
 }
