@@ -1,5 +1,7 @@
 // Convierte la definición de una mazmorra (datos/mazmorras.js) en casillas y objetos.
 
+import { conLaberinto } from './laberinto.js';
+
 // tipo: muro | vacio | suelo | puerta | secreto | sello | tablilla | aviso | salida
 // Peligros en el suelo: trampa 'pinchos' (suben y bajan), peligro 'lava' (quema) y 'abismo' (caída mortal).
 const LEYENDA_BASE = {
@@ -42,6 +44,7 @@ export function altura(h) {
 }
 
 export function cargarMazmorra(def) {
+  if (def.laberinto) def = conLaberinto(def);
   const alto = def.plano.length;
   const ancho = Math.max(...def.plano.map(f => f.length));
   const leyenda = { ...LEYENDA_BASE, ...(def.leyenda || {}) };

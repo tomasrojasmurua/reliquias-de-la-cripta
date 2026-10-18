@@ -18,6 +18,8 @@ Para probarlo en local: `python3 -m http.server` en esta carpeta y abrir http://
 6. **El Templo Maldito** (una secta, tres piedras sagradas y un río de lava): pinchos y un camino entre la lava hasta el revólver.
 7. **La Tumba del Cruzado** (catacumbas y las tres pruebas del cáliz): la senda del penitente (pinchos), la palabra (una tablilla de dificultad 4–5) y el salto de fe (un puente oculto sobre un abismo). Al final hay varios cálices, y solo uno es el verdadero.
 
+Cada mazmorra tiene un **laberinto de túneles que cambia en cada partida** (`js/laberinto.js`): pasillos con bifurcaciones y callejones sin salida, salas con hordas o vacías, pinchos en algunos pasillos y dos tesoros escondidos en los callejones más hondos, a veces tapiados tras un muro agrietado. Las salas principales y los acertijos quedan siempre iguales.
+
 Cada mazmorra tiene además un **ala nueva con alturas**, con su propia tablilla (`L`) y su sello (`Q`): una galería con foso y estrado en la cripta, una pirámide escalonada en el templo de las arenas, el salón del jarl con balcón y lago helado, una bahía de contrabandistas con muelle y acantilado, un cenote sagrado en la selva, unas minas con pasarelas sobre un río de lava y un osario con entresuelo y sala de lectura hundida.
 
 En las últimas mazmorras, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
@@ -45,6 +47,7 @@ Las texturas, sprites, el arma en pantalla y los sonidos se generan por código,
 - `js/acertijos.js`: tablillas con pistas crípticas y ayudas progresivas.
 - `js/audio.js`: efectos, ambiente, música y eco sintetizados.
 - `js/automapa.js`: mapa de lo explorado.
+- `js/laberinto.js`: genera los túneles de cada partida.
 - `datos/mazmorras.js`: las mazmorras (planos de texto, ver abajo).
 - `datos/tesoros.js`: catálogo de tesoros y rarezas.
 - `datos/pistas.js`: banco de pistas crípticas, generado (no editar a mano).
@@ -72,7 +75,7 @@ Cada mazmorra en `datos/mazmorras.js` es un plano de texto donde cada carácter 
 | `f` | cáliz falso: parece un tesoro y es una trampa |
 | `1`–`9` | tesoros, según el campo `tesoros` |
 
-Otros campos opcionales: `alturas` (un plano paralelo con la altura del suelo: `.` a ras de suelo, `1`–`9` sube 0.3 m por número, `a`–`e` baja 0.3 m por letra; un escalón de 0.3 m se sube caminando, uno de 0.6 m ya no), `zonas` (rectángulos con otro suelo, techo o muro, la altura del techo `cielo` y la textura `desnivel` de escalones y paredes entre alturas), `ambiente` (`cripta`, `desierto`, `nieve`, `mar`, `selva`, `lava` o `catacumba`), `avisos` (inscripciones de pista que se leen con «Usar»: `{ K: 'texto' }`), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
+Otros campos opcionales: `alturas` (un plano paralelo con la altura del suelo: `.` a ras de suelo, `1`–`9` sube 0.3 m por número, `a`–`e` baja 0.3 m por letra; un escalón de 0.3 m se sube caminando, uno de 0.6 m ya no), `zonas` (rectángulos con otro suelo, techo o muro, la altura del techo `cielo` y la textura `desnivel` de escalones y paredes entre alturas), `laberinto` (`{ lado: 'abajo' | 'derecha', puerta: [x, y], ancho, alto, tesoros: [...] }`: túneles generados en cada partida, unidos por una puerta en la casilla `puerta` del borde del plano), `ambiente` (`cripta`, `desierto`, `nieve`, `mar`, `selva`, `lava` o `catacumba`), `avisos` (inscripciones de pista que se leen con «Usar»: `{ K: 'texto' }`), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
 
 Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [min, max], sello: 'Z', titulo }` pone una tablilla en cada `T` del plano y un sello en cada `Z`. Al acertar la pista de la tablilla se abren sus sellos. La dificultad (1 a 5) elige al azar una pista del banco de esa dificultad, evitando las que el jugador ya resolvió. La regla es poner tesoros más valiosos tras pistas más difíciles y tras los pasadizos secretos.
 

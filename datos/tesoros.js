@@ -91,6 +91,21 @@ export const TESOROS = [
   t('idolo_kali', 'Ídolo de la diosa negra', 'idolo', OBSIDIANA, 'epico', 'Los sectarios rezaban frente a él antes de cada ritual.'),
   t('tablilla_grial', 'Tablilla de los tres retos', 'libro', MARFIL, 'raro', 'Describe las tres pruebas: el aliento de Dios, la palabra de Dios y el sendero de Dios.'),
   t('cruz_coronado', 'Cruz de Coronado', 'cruz', ORO, 'epico', 'Pertenece a un museo. Ahora sí.'),
+  // Laberintos (cambian de lugar en cada partida)
+  t('ushebti', 'Figurilla ushebti', 'idolo', JADE, 'comun', 'Un sirviente de loza que trabajará por su dueño en el más allá.'),
+  t('paleta_escriba', 'Paleta del escriba', 'libro', MADERA, 'raro', 'Todavía tiene restos de tinta roja y negra.'),
+  t('espejo_bronce', 'Espejo de bronce pulido', 'disco', BRONCE, 'comun', 'Refleja la luz de la antorcha hasta el fondo del pasillo.'),
+  t('collar_cornalina', 'Collar de cornalina', 'amuleto', RUBI, 'raro', 'Cuentas rojas como el atardecer sobre el desierto.'),
+  t('broche_plata', 'Broche vikingo de plata', 'amuleto', PLATA, 'comun', 'Sujetaba la capa de un guerrero contra el viento del norte.'),
+  t('cuerno_guerra', 'Cuerno de guerra', 'cuerno', BRONCE, 'raro', 'Su sonido llamaba a los guerreros al combate.'),
+  t('catalejo_grumete', 'Catalejo roto del grumete', 'catalejo', MADERA, 'comun', 'Se le cayó al grumete en la huida. Una lente sigue entera.'),
+  t('collar_perlas', 'Collar de perlas del Caribe', 'amuleto', MARFIL, 'raro', 'Botín de un galeón que venía de Cartagena.'),
+  t('figurilla_maiz', 'Figurilla del dios del maíz', 'idolo', AMBAR, 'comun', 'Se ofrecía para tener buenas cosechas.'),
+  t('cuchillo_obsidiana', 'Cuchillo de obsidiana', 'daga', OBSIDIANA, 'raro', 'Más afilado que cualquier acero.'),
+  t('cuenta_rudraksha', 'Rosario de rudraksha', 'amuleto', MADERA, 'comun', 'Las semillas sagradas de un monje que pasó por aquí.'),
+  t('monedas_maharaja', 'Monedas del maharajá', 'monedas', ORO, 'raro', 'El tesoro del palacio, escondido de la secta.'),
+  t('pagina_diario', 'Página suelta del diario', 'libro', CUERO, 'comun', 'Un dibujo de la ventana de la biblioteca y un número romano.'),
+  t('moneda_templaria', 'Moneda templaria', 'monedas', PLATA, 'raro', 'Dos caballeros en un solo caballo.'),
 ];
 
 export const TESORO = Object.fromEntries(TESOROS.map(x => [x.id, x]));
