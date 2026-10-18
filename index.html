@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Reliquias de la Cripta</title>
+<meta name="description" content="Un cazador de tesoros en mazmorras llenas de acertijos crípticos. Juego en primera persona para celular y computador.">
+<meta name="theme-color" content="#120d08">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<section id="portada" class="pantalla menu">
+  <h1>Reliquias<br><span>de la Cripta</span></h1>
+  <p class="lema">Revólver, látigo y una buena cabeza para los acertijos.</p>
+  <nav>
+    <button data-ir="mazmorras" class="principal">Jugar</button>
+    <button data-ir="coleccion">Colección de tesoros</button>
+    <button data-ir="ayuda">Cómo jugar</button>
+    <button data-ir="opciones">Opciones</button>
+  </nav>
+  <p class="error"></p>
+</section>
+
+<section id="mazmorras" class="pantalla menu" hidden>
+  <h2>Elige una mazmorra</h2>
+  <div id="lista-mazmorras"></div>
+  <button data-ir="portada">Volver</button>
+</section>
+
+<section id="coleccion" class="pantalla menu" hidden>
+  <h2>Colección de tesoros</h2>
+  <p id="resumen-coleccion"></p>
+  <div id="rejilla-tesoros"></div>
+  <button data-ir="portada">Volver</button>
+</section>
+
+<section id="ayuda" class="pantalla menu" hidden>
+  <h2>Cómo jugar</h2>
+  <div class="texto">
+    <p>Explora cada mazmorra y reúne sus tesoros. Empiezas solo con tu látigo: busca el <b>revólver</b> y sus <b>balas</b>.</p>
+    <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro.</p>
+    <p>Algunos muros tienen grietas. Empújalos: cada mazmorra esconde al menos un <b>pasadizo secreto</b>.</p>
+    <h3>Computador</h3>
+    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, 1 y 2 o Q para cambiar de arma, Shift para correr, Esc para pausar.</p>
+    <h3>Celular</h3>
+    <p>Arrastra en la mitad izquierda para moverte y en la derecha para mirar. Usa los botones para atacar, usar, recargar y cambiar de arma. Se juega mejor en horizontal.</p>
+  </div>
+  <button data-ir="portada">Volver</button>
+</section>
+
+<section id="opciones" class="pantalla menu" hidden>
+  <h2>Opciones</h2>
+  <p>Calidad de imagen</p>
+  <div class="fila">
+    <button data-calidad="alta">Alta</button>
+    <button data-calidad="media">Media</button>
+    <button data-calidad="retro">Retro</button>
+  </div>
+  <p class="nota">Retro dibuja a baja resolución, como el Doom original, y es la más liviana.</p>
+  <button id="btn-sonido">Sonido: sí</button>
+  <button data-ir="portada">Volver</button>
+</section>
+
+<section id="juego" class="pantalla" hidden>
+  <canvas id="vista"></canvas>
+  <canvas id="arma"></canvas>
+  <div id="mira"></div>
+  <div id="destello"></div>
+  <div id="mensaje"></div>
+  <div id="fps"></div>
+  <button id="btn-pausa" aria-label="Pausa">II</button>
+  <div id="hud">
+    <div class="caja"><small>Vida</small><b id="hud-vida">100</b></div>
+    <div class="caja"><small id="hud-arma">Látigo</small><b id="hud-balas">—</b></div>
+    <div class="caja"><small>Tesoros</small><b id="hud-tesoros">0/0</b></div>
+  </div>
+  <div id="zona-tactil"></div>
+  <div id="joy-base" hidden></div>
+  <div id="joy-palanca" hidden></div>
+  <div id="botones-tactiles">
+    <button id="t-disparar" data-tactil="disparar">Atacar</button>
+    <button id="t-usar" data-tactil="usar">Usar</button>
+    <button id="t-recargar" data-tactil="recargar">Recargar</button>
+    <button id="t-arma" data-tactil="cambiarArma">Arma</button>
+  </div>
+  <div id="pausa" class="capa" hidden>
+    <h2>Pausa</h2>
+    <button id="btn-continuar" class="principal">Continuar</button>
+    <button id="btn-menu-pausa">Salir al menú</button>
+  </div>
+  <div id="panel" class="capa" hidden></div>
+</section>
+
+<section id="resumen" class="pantalla menu" hidden>
+  <h2></h2>
+  <ul class="datos"></ul>
+  <div class="tesoros"></div>
+  <button id="btn-reintentar" class="principal">Jugar de nuevo</button>
+  <button data-ir="mazmorras">Otra mazmorra</button>
+</section>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

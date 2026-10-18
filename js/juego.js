@@ -1,0 +1,343 @@
+// Estado y reglas de una partida dentro de una mazmorra.
+
+import { cargarMazmorra } from './mapa.js';
+import { ALTO_MURO } from './render.js';
+import { sonar } from './audio.js';
+import { TESORO, RAREZAS } from '../datos/tesoros.js';
+
+const RADIO_JUGADOR = 0.24;
+const OJO = 0.64;
+const VEL = 2.6, VEL_CORRER = 4.2, GIRO_TECLAS = 2.4;
+const MAX_CABECEO = 0.45;
+
+const ENEMIGOS = {
+  momia: { vida: 60, vel: 1.05, daño: [8, 14], alcance: 0.95, espera: 1.2, vista: 11 },
+  esqueleto: { vida: 35, vel: 1.8, daño: [5, 9], alcance: 0.9, espera: 0.8, vista: 13 },
+  draugr: { vida: 75, vel: 1.25, daño: [9, 15], alcance: 1.0, espera: 1.3, vista: 11 },
+  pirata: { vida: 45, vel: 1.7, daño: [7, 12], alcance: 1.05, espera: 0.9, vista: 13 },
+  jaguar: { vida: 50, vel: 2.3, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 14 },
+};
+
+const ARMAS = {
+  latigo: { nombre: 'Látigo', espera: 0.55, alcance: 1.9, daño: [14, 22] },
+  revolver: { nombre: 'Revólver', espera: 0.42, alcance: 40, daño: [30, 48] },
+};
+
+const azar = ([a, b]) => a + Math.random() * (b - a);
+
+export class Juego {
+  constructor(def, eventos) {
+    this.def = def;
+    this.mapa = cargarMazmorra(def);
+    this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte}
+    const m = this.mapa;
+    this.j = {
+      x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0, cabeceo: 0,
+      vida: 100, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
+      espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
+    };
+    this.enemigos = m.enemigos.map(e => ({ ...e, ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
+    this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
+    this.tesoros = [];
+    this.secretos = 0;
+    this.abatidos = 0;
+    this.ayudas = 0;
+    this.tiempo = 0;
+    this.fogonazo = 0;
+    this.terminado = false;
+    this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
+  }
+
+  // ---------- Física de rejilla ----------
+
+  choca(x, z, r) {
+    for (let cz = Math.floor(z - r); cz <= Math.floor(z + r); cz++)
+      for (let cx = Math.floor(x - r); cx <= Math.floor(x + r); cx++)
+        if (this.mapa.solida(cx, cz)) return true;
+    return false;
+  }
+
+  mover(e, dx, dz, r) {
+    if (!this.choca(e.x + dx, e.z, r)) e.x += dx;
+    if (!this.choca(e.x, e.z + dz, r)) e.z += dz;
+  }
+
+  // DDA: primera casilla sólida en la dirección (dx, dz). Devuelve {dist, cx, cz}.
+  rayo(x, z, dx, dz, max = 50) {
+    let cx = Math.floor(x), cz = Math.floor(z);
+    const px = Math.abs(1 / dx), pz = Math.abs(1 / dz);
+    const sx = dx < 0 ? -1 : 1, sz = dz < 0 ? -1 : 1;
+    let tx = dx < 0 ? (x - cx) * px : (cx + 1 - x) * px;
+    let tz = dz < 0 ? (z - cz) * pz : (cz + 1 - z) * pz;
+    let dist = 0;
+    while (dist < max) {
+      if (tx < tz) { cx += sx; dist = tx; tx += px; } else { cz += sz; dist = tz; tz += pz; }
+      if (this.mapa.solida(cx, cz)) return { dist, cx, cz };
+    }
+    return { dist: max, cx, cz };
+  }
+
+  seVe(a, b) {
+    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+    return this.rayo(a.x, a.z, dx / d, dz / d, d).dist >= d - 0.01;
+  }
+
+  // ---------- Bucle ----------
+
+  actualizar(dt, ent) {
+    if (this.terminado) return;
+    this.tiempo += dt;
+    const j = this.j;
+    this.fogonazo = Math.max(0, this.fogonazo - dt * 6);
+    this.animarPuertas(dt);
+    if (j.muerto) return;
+
+    j.yaw += ent.giro + ent.giroTeclas * GIRO_TECLAS * dt;
+    j.cabeceo = Math.max(-MAX_CABECEO, Math.min(MAX_CABECEO, j.cabeceo + ent.cabeceo));
+
+    const vel = (ent.correr ? VEL_CORRER : VEL) * dt;
+    const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
+    const rx = -fz, rz = fx;
+    let mx = fx * ent.adelante + rx * ent.lado, mz = fz * ent.adelante + rz * ent.lado;
+    const ml = Math.hypot(mx, mz);
+    if (ml > 1) { mx /= ml; mz /= ml; }
+    this.mover(j, mx * vel, mz * vel, RADIO_JUGADOR);
+    j.paso += Math.min(ml, 1) * vel * 3.2;
+
+    j.espera = Math.max(0, j.espera - dt);
+    j.ataque = Math.max(0, j.ataque - dt);
+    if (j.recargando > 0) {
+      j.recargando -= dt;
+      if (j.recargando <= 0) {
+        const n = Math.min(6 - j.tambor, j.reserva);
+        j.tambor += n; j.reserva -= n;
+      }
+    }
+
+    const p = ent.pulsos;
+    if (p.has('arma1')) this.cambiarArma('latigo');
+    if (p.has('arma2')) this.cambiarArma('revolver');
+    if (p.has('cambiarArma')) this.cambiarArma(j.arma === 'latigo' ? 'revolver' : 'latigo');
+    if (p.has('recargar')) this.recargar();
+    if (p.has('usar')) this.usar();
+    if (ent.disparar) this.atacar();
+
+    this.recoger();
+    this.actualizarEnemigos(dt);
+  }
+
+  cambiarArma(a) {
+    const j = this.j;
+    if (a === 'revolver' && !j.tieneRevolver) { this.ev.mensaje('Aún no tienes el revólver.'); return; }
+    if (j.arma !== a) { j.arma = a; j.espera = 0.3; j.recargando = 0; }
+  }
+
+  recargar() {
+    const j = this.j;
+    if (j.arma !== 'revolver' || j.recargando > 0 || j.tambor === 6) return;
+    if (!j.reserva) { this.ev.mensaje('No te quedan balas.'); return; }
+    j.recargando = 1.1; sonar('recarga');
+  }
+
+  atacar() {
+    const j = this.j;
+    if (j.espera > 0 || j.recargando > 0) return;
+    const arma = ARMAS[j.arma];
+    if (j.arma === 'revolver') {
+      if (!j.tambor) {
+        if (j.reserva) this.recargar(); else { sonar('vacio'); j.espera = 0.3; }
+        return;
+      }
+      j.tambor--;
+      sonar('disparo');
+      this.fogonazo = 1;
+      // el ruido despierta a los enemigos cercanos
+      for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 12) e.estado = 'caza';
+    } else {
+      sonar('latigo');
+    }
+    j.espera = arma.espera; j.ataque = arma.espera;
+
+    // Impacto: el enemigo más cercano dentro del cono, antes del primer muro (puntería automática vertical, como en Doom).
+    const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
+    const muro = this.rayo(j.x, j.z, fx, fz, arma.alcance).dist;
+    let mejor = null, mejorD = Infinity;
+    for (const e of this.enemigos) {
+      if (e.estado === 'muerto') continue;
+      const ex = e.x - j.x, ez = e.z - j.z;
+      const a = ex * fx + ez * fz;
+      const lat = Math.abs(ex * fz - ez * fx);
+      if (a > 0 && a < Math.min(muro, arma.alcance) && lat < 0.32 + a * 0.02 && a < mejorD) { mejor = e; mejorD = a; }
+    }
+    if (mejor) this.herir(mejor, azar(arma.daño));
+    else if (j.arma === 'latigo' && muro < arma.alcance) setTimeout(() => sonar('golpe'), 90);
+  }
+
+  herir(e, daño) {
+    e.vida -= daño;
+    if (e.vida <= 0) {
+      e.estado = 'muerto'; this.abatidos++; sonar('muerteEnemigo');
+    } else {
+      e.estado = 'dolor'; e.t = 0.25; sonar('dolorEnemigo');
+    }
+  }
+
+  usar() {
+    const j = this.j, m = this.mapa;
+    const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
+    const h = this.rayo(j.x, j.z, fx, fz, 1.4);
+    if (h.dist >= 1.4) return;
+    const c = m.celda(h.cx, h.cz);
+    if (!c) return;
+    if (c.tipo === 'puerta' && !c.abriendo) { c.abriendo = true; sonar('puerta'); }
+    else if (c.tipo === 'secreto' && !c.abriendo) {
+      c.abriendo = true; this.secretos++; sonar('secreto');
+      this.ev.mensaje('¡Un pasadizo secreto!');
+    }
+    else if (c.tipo === 'sello' && !c.abriendo) {
+      sonar('sellado');
+      const a = m.acertijos[c.acertijo];
+      this.ev.mensaje(`Un sello antiguo bloquea el paso. Busca «${a.titulo}».`);
+    }
+    else if (c.tipo === 'tablilla') {
+      const a = m.acertijos[c.acertijo];
+      if (a.resuelto) this.ev.mensaje('Ya descifraste esta inscripción.');
+      else this.ev.abrirTablilla(a);
+    }
+    else if (c.tipo === 'salida') this.salir();
+  }
+
+  resolverAcertijo(a) {
+    a.resuelto = true;
+    for (const c of this.mapa.celdas) if (c.tipo === 'sello' && c.acertijo === a.id) c.abriendo = true;
+    sonar('puerta');
+    this.ev.mensaje('Se oye un mecanismo antiguo. El sello se abre.');
+  }
+
+  salir() {
+    this.terminado = true;
+    this.ev.salida(this.resumen());
+  }
+
+  resumen() {
+    return {
+      mazmorra: this.def, tesoros: this.tesoros, totalTesoros: this.totalTesoros,
+      secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
+      abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,
+      acertijos: Object.values(this.mapa.acertijos).filter(a => a.resuelto).length,
+      totalAcertijos: Object.keys(this.mapa.acertijos).length,
+    };
+  }
+
+  animarPuertas(dt) {
+    for (const c of this.mapa.celdas) {
+      if (c.abriendo && c.abierto < 1) c.abierto = Math.min(1, c.abierto + dt * (c.tipo === 'secreto' ? 0.6 : 1.2));
+    }
+  }
+
+  recoger() {
+    const j = this.j;
+    for (const o of this.objetos) {
+      if (o.cogido || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
+      if (o.tipo === 'revolver') {
+        o.cogido = true; j.tieneRevolver = true; j.tambor = 6; j.arma = 'revolver'; j.espera = 0.4;
+        sonar('recoger'); this.ev.mensaje('¡Encontraste tu revólver! Cargado con 6 balas.');
+      } else if (o.tipo === 'balas') {
+        if (j.reserva >= 60) continue;
+        o.cogido = true; j.reserva = Math.min(60, j.reserva + 12);
+        sonar('recoger'); this.ev.mensaje('Una caja de balas (+12).');
+      } else if (o.tipo === 'vendas') {
+        if (j.vida >= 100) continue;
+        o.cogido = true; j.vida = Math.min(100, j.vida + 25);
+        sonar('recoger'); this.ev.mensaje('Vendas (+25 de vida).');
+      } else if (o.tipo === 'tesoro') {
+        o.cogido = true;
+        const t = TESORO[o.tesoro];
+        this.tesoros.push(t.id);
+        sonar('tesoro');
+        this.ev.tesoro(t, RAREZAS[t.rareza]);
+      }
+    }
+  }
+
+  actualizarEnemigos(dt) {
+    const j = this.j;
+    for (const e of this.enemigos) {
+      if (e.estado === 'muerto') continue;
+      e.anim += dt;
+      e.espera = Math.max(0, e.espera - dt);
+      const dx = j.x - e.x, dz = j.z - e.z, d = Math.hypot(dx, dz);
+      if (e.estado === 'dormido') {
+        if (d < e.vista && this.seVe(e, j)) { e.estado = 'caza'; sonar('gruñido'); }
+        continue;
+      }
+      if (e.estado === 'dolor') { e.t -= dt; if (e.t <= 0) e.estado = 'caza'; continue; }
+      if (e.estado === 'ataca') {
+        e.t -= dt;
+        if (e.t <= 0) {
+          if (d < e.alcance + 0.25) this.dañarJugador(azar(e.daño));
+          e.estado = 'caza'; e.espera = e.espera || 0.6;
+        }
+        continue;
+      }
+      // caza
+      if (d < e.alcance && e.espera <= 0) {
+        e.estado = 'ataca'; e.t = 0.45; e.espera = 0.45 + 0.8; sonar('ataque');
+        continue;
+      }
+      if (this.seVe(e, j)) e.visto = { x: j.x, z: j.z };
+      const meta = e.visto || j;
+      const mx = meta.x - e.x, mz = meta.z - e.z, ml = Math.hypot(mx, mz);
+      if (ml > 0.6) {
+        const v = e.vel * dt;
+        this.mover(e, mx / ml * v, mz / ml * v, 0.28);
+      } else e.visto = null;
+      // separación entre enemigos
+      for (const o of this.enemigos) {
+        if (o === e || o.estado === 'muerto') continue;
+        const sx = e.x - o.x, sz = e.z - o.z, sd = Math.hypot(sx, sz);
+        if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, 0.28);
+      }
+      if (Math.random() < dt * 0.08) sonar('gruñido');
+    }
+  }
+
+  dañarJugador(n) {
+    const j = this.j;
+    j.vida = Math.max(0, j.vida - Math.round(n));
+    sonar('dolor');
+    this.ev.daño();
+    if (j.vida <= 0) { j.muerto = true; this.ev.muerte(this.resumen()); }
+  }
+
+  // ---------- Vista ----------
+
+  camara() {
+    const j = this.j;
+    const bob = Math.sin(j.paso) * 0.025;
+    return { x: j.x, y: (j.muerto ? 0.2 : OJO) + bob, z: j.z, yaw: j.yaw, pitch: j.cabeceo };
+  }
+
+  sprites() {
+    const s = [], m = this.mapa;
+    const luzEn = (x, z) => m.celda(Math.floor(x), Math.floor(z))?.luz ?? 0.5;
+    for (const o of this.objetos) {
+      if (o.cogido) continue;
+      const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
+      if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: 0.04 + flota + 0.04, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: 1.2 });
+      else s.push({ x: o.x, z: o.z, y: 0, ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
+    }
+    for (const e of this.enemigos) {
+      let pose;
+      if (e.estado === 'muerto') pose = 4;
+      else if (e.estado === 'dolor') pose = 3;
+      else if (e.estado === 'ataca') pose = 2;
+      else if (e.estado === 'dormido') pose = 0;
+      else pose = Math.floor(e.anim * (e.vel * 3)) % 2;
+      s.push({ x: e.x, z: e.z, y: 0, ancho: 1.0, alto: 1.0, tex: `${e.tipo}_${pose}`, luz: luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
+    }
+    return s;
+  }
+}
+
+export { ARMAS, ALTO_MURO };
