@@ -12,24 +12,33 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="iconos/icono-192.png">
 <link rel="apple-touch-icon" href="iconos/icono-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=IM+Fell+English:ital@0;1&display=swap">
 <link rel="stylesheet" href="css/estilo.css">
 </head>
 <body>
 
+<canvas id="escena" aria-hidden="true"></canvas>
+
 <section id="portada" class="pantalla menu">
-  <h1>Reliquias<br><span>de la Cripta</span></h1>
-  <p class="lema">Revólver, látigo y una buena cabeza para los acertijos.</p>
-  <nav>
-    <button data-ir="mazmorras" class="principal">Jugar</button>
-    <button data-ir="coleccion">Colección de tesoros</button>
+  <header class="cartel">
+    <h1>Reliquias<span>de la Cripta</span></h1>
+    <p class="lema">Revólver, látigo y una buena cabeza para los acertijos.</p>
+  </header>
+  <nav class="losas">
+    <button data-ir="mazmorras" class="principal">Entrar</button>
+    <button data-ir="coleccion">Tesoros</button>
     <button data-ir="ayuda">Cómo jugar</button>
     <button data-ir="opciones">Opciones</button>
   </nav>
+  <p class="pie" id="pie-portada"></p>
   <p class="error"></p>
 </section>
 
 <section id="mazmorras" class="pantalla menu" hidden>
   <h2>Elige una mazmorra</h2>
+  <p class="sub">Cada puerta lleva a una cripta distinta. Los túneles cambian cada vez que entras.</p>
   <div id="lista-mazmorras"></div>
   <button data-ir="portada">Volver</button>
 </section>

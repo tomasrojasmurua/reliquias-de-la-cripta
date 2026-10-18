@@ -18,40 +18,111 @@ button.principal { background: #6b3e14; border-color: var(--oro); font-weight: b
 button.activo { border-color: var(--oro); background: #4a3216; }
 [hidden] { display: none !important; }
 
-/* ---------- Menús ---------- */
+/* ---------- Menús: la entrada de la mazmorra ---------- */
+
+#escena {
+  position: fixed; inset: 0; width: 100%; height: 100%; display: block;
+  image-rendering: pixelated; transform-origin: 50% 66%;
+  transition: transform 1.4s cubic-bezier(.3, .6, .2, 1), filter 1.4s;
+}
+body.adentro #escena { transform: scale(1.9); filter: brightness(.38) saturate(.8); }
+body.jugando #escena { display: none; }
 
 .menu {
   position: fixed; inset: 0; overflow-y: auto; touch-action: pan-y;
   display: flex; flex-direction: column; align-items: center; gap: 12px;
   padding: max(24px, env(safe-area-inset-top)) 16px 32px;
-  background: radial-gradient(ellipse at 50% 30%, #3a2814 0%, var(--fondo) 70%);
+  font-family: 'IM Fell English', Georgia, serif;
+  animation: aparecer .6s ease-out;
 }
-.menu h1 { font-size: clamp(36px, 8vw, 72px); text-align: center; margin: 4vh 0 0; color: var(--oro); text-shadow: 0 3px 0 #5a3a10, 0 0 24px rgba(232, 184, 58, .35); letter-spacing: 1px; line-height: 1; }
-.menu h1 span { font-size: .55em; color: var(--texto); }
-.menu h2 { color: var(--oro); margin: 8px 0; text-align: center; }
-.menu nav { display: flex; flex-direction: column; gap: 10px; width: min(320px, 100%); margin-top: 3vh; }
-.lema { color: var(--suave); font-style: italic; text-align: center; }
-.error { color: #ff8a7a; text-align: center; max-width: 480px; }
-.nota { color: var(--suave); font-size: 14px; max-width: 420px; text-align: center; }
-.fila { display: flex; gap: 8px; }
-.texto { max-width: 620px; line-height: 1.5; }
-.texto h3 { color: var(--oro); margin-bottom: 0; }
+@keyframes aparecer { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.menu h2 {
+  font-family: Cinzel, Georgia, serif; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--oro); margin: 10px 0 0; text-align: center; font-size: clamp(22px, 4.5vw, 34px);
+  text-shadow: 0 2px 0 #3a2408, 0 0 18px rgba(255, 160, 50, .35);
+  display: flex; align-items: center; gap: 14px;
+}
+.menu h2::before, .menu h2::after { content: ''; width: clamp(24px, 8vw, 80px); height: 2px; background: linear-gradient(90deg, transparent, var(--oro)); }
+.menu h2::after { transform: scaleX(-1); }
+.menu .sub { color: var(--suave); font-style: italic; text-align: center; margin: 0 0 6px; max-width: 520px; }
 
-#lista-mazmorras { display: flex; flex-direction: column; gap: 10px; width: min(560px, 100%); }
-.mazmorra { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; }
-.mazmorra strong { color: var(--oro); font-size: 19px; }
-.mazmorra span { color: var(--suave); font-size: 14px; }
-.mazmorra small { font-size: 13px; }
+/* Botones como losas de piedra talladas */
+.menu button, .capa button {
+  font-family: Cinzel, Georgia, serif; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; font-size: 15px;
+  color: #f0d491; padding: 13px 22px; border-radius: 3px; border: 1px solid #1c140c;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 240, 210, .10), transparent 60%),
+    linear-gradient(#6e5c47, #4c3e2f 55%, #3e3226);
+  box-shadow: inset 0 1px 0 rgba(255, 235, 200, .25), inset 0 -3px 0 rgba(0, 0, 0, .35), 0 3px 0 #1c140c, 0 8px 16px rgba(0, 0, 0, .55);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 220, 160, .15);
+  transition: transform .12s, box-shadow .2s, color .2s;
+}
+.menu button:hover, .capa button:hover, .menu button:focus-visible, .capa button:focus-visible {
+  color: #ffe8b0; outline: none;
+  box-shadow: inset 0 1px 0 rgba(255, 235, 200, .3), inset 0 -3px 0 rgba(0, 0, 0, .35), 0 3px 0 #1c140c, 0 8px 16px rgba(0, 0, 0, .55), 0 0 22px rgba(255, 150, 40, .5);
+}
+.menu button:active, .capa button:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 235, 200, .2), 0 1px 0 #1c140c, 0 4px 10px rgba(0, 0, 0, .5); }
+.menu button.principal, .capa button.principal {
+  color: #2a1606; text-shadow: 0 1px 0 rgba(255, 230, 160, .5);
+  background: radial-gradient(ellipse at 30% 20%, rgba(255, 250, 220, .35), transparent 60%), linear-gradient(#e0b04a, #a8761f 55%, #7a5214);
+  border-color: #3a2406;
+}
+.menu button.activo { color: #2a1606; background: linear-gradient(#d8a844, #9a6c1c); }
+
+/* Portada */
+#portada { justify-content: space-between; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+.cartel { text-align: center; margin-top: 2vh; }
+.cartel h1 {
+  font-family: Cinzel, Georgia, serif; font-weight: 900; margin: 0; line-height: .95;
+  font-size: clamp(40px, 9vw, 84px); letter-spacing: .06em; text-transform: uppercase;
+  background: linear-gradient(#fff1c2 10%, #e8b83a 45%, #8a5a14 90%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 3px 0 #2a1806) drop-shadow(0 0 24px rgba(255, 150, 40, .35));
+}
+.cartel h1 span { display: block; font-size: .42em; letter-spacing: .32em; margin-top: .25em; }
+.lema { font-family: 'IM Fell English', Georgia, serif; font-style: italic; color: #d8c49a; margin: 10px 0 0; text-shadow: 0 2px 6px #000; }
+.losas { display: flex; flex-direction: column; gap: 10px; width: min(280px, 82vw); margin-top: auto; margin-bottom: 4vh; }
+.losas button { width: 100%; }
+.losas button.principal { font-size: 19px; padding: 16px 22px; }
+.pie { color: #a8916a; font-size: 14px; font-style: italic; margin: 0; text-shadow: 0 1px 4px #000; text-align: center; }
+@media (max-height: 520px) {
+  .cartel { margin-top: 0; }
+  .cartel h1 { font-size: clamp(30px, 7vh, 52px); }
+  .lema { display: none; }
+  .losas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(520px, 92vw); margin-bottom: 1vh; }
+  .losas button { font-size: 12px; padding: 9px 8px; letter-spacing: .08em; }
+  .losas button.principal { grid-column: 1 / -1; font-size: 16px; padding: 11px 22px; }
+}
+
+.error { color: #ff8a7a; text-align: center; max-width: 480px; }
+.nota { color: var(--suave); font-size: 15px; max-width: 420px; text-align: center; font-style: italic; }
+.fila { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.texto { max-width: 640px; line-height: 1.55; font-size: 17px; background: rgba(14, 10, 6, .72); border: 1px solid #4a3a26; border-radius: 4px; padding: 6px 22px 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
+.texto h3 { font-family: Cinzel, Georgia, serif; letter-spacing: .1em; color: var(--oro); margin-bottom: 0; }
+#opciones > p { font-family: Cinzel, Georgia, serif; letter-spacing: .1em; color: #d8c49a; margin: 8px 0 0; }
+
+/* Mazmorras como tablillas de piedra */
+#lista-mazmorras { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; width: min(980px, 100%); }
+.menu .mazmorra {
+  position: relative; text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 16px 18px 14px 18px;
+  text-transform: none; letter-spacing: normal; font-weight: normal; color: var(--texto);
+}
+.mazmorra .numero { position: absolute; right: 14px; top: 10px; font: 900 28px Cinzel, Georgia, serif; color: rgba(0, 0, 0, .35); text-shadow: 0 1px 0 rgba(255, 230, 190, .12); font-style: normal; }
+.mazmorra strong { font-family: Cinzel, Georgia, serif; font-weight: 800; color: var(--oro); font-size: 18px; letter-spacing: .04em; padding-right: 36px; }
+.mazmorra span { font-family: 'IM Fell English', Georgia, serif; color: #d8c8a6; font-size: 15px; line-height: 1.35; }
+.mazmorra small { font-family: 'IM Fell English', Georgia, serif; font-size: 13px; color: #c0a878; }
+.barra { height: 5px; background: rgba(0, 0, 0, .45); border-radius: 3px; overflow: hidden; box-shadow: inset 0 1px 2px #000; }
+.barra i { display: block; height: 100%; background: linear-gradient(90deg, #a8761f, #ffd34d); }
 
 #rejilla-tesoros { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; width: min(1000px, 100%); }
-.tesoro { display: flex; gap: 10px; align-items: center; background: var(--panel); border: 2px solid var(--rareza); border-radius: 6px; padding: 8px; }
-.tesoro canvas { width: 64px; height: 64px; image-rendering: pixelated; flex: none; background: #0c0805; border-radius: 4px; }
+#resumen-coleccion { color: #d8c49a; font-style: italic; margin: 0; }
+.tesoro { display: flex; gap: 10px; align-items: center; background: linear-gradient(#2c2218, #1e170f); border: 1px solid #4a3a26; border-left: 3px solid var(--rareza); border-radius: 3px; padding: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, .45); }
+.tesoro canvas { width: 64px; height: 64px; image-rendering: pixelated; flex: none; background: radial-gradient(#2a1e12, #0c0805); border-radius: 3px; }
 .tesoro.oculto canvas { filter: brightness(0) invert(.28); }
-.tesoro strong { display: block; font-size: 15px; }
+.tesoro strong { display: block; font-family: Cinzel, Georgia, serif; font-size: 14px; }
 .tesoro em { display: block; color: var(--rareza); font-size: 13px; font-style: normal; }
-.tesoro span { display: block; color: var(--suave); font-size: 12px; }
+.tesoro span { display: block; color: var(--suave); font-size: 13px; font-style: italic; }
 
-#resumen .datos { list-style: none; padding: 0; font-size: 18px; line-height: 1.7; text-align: center; }
+#resumen .datos { list-style: none; padding: 0; font-size: 19px; line-height: 1.7; text-align: center; background: rgba(14, 10, 6, .7); border: 1px solid #4a3a26; border-radius: 4px; padding: 10px 28px; }
 #resumen .tesoros { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
 
 /* ---------- Juego ---------- */
@@ -79,7 +150,7 @@ body.retro #vista { image-rendering: pixelated; }
 @keyframes latido { 50% { opacity: .5; } }
 
 .capa { position: absolute; inset: 0; z-index: 5; background: rgba(10, 7, 4, .82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; touch-action: pan-y; overflow-y: auto; }
-.capa h2 { color: var(--oro); }
+.capa h2 { color: var(--oro); font-family: Cinzel, Georgia, serif; letter-spacing: .14em; text-transform: uppercase; }
 
 /* ---------- Tablilla (acertijo) ---------- */
 
