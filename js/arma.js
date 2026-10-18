@@ -45,11 +45,57 @@ function latigo(golpe) {
   return c;
 }
 
+// Antorcha en la mano izquierda: palo con trapos y mano (fija) y una llama que se redibuja cada cuadro.
+function antorcha() {
+  const [c, g] = hoja();
+  const x = 50;
+  r(g, x, 30, 9, 44, '#4a2e14'); r(g, x + 2, 30, 4, 44, '#6b4420'); r(g, x + 7, 30, 2, 44, '#2e1c0c');
+  // trapos empapados en brea
+  r(g, x - 3, 20, 15, 14, '#2a1c10'); r(g, x - 2, 22, 13, 3, '#4a3018'); r(g, x - 2, 28, 13, 2, '#4a3018');
+  r(g, x - 1, 17, 11, 5, '#1c120a');
+  // mano izquierda (el pulgar del otro lado)
+  r(g, x - 10, 66, 34, 30, MANGA_OSC); r(g, x - 8, 66, 30, 30, MANGA);
+  r(g, x - 7, 56, 24, 16, PIEL_OSC); r(g, x - 6, 56, 21, 14, PIEL);
+  for (let i = 0; i < 4; i++) r(g, x - 5 + i * 5, 54, 4, 6, PIEL);
+  r(g, x + 14, 59, 6, 9, PIEL);
+  return c;
+}
+
+const LW = 28, LH = 34;
+const llamaC = document.createElement('canvas'); llamaC.width = LW; llamaC.height = LH;
+const llamaG = llamaC.getContext('2d');
+// Llama pixel art: capas de elipses que bailan con el tiempo.
+function llama(t) {
+  const g = llamaG;
+  g.clearRect(0, 0, LW, LH);
+  const capas = [['#c2410c', 12, 1], ['#ff8a1a', 9, 0.8], ['#ffd34d', 6, 0.6], ['#fff6d0', 3, 0.4]];
+  for (const [color, ancho, alto] of capas) {
+    g.fillStyle = color;
+    for (let y = 0; y < LH; y++) {
+      const k = y / LH;                  // 0 arriba, 1 base
+      const h = 1 - alto * (1 - k) * 1.05;
+      if (h < 0 && k < 1 - alto) continue;
+      const onda = Math.sin(t * 9 + y * 0.45) * (1 - k) * 3 + Math.sin(t * 5.3 + y * 0.2) * (1 - k) * 2;
+      const w = Math.max(0, ancho * Math.sin(Math.min(1, (k - (1 - alto)) / alto) * Math.PI * 0.62) * (0.85 + 0.15 * Math.sin(t * 13 + y)));
+      if (w <= 0) continue;
+      g.fillRect(Math.round(LW / 2 - w / 2 + onda), y, Math.round(w), 1);
+    }
+  }
+  // chispas
+  for (let i = 0; i < 3; i++) {
+    const f = (t * 1.7 + i * 0.37) % 1;
+    g.fillStyle = '#ffd34d';
+    g.fillRect(Math.round(LW / 2 + Math.sin(t * 3 + i * 2) * 6), Math.round(LH * 0.5 - f * LH * 0.5), 1, 1);
+  }
+  return llamaC;
+}
+
 const SPRITES = {};
 function cache() {
   if (SPRITES.listo) return;
   SPRITES.rev = [revolver(false), revolver(true)];
   SPRITES.lat = [latigo(false), latigo(true)];
+  SPRITES.antorcha = antorcha();
   SPRITES.listo = true;
 }
 
@@ -66,6 +112,18 @@ export function dibujarArma(ctx, w, h, j) {
   if (j.recargando > 0) dy = Math.sin(Math.min(1, j.recargando / 1.1) * Math.PI) * H * 0.6;
   const x = w / 2 - (W * escala) / 2 + bobX + (j.arma === 'latigo' ? w * 0.08 : w * 0.05);
   const y = h - H * escala + bobY + dy * escala + escala * 4;
+
+  // antorcha a la izquierda, con su propio vaivén (va a destiempo del arma)
+  const t = performance.now() / 1000;
+  const ax = w * 0.14 - (W * escala) / 2 - bobX * 0.8, ay = h - H * escala * 0.92 + Math.abs(Math.cos(j.paso * 0.5)) * 4 * escala / 3;
+  ctx.save();
+  const resplandor = ctx.createRadialGradient(ax + 54 * escala, ay + 14 * escala, 0, ax + 54 * escala, ay + 14 * escala, 60 * escala);
+  resplandor.addColorStop(0, 'rgba(255, 170, 60, 0.22)'); resplandor.addColorStop(1, 'rgba(255, 140, 40, 0)');
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = resplandor; ctx.fillRect(ax - 20 * escala, ay - 50 * escala, 150 * escala, 140 * escala);
+  ctx.restore();
+  ctx.drawImage(SPRITES.antorcha, ax, ay, W * escala, H * escala);
+  ctx.drawImage(llama(t), ax + (54 - LW / 2 + 0.5) * escala, ay + (21 - LH) * escala, LW * escala, LH * escala);
 
   if (j.arma === 'revolver') {
     const fuego = j.ataque > 0.32;

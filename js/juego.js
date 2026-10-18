@@ -504,8 +504,8 @@ export class Juego {
     for (const o of this.objetos) {
       if (o.cogido) continue;
       const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
-      if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: 1.2 });
-      else if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: 1.2 });
+      if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: Math.max(0.3, luzEn(o.x, o.z)) });
+      else if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: Math.max(0.3, luzEn(o.x, o.z)) });
       else s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z), ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
     }
     for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {

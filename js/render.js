@@ -28,12 +28,14 @@ void main() {
   if (c.a < 0.5) discard;
   float d = distance(vPos, uOjo);
   float emisivo = step(1.01, vLuz);
-  float sector = min(vLuz, 1.0) * (1.0 - clamp(d / 16.0, 0.0, 0.8));
-  float lin = uLinterna * clamp(1.0 - d / 6.0, 0.0, 1.0);
-  float luz = sector + lin * lin * 0.75 + uFogonazo * clamp(1.0 - d / 9.0, 0.0, 1.0);
-  luz = mix(luz, 1.15, emisivo);
-  if (uBandas > 0.5) luz = floor(luz * 20.0 + 0.5) / 20.0;
-  gl_FragColor = vec4(c.rgb * clamp(luz, 0.04, 1.4) * mix(uTinte, vec3(1.0), emisivo), 1.0);
+  float sector = min(vLuz, 1.0) * (1.0 - clamp(d / 12.0, 0.0, 0.85));
+  // la antorcha del jugador: luz cálida que se apaga a unos 7 metros
+  float ant = uLinterna * pow(clamp(1.0 - d / 7.0, 0.0, 1.0), 1.5) * 0.95;
+  float fog = uFogonazo * clamp(1.0 - d / 9.0, 0.0, 1.0);
+  if (uBandas > 0.5) { sector = floor(sector * 20.0 + 0.5) / 20.0; ant = floor(ant * 20.0 + 0.5) / 20.0; }
+  vec3 luz = sector * uTinte + ant * vec3(1.0, 0.74, 0.46) + fog * vec3(1.0, 0.9, 0.7);
+  luz = mix(luz, vec3(1.15), emisivo);
+  gl_FragColor = vec4(c.rgb * clamp(luz, vec3(0.03), vec3(1.4)), 1.0);
 }`;
 
 function compilar(gl, tipo, src) {
@@ -154,7 +156,7 @@ export class Render {
           tramos(v.piso, v.techoY, (y0, y1, k) => {
             const antes = arr.length;
             cara(arr, x, y, dx, dy, k === 0 ? casilla(c.tex) : texArriba, y0, y1, luzCara(v, dx));
-            if (c.tipo === 'salida' && k === 0) for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 1.2;
+            if ((c.tipo === 'salida' || c.antorcha) && k === 0) for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 1.2;
           });
         }
         continue;
