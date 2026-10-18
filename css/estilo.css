@@ -201,7 +201,6 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 #t-recargar { width: 56px; height: 56px; right: calc(116px + env(safe-area-inset-right)); bottom: calc(164px + env(safe-area-inset-bottom)); }
 #t-arma { width: 56px; height: 56px; right: calc(42px + env(safe-area-inset-right)); bottom: calc(195px + env(safe-area-inset-bottom)); }
 #t-mapa { width: 50px; height: 50px; right: calc(12px + env(safe-area-inset-right)); top: calc(40px + env(safe-area-inset-top)); }
-#joy-palanca.corre { background: rgba(232, 184, 58, .65); box-shadow: 0 0 14px rgba(255, 180, 60, .6); }
 .solo-tactil { display: none; }
 body.tactil .solo-tactil { display: flex; }
 body.tactil p.solo-tactil { display: block; }

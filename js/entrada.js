@@ -4,7 +4,7 @@
 const TECLAS = {
   KeyW: 'adelante', ArrowUp: 'adelante', KeyS: 'atras', ArrowDown: 'atras',
   KeyA: 'izq', KeyD: 'der', ArrowLeft: 'girarIzq', ArrowRight: 'girarDer',
-  ShiftLeft: 'correr', ShiftRight: 'correr', ControlLeft: 'disparar', KeyF: 'disparar',
+  ControlLeft: 'disparar', KeyF: 'disparar',
 };
 const PULSOS = { KeyE: 'usar', Space: 'usar', Enter: 'usar', KeyR: 'recargar', Digit1: 'arma1', Digit2: 'arma2', KeyQ: 'cambiarArma', Escape: 'pausa', KeyP: 'pausa', Tab: 'mapa', KeyM: 'mapa' };
 
@@ -85,7 +85,6 @@ export class Entrada {
           const d = Math.hypot(dx, dy);
           if (d > R) { dx *= R / d; dy *= R / d; }
           this.mov.x = dx / R; this.mov.y = -dy / R;
-          palanca.classList.toggle('corre', Math.hypot(dx, dy) / R > 0.95);
           palanca.style.transform = `translate(${this.joy.ox + dx - 24}px, ${this.joy.oy + dy - 24}px)`;
         } else if (this.mirar && t.identifier === this.mirar.id) {
           this.giro += (t.clientX - this.mirar.x) * this.sensTactil;
@@ -98,7 +97,7 @@ export class Entrada {
       for (const t of e.changedTouches) {
         if (this.joy && t.identifier === this.joy.id) {
           this.joy = null; this.mov.x = this.mov.y = 0;
-          base.hidden = palanca.hidden = true; palanca.classList.remove('corre');
+          base.hidden = palanca.hidden = true;
         }
         if (this.mirar && t.identifier === this.mirar.id) {
           const m = this.mirar, ahora = performance.now();
@@ -138,7 +137,6 @@ export class Entrada {
       lado: Math.max(-1, Math.min(1, lado)),
       giroTeclas,
       giro: this.giro, cabeceo: this.cabeceo,
-      correr: k.has('correr') || Math.hypot(this.mov.x, this.mov.y) > 0.95,
       disparar: this.raton || this.botonDisparo || this.ráfaga || k.has('disparar') || performance.now() < this.disparoHasta,
       // en pantalla táctil la vista vuelve sola al horizonte cuando no se está mirando
       nivelar: document.body.classList.contains('tactil') && !this.mirar,

@@ -8,7 +8,7 @@ import { TESORO, RAREZAS } from '../datos/tesoros.js';
 
 const RADIO_JUGADOR = 0.24;
 const OJO = 0.64;
-const VEL = 2.6, VEL_CORRER = 4.2, GIRO_TECLAS = 2.4;
+const VEL = 3.0, GIRO_TECLAS = 2.4;
 const MAX_CABECEO = 0.45;
 const PASO = 0.45;            // el escalón más alto que se sube caminando
 const CAIDA_ENEMIGO = 0.5;    // los enemigos tampoco bajan desniveles mayores
@@ -144,7 +144,7 @@ export class Juego {
     this.asistir = ent.asistir;
     if (ent.asistir) this.imantar(dt);
 
-    const vel = j.cayendo !== undefined ? 0 : (ent.correr ? VEL_CORRER : VEL) * dt;
+    const vel = j.cayendo !== undefined ? 0 : VEL * dt;
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
     const rx = -fz, rz = fx;
     let mx = fx * ent.adelante + rx * ent.lado, mz = fz * ent.adelante + rz * ent.lado;
