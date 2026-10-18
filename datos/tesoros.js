@@ -16,6 +16,8 @@ const RUBI = ['#e0304a', '#7a1020'];
 const ZAFIRO = ['#3a6ee8', '#142f7a'];
 const CRISTAL = ['#cfefff', '#6aa6c4'];
 const OBSIDIANA = ['#4a4458', '#16131e'];
+const HIELO = ['#bfe8ff', '#4f8fb8'];
+const MARFIL = ['#efe4c8', '#9a8a62'];
 
 function t(id, nombre, forma, [color, oscuro], rareza, descripcion) {
   return { id, nombre, forma, color, oscuro, rareza, descripcion };
@@ -46,6 +48,19 @@ export const TESOROS = [
   t('calavera_cristal', 'Calavera de cristal', 'calavera', CRISTAL, 'legendario', 'La luz se dobla de formas imposibles dentro de ella.'),
   t('cetro_oro', 'Cetro de Osiris', 'cetro', ORO, 'legendario', 'Quien lo empuña juzga a los muertos.'),
   t('idolo_jade', 'Ídolo de jade del dios jaguar', 'idolo', JADE, 'legendario', 'Viene de una selva al otro lado del mundo.'),
+  // Glaciar vikingo
+  t('cuerno_hidromiel', 'Cuerno de hidromiel', 'cuerno', MARFIL, 'raro', 'Aún huele a miel fermentada y a banquete.'),
+  t('hacha_runica', 'Hacha rúnica del jarl', 'hacha', PLATA, 'epico', 'Las runas del filo brillan con el frío.'),
+  t('amuleto_martillo', 'Amuleto del martillo del trueno', 'amuleto', PLATA, 'epico', 'Los guerreros lo llevaban para volver a casa.'),
+  t('corazon_glaciar', 'Corazón del Glaciar', 'gema', HIELO, 'legendario', 'Una gema que nunca se derrite, ni en la mano.'),
+  // Cueva de Drake
+  t('doblones', 'Doblones de a ocho', 'monedas', ORO, 'raro', 'Monedas españolas que nunca llegaron a Sevilla.'),
+  t('catalejo_drake', 'Catalejo de Francis Drake', 'catalejo', BRONCE, 'epico', 'Con él divisó la costa de California.'),
+  t('brujula_drake', 'Brújula de la Golden Hind', 'brujula', ORO, 'epico', 'No apunta al norte: apunta al tesoro.'),
+  t('cofre_drake', 'El cofre de Drake', 'cofre', ORO, 'legendario', 'El botín que el corsario escondió y nunca volvió a buscar.'),
+  // Templo de la selva
+  t('disco_solar', 'Disco solar de Kinich Ahau', 'disco', ORO, 'epico', 'El calendario del sol, tallado en oro.'),
+  t('corona_plumas', 'Corona de plumas del rey jaguar', 'corona', JADE, 'epico', 'Las plumas de quetzal siguen intactas.'),
 ];
 
 export const TESORO = Object.fromEntries(TESOROS.map(x => [x.id, x]));

@@ -13,6 +13,9 @@ const MAX_CABECEO = 0.45;
 const ENEMIGOS = {
   momia: { vida: 60, vel: 1.05, daño: [8, 14], alcance: 0.95, espera: 1.2, vista: 11 },
   esqueleto: { vida: 35, vel: 1.8, daño: [5, 9], alcance: 0.9, espera: 0.8, vista: 13 },
+  draugr: { vida: 75, vel: 1.25, daño: [9, 15], alcance: 1.0, espera: 1.3, vista: 11 },
+  pirata: { vida: 45, vel: 1.7, daño: [7, 12], alcance: 1.05, espera: 0.9, vista: 13 },
+  jaguar: { vida: 50, vel: 2.3, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 14 },
 };
 
 const ARMAS = {

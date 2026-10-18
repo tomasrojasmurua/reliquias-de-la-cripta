@@ -20,7 +20,7 @@ void main() {
 const FS = `
 precision mediump float;
 uniform sampler2D uTex; uniform vec2 uCasilla; uniform vec3 uOjo;
-uniform float uLinterna; uniform float uFogonazo; uniform float uBandas;
+uniform float uLinterna; uniform float uFogonazo; uniform float uBandas; uniform vec3 uTinte;
 varying vec2 vUV; varying vec2 vTile; varying float vLuz; varying vec3 vPos;
 void main() {
   vec2 uv = clamp(vUV, 0.5 / 64.0, 1.0 - 0.5 / 64.0);
@@ -33,7 +33,7 @@ void main() {
   float luz = sector + lin * lin * 0.75 + uFogonazo * clamp(1.0 - d / 9.0, 0.0, 1.0);
   luz = mix(luz, 1.15, emisivo);
   if (uBandas > 0.5) luz = floor(luz * 20.0 + 0.5) / 20.0;
-  gl_FragColor = vec4(c.rgb * clamp(luz, 0.04, 1.4), 1.0);
+  gl_FragColor = vec4(c.rgb * clamp(luz, 0.04, 1.4) * mix(uTinte, vec3(1.0), emisivo), 1.0);
 }`;
 
 function compilar(gl, tipo, src) {
@@ -86,7 +86,7 @@ export class Render {
       uMVP: gl.getUniformLocation(p, 'uMVP'), uTex: gl.getUniformLocation(p, 'uTex'),
       uCasilla: gl.getUniformLocation(p, 'uCasilla'), uOjo: gl.getUniformLocation(p, 'uOjo'),
       uLinterna: gl.getUniformLocation(p, 'uLinterna'), uFogonazo: gl.getUniformLocation(p, 'uFogonazo'),
-      uBandas: gl.getUniformLocation(p, 'uBandas'),
+      uBandas: gl.getUniformLocation(p, 'uBandas'), uTinte: gl.getUniformLocation(p, 'uTinte'),
     };
     this.bufFijo = gl.createBuffer();
     this.bufDin = gl.createBuffer();
@@ -134,6 +134,7 @@ export class Render {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
     this.nFijo = arr.length / FLOTANTES;
     this.mapa = mapa;
+    this.tinte = mapa.def.tinte || [1, 1, 1];
   }
 
   ajustarTamano(escala) {
@@ -167,6 +168,7 @@ export class Render {
     gl.uniform1f(this.loc.uLinterna, efectos.linterna);
     gl.uniform1f(this.loc.uFogonazo, efectos.fogonazo);
     gl.uniform1f(this.loc.uBandas, this.bandas ? 1 : 0);
+    gl.uniform3fv(this.loc.uTinte, this.tinte);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufFijo);
     this.atributos();

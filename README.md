@@ -9,6 +9,15 @@ Settings → Pages → Source: *Deploy from a branch* → rama `main`, carpeta `
 
 Para probarlo en local: `python3 -m http.server` en esta carpeta y abrir http://localhost:8000 (los módulos de JavaScript no cargan con `file://`).
 
+## Mazmorras
+1. **La Cripta del Escarabajo** (Egipto): una tablilla, para empezar.
+2. **El Templo de las Arenas** (Egipto): dos tablillas.
+3. **La Fortaleza del Glaciar** (vikingos en el hielo): tres tablillas encadenadas.
+4. **La Cueva de Drake** (el galeón del corsario Francis Drake): tres tablillas encadenadas.
+5. **El Templo del Jaguar** (pirámide maya en la selva): tres tablillas encadenadas.
+
+En las tres últimas, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
+
 ## Controles
 - **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Shift para correr, Esc para pausar.
 - **Celular:** arrastra en la mitad izquierda para moverte y en la derecha para mirar; botones para atacar, usar, recargar y cambiar de arma.
@@ -48,8 +57,10 @@ Cada mazmorra en `datos/mazmorras.js` es un plano de texto donde cada carácter 
 | `X` | salida |
 | `!` | antorcha (ilumina alrededor) |
 | `R` `b` `v` | revólver, caja de balas, vendas |
-| `m` `k` | momia, esqueleto |
+| `m` `k` `g` `p` `j` | momia, esqueleto, draugr (vikingo congelado), pirata esqueleto, guerrero jaguar |
 | `1`–`9` | tesoros, según el campo `tesoros` |
+
+Otros campos opcionales: `zonas` (rectángulos con otro suelo, techo o muro), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
 
 Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [min, max], sello: 'Z', titulo }` pone una tablilla en cada `T` del plano y un sello en cada `Z`. Al acertar la pista de la tablilla se abren sus sellos. La dificultad (1 a 5) elige al azar una pista del banco de esa dificultad, evitando las que el jugador ya resolvió. La regla es poner tesoros más valiosos tras pistas más difíciles y tras los pasadizos secretos.
 

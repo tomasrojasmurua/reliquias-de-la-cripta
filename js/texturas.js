@@ -64,7 +64,7 @@ function ruido(b, r, cantidad) {
 function ladrillos(b, r, base, { alto = 16, ancho = 32, mortero = [38, 32, 28], variacion = 0.25 } = {}) {
   b.rect(0, 0, T, T, mortero);
   for (let fila = 0; fila < T / alto; fila++) {
-    const desfase = fila % 2 ? ancho / 2 : 0;
+    const desfase = fila % 2 ? Math.floor(ancho / 2) : 0;
     for (let k = -1; k < T / ancho + 1; k++) {
       const x0 = k * ancho + desfase, y0 = fila * alto;
       const f = 1 + (r() - 0.5) * variacion;
@@ -167,36 +167,176 @@ registrar('puerta', b => {
   }
 });
 
-registrar('sello', b => {
+// Sello: losa con un círculo de metal y un glifo. glifo: ojo | runa | ancla | sol
+function dibujaSello(b, base, metal, glifo) {
   const r = rng(41);
-  b.rect(0, 0, T, T, [86, 80, 74]); ruido(b, r, 0.2);
-  b.rect(0, 0, T, 2, [50, 46, 42]); b.rect(0, T - 2, T, 2, [50, 46, 42]);
-  // círculo dorado con un ojo
+  b.rect(0, 0, T, T, base); ruido(b, r, 0.2);
+  b.rect(0, 0, T, 2, base.map(v => v * 0.55)); b.rect(0, T - 2, T, 2, base.map(v => v * 0.55));
+  const oscuro = metal.map(v => v * 0.45);
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
     const d = Math.hypot(x - 32, y - 32);
-    if (d > 19 && d < 23) b.set(x, y, 200, 160, 60);
+    if (d > 19 && d < 23) b.set(x, y, ...metal);
     if (d <= 19) b.tinte(x, y, 0.8);
-    const ojo = Math.abs(y - 32) < 7 * Math.sqrt(Math.max(0, 1 - ((x - 32) / 13) ** 2));
-    if (ojo && d < 19) b.set(x, y, 210, 175, 70);
-    if (Math.hypot(x - 32, y - 32) < 3.5) b.set(x, y, 40, 30, 20);
+    if (d >= 19) continue;
+    const dx = x - 32, dy = y - 32;
+    let dentro = false;
+    if (glifo === 'ojo') {
+      dentro = Math.abs(dy) < 7 * Math.sqrt(Math.max(0, 1 - (dx / 13) ** 2));
+      if (d < 3.5) { b.set(x, y, ...oscuro); continue; }
+    } else if (glifo === 'runa') {
+      // runa «Algiz»: un tronco con dos brazos
+      dentro = (Math.abs(dx) < 2 && dy > -14 && dy < 15) || (dy < 0 && dy > -14 && Math.abs(Math.abs(dx) + dy * 0.9) < 2 && Math.abs(dx) < 12);
+    } else if (glifo === 'ancla') {
+      dentro = (Math.abs(dx) < 2 && dy > -10 && dy < 12) || (Math.abs(dy + 7) < 2 && Math.abs(dx) < 8) ||
+        (Math.abs(Math.hypot(dx, dy - 2) - 11) < 2 && dy > 4) || Math.abs(Math.hypot(dx, dy + 13) - 3) < 1.5;
+    } else if (glifo === 'sol') {
+      const ang = Math.atan2(dy, dx);
+      dentro = d < 7 || (d < 16 && Math.cos(ang * 8) > 0.6);
+      if (d < 3) { b.set(x, y, ...oscuro); continue; }
+    }
+    if (dentro) b.set(x, y, ...metal);
   }
-});
+}
 
-registrar('tablilla', b => {
-  const r = rng(11); dibujaPiedra(b, r);
-  b.rect(10, 8, 44, 48, [150, 138, 112]);
-  b.rect(10, 8, 44, 2, [190, 178, 150]); b.rect(10, 54, 44, 2, [80, 72, 60]);
-  b.rect(10, 8, 2, 48, [180, 168, 140]); b.rect(52, 8, 2, 48, [90, 82, 68]);
+registrar('sello', b => dibujaSello(b, [86, 80, 74], [200, 160, 60], 'ojo'));
+registrar('sello_runa', b => dibujaSello(b, [120, 150, 170], [210, 235, 250], 'runa'));
+registrar('sello_ancla', b => dibujaSello(b, [90, 64, 40], [190, 160, 90], 'ancla'));
+registrar('sello_sol', b => dibujaSello(b, [80, 96, 70], [230, 180, 50], 'sol'));
+
+// Tablilla: placa clara con líneas grabadas sobre el muro de cada mazmorra.
+function dibujaTablilla(b, fondo, placa) {
+  fondo(b);
+  const claro = placa.map(v => Math.min(255, v * 1.25)), oscuro = placa.map(v => v * 0.55);
+  b.rect(10, 8, 44, 48, placa);
+  b.rect(10, 8, 44, 2, claro); b.rect(10, 54, 44, 2, oscuro);
+  b.rect(10, 8, 2, 48, claro); b.rect(52, 8, 2, 48, oscuro);
   const r2 = rng(43);
   for (let fila = 0; fila < 6; fila++) {
     let x = 15;
     while (x < 48) {
       const w = 2 + Math.floor(r2() * 6);
-      b.rect(x, 14 + fila * 7, Math.min(w, 49 - x), 2, [92, 80, 60]);
+      b.rect(x, 14 + fila * 7, Math.min(w, 49 - x), 2, placa.map(v => v * 0.6));
       x += w + 2;
     }
   }
+}
+
+registrar('tablilla', b => dibujaTablilla(b, b => dibujaPiedra(b, rng(11)), [150, 138, 112]));
+registrar('tablilla_arenisca', b => dibujaTablilla(b, b => dibujaArenisca(b, rng(21)), [196, 170, 120]));
+registrar('tablilla_hielo', b => dibujaTablilla(b, b => dibujaHielo(b, rng(101)), [150, 170, 184]));
+registrar('tablilla_roca', b => dibujaTablilla(b, b => dibujaRoca(b, rng(111)), [140, 120, 96]));
+registrar('tablilla_madera', b => dibujaTablilla(b, b => dibujaMadera(b, rng(121)), [178, 150, 104]));
+registrar('tablilla_selva', b => dibujaTablilla(b, b => dibujaSelva(b, rng(131)), [130, 140, 112]));
+
+// ---------- Glaciar ----------
+
+function dibujaHielo(b, r) {
+  ladrillos(b, r, [150, 190, 214], { alto: 21, ancho: 32, mortero: [90, 120, 140], variacion: 0.15 });
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    if ((x + y * 2) % 23 === 0 || (x * 3 - y) % 31 === 0) b.tinte(x, y, 1.18); // vetas brillantes
+  }
+  ruido(b, r, 0.12);
+}
+registrar('hielo', b => dibujaHielo(b, rng(101)));
+registrar('hielo_grieta', b => { dibujaHielo(b, rng(101)); const r = rng(9); grieta(b, r, 28, 3, 30); grieta(b, r, 40, 30, 24); });
+registrar('nieve', b => {
+  const r = rng(103);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const v = 214 + Math.sin(x * 0.3 + y * 0.17) * 8 + Math.sin(y * 0.5) * 5;
+    b.set(x, y, v * 0.93, v * 0.97, v);
+  }
+  ruido(b, r, 0.08);
+  for (let n = 0; n < 30; n++) b.tinte(Math.floor(r() * T), Math.floor(r() * T), 0.85);
 });
+registrar('techo_hielo', b => {
+  const r = rng(105);
+  b.rect(0, 0, T, T, [96, 124, 140]); ruido(b, r, 0.25);
+  for (let n = 0; n < 8; n++) { const x = Math.floor(r() * T); for (let y = 0; y < 10 + r() * 20; y++) b.tinte(x, y, 1.25); }
+});
+
+// ---------- Cueva pirata ----------
+
+function dibujaRoca(b, r) {
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const v = 0.75 + 0.25 * Math.sin(x * 0.21 + Math.sin(y * 0.13) * 3) * Math.cos(y * 0.17 + x * 0.05);
+    b.set(x, y, 98 * v, 86 * v, 74 * v);
+  }
+  for (let n = 0; n < 6; n++) { const x = Math.floor(r() * T); grieta(b, r, x, Math.floor(r() * 40), 6 + Math.floor(r() * 14)); }
+  ruido(b, r, 0.25);
+}
+function dibujaMadera(b, r) {
+  for (let y = 0; y < T; y++) {
+    const tabla = Math.floor(y / 8);
+    const f = 0.8 + ((tabla * 37) % 5) * 0.05;
+    for (let x = 0; x < T; x++) {
+      const veta = Math.sin(x * 0.4 + tabla * 5 + Math.sin(y)) * 0.05;
+      const c = y % 8 === 0 ? 0.45 : f + veta;
+      b.set(x, y, 104 * c, 70 * c, 44 * c);
+    }
+    if (y % 8 === 4) for (const x of [6 + (Math.floor(y / 8) % 2) * 26, 38 + (Math.floor(y / 8) % 2) * 20]) b.set(x % T, y, 60, 56, 50);
+  }
+  ruido(b, r, 0.12);
+}
+registrar('roca', b => dibujaRoca(b, rng(111)));
+registrar('roca_grieta', b => { dibujaRoca(b, rng(111)); const r = rng(13); grieta(b, r, 30, 2, 40); grieta(b, r, 31, 2, 40); });
+registrar('madera', b => dibujaMadera(b, rng(121)));
+registrar('cubierta', b => {
+  const r = rng(123);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const tabla = Math.floor(x / 16);
+    const c = x % 16 === 0 ? 0.5 : 0.85 + ((tabla * 3) % 4) * 0.05 + Math.sin(y * 0.3 + tabla) * 0.04;
+    b.set(x, y, 120 * c, 86 * c, 52 * c);
+  }
+  ruido(b, r, 0.1);
+});
+registrar('techo_madera', b => {
+  const r = rng(125);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const viga = y % 32 < 8;
+    const c = viga ? 0.55 : 0.72;
+    b.set(x, y, 96 * c, 64 * c, 40 * c);
+  }
+  ruido(b, r, 0.15);
+});
+registrar('arena_humeda', b => {
+  const r = rng(127);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const v = 0.85 + Math.sin(x * 0.25 + y * 0.1) * 0.05;
+    b.set(x, y, 150 * v, 128 * v, 92 * v);
+  }
+  ruido(b, r, 0.2);
+});
+registrar('techo_roca', b => { const r = rng(129); dibujaRoca(b, r); for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) b.tinte(x, y, 0.7); });
+
+// ---------- Templo de la selva ----------
+
+function dibujaSelva(b, r) {
+  ladrillos(b, r, [104, 112, 92], { alto: 16, ancho: 32, mortero: [44, 50, 38], variacion: 0.22 });
+  ruido(b, r, 0.2);
+  // enredaderas que cuelgan
+  for (let n = 0; n < 5; n++) {
+    let x = Math.floor(r() * T);
+    const largo = 10 + Math.floor(r() * 40);
+    for (let y = 0; y < largo; y++) {
+      b.set(x, y, 40 + r() * 20, 96 + r() * 40, 36);
+      if (r() < 0.25) b.set(x + 1, y, 60, 130, 40);
+      if (r() < 0.15) x += r() < 0.5 ? -1 : 1;
+    }
+  }
+}
+registrar('selva', b => dibujaSelva(b, rng(131)));
+registrar('selva_grieta', b => { dibujaSelva(b, rng(131)); const r = rng(17); grieta(b, r, 26, 18, 40); grieta(b, r, 38, 6, 30); });
+registrar('losa_selva', b => {
+  const r = rng(133);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const junta = x % 21 === 0 || y % 21 === 0;
+    const f = junta ? 0.45 : 1;
+    b.set(x, y, 96 * f, 100 * f, 82 * f);
+  }
+  ruido(b, r, 0.25);
+  for (let n = 0; n < 60; n++) b.set(Math.floor(r() * T), Math.floor(r() * T), 50, 100, 40);
+});
+registrar('techo_selva', b => { const r = rng(135); b.rect(0, 0, T, T, [62, 66, 54]); ruido(b, r, 0.35); });
 
 registrar('salida', b => {
   const r = rng(51); dibujaPiedra(b, r);
@@ -259,14 +399,29 @@ function sprite(fn) {
 
 function r(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
-// Humanoide genérico: momia o esqueleto. pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto.
+// Humanoide genérico. estilo: cuerpo 'momia' (vendado, macizo) o 'huesos' (esqueleto),
+// colores y un accesorio opcional. pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto.
+const ESTILOS = {
+  momia: { cuerpo: 'momia', piel: '#c9b98f', sombra: '#8f7f5b', ojo: '#ff5a1f' },
+  esqueleto: { cuerpo: 'huesos', piel: '#e4ddc8', sombra: '#a8a08a', ojo: '#2a1a10' },
+  // guerrero vikingo congelado, con casco de cuernos y ojos azules
+  draugr: { cuerpo: 'momia', piel: '#9fb6c4', sombra: '#5d7584', ojo: '#7fe8ff', accesorio: 'cuernos' },
+  // esqueleto pirata con pañuelo rojo y sable
+  pirata: { cuerpo: 'huesos', piel: '#ddd3b8', sombra: '#9e957c', ojo: '#2a1a10', accesorio: 'pañuelo' },
+  // guerrero jaguar con piel moteada y tocado de plumas
+  jaguar: { cuerpo: 'momia', piel: '#d9a441', sombra: '#8a5e1c', ojo: '#ffe14a', accesorio: 'plumas', manchas: true },
+};
+
 function humanoide(g, tipo, pose) {
-  const momia = tipo === 'momia';
-  const piel = momia ? '#c9b98f' : '#e4ddc8';
-  const sombra = momia ? '#8f7f5b' : '#a8a08a';
+  const e = ESTILOS[tipo];
+  const momia = e.cuerpo === 'momia';
+  const piel = e.piel, sombra = e.sombra;
   if (pose === 4) {
     if (momia) { r(g, 8, 52, 48, 9, sombra); r(g, 10, 52, 44, 6, piel); r(g, 48, 50, 10, 9, piel); }
     else { r(g, 10, 56, 40, 4, piel); r(g, 46, 50, 10, 9, piel); r(g, 20, 54, 4, 4, sombra); r(g, 30, 54, 4, 4, sombra); }
+    if (e.accesorio === 'pañuelo') r(g, 46, 48, 10, 3, '#b02020');
+    if (e.accesorio === 'cuernos') { r(g, 44, 46, 3, 4, '#e8e0c8'); r(g, 57, 46, 3, 4, '#e8e0c8'); }
+    if (e.accesorio === 'plumas') { r(g, 44, 44, 4, 6, '#2fa860'); r(g, 50, 43, 4, 7, '#d03030'); }
     return;
   }
   const paso = pose === 1 ? 1 : 0;
@@ -294,23 +449,39 @@ function humanoide(g, tipo, pose) {
   } else {
     r(g, 17, 22 + dy + alza, 3, 17, piel); r(g, 44, 22 + dy + alza, 3, 17, piel);
   }
+  if (e.accesorio === 'pañuelo') {
+    // sable en la mano derecha
+    r(g, 47, 6 + dy + alza, 2, 18, '#d8dde4'); r(g, 44, 23 + dy + alza, 8, 2, '#c8a040');
+  }
   // cabeza
   r(g, 24, 6 + dy, 16, 15, momia ? sombra : piel);
   r(g, 25, 6 + dy, 14, 14, piel);
-  // ojos
-  const ojo = momia ? '#ff5a1f' : '#2a1a10';
-  r(g, 27, 11 + dy, 4, 3, ojo); r(g, 33, 11 + dy, 4, 3, ojo);
+  r(g, 27, 11 + dy, 4, 3, e.ojo); r(g, 33, 11 + dy, 4, 3, e.ojo);
   if (!momia) { r(g, 28, 17 + dy, 8, 2, '#2a1a10'); r(g, 29, 17 + dy, 1, 2, piel); r(g, 32, 17 + dy, 1, 2, piel); }
-  // vendas
-  if (momia) {
+  if (e.manchas) {
+    g.fillStyle = '#4a2c0c';
+    for (const [x, y] of [[22, 24], [30, 28], [38, 23], [26, 34], [35, 36], [15, 30], [46, 32], [24, 46], [37, 50]]) g.fillRect(x, y + dy, 3, 2);
+  } else if (momia) {
     g.fillStyle = sombra;
     for (let y = 8; y < 60; y += 5) g.fillRect(14, y + dy + (y % 2), 36, 1);
-    r(g, 40, 30 + dy, 10, 2, '#d8cba5');
+  }
+  if (e.accesorio === 'cuernos') {
+    r(g, 23, 4 + dy, 18, 5, '#6a6e74'); r(g, 23, 4 + dy, 18, 1, '#9aa0a8');
+    r(g, 18, 0 + dy, 4, 6, '#e8e0c8'); r(g, 42, 0 + dy, 4, 6, '#e8e0c8');
+    r(g, 20, 6 + dy, 4, 3, '#e8e0c8'); r(g, 40, 6 + dy, 4, 3, '#e8e0c8');
+    r(g, 26, 18 + dy, 12, 6, '#c8d8e0'); // barba escarchada
+  }
+  if (e.accesorio === 'pañuelo') { r(g, 24, 5 + dy, 16, 4, '#b02020'); r(g, 38, 7 + dy, 6, 3, '#b02020'); }
+  if (e.accesorio === 'plumas') {
+    r(g, 23, 3 + dy, 18, 5, '#c08a2a');
+    const colores = ['#2fa860', '#d03030', '#2f6ad0', '#2fa860', '#e8c020'];
+    colores.forEach((c, i) => r(g, 22 + i * 4, -6 + dy + Math.abs(2 - i) * 2, 3, 10, c));
+    r(g, 26, 9 + dy, 12, 2, '#4a2c0c');
   }
   if (pose === 3) { r(g, 26, 26, 6, 4, '#7a1010'); }
 }
 
-for (const tipo of ['momia', 'esqueleto']) {
+for (const tipo of Object.keys(ESTILOS)) {
   for (let pose = 0; pose < 5; pose++) registrar(`${tipo}_${pose}`, sprite(g => humanoide(g, tipo, pose)));
 }
 
@@ -346,6 +517,12 @@ const FORMAS = {
   calavera(g, c, o) { r(g, 20, 24, 24, 22, c); r(g, 24, 46, 16, 8, c); r(g, 24, 32, 6, 6, o); r(g, 34, 32, 6, 6, o); r(g, 30, 40, 4, 4, o); r(g, 26, 50, 2, 4, o); r(g, 31, 50, 2, 4, o); r(g, 36, 50, 2, 4, o); },
   anfora(g, c, o) { r(g, 26, 18, 12, 6, o); r(g, 28, 24, 8, 6, c); r(g, 20, 30, 24, 20, c); r(g, 24, 50, 16, 6, c); r(g, 20, 38, 24, 3, o); r(g, 16, 30, 4, 10, o); r(g, 44, 30, 4, 10, o); },
   daga(g, c, o) { r(g, 30, 14, 4, 30, c); r(g, 31, 14, 1, 30, '#fff'); r(g, 24, 44, 16, 4, o); r(g, 30, 48, 4, 10, '#6b3e1f'); r(g, 29, 58, 6, 3, o); },
+  brujula(g, c, o) { g.fillStyle = o; g.beginPath(); g.arc(32, 40, 16, 0, Math.PI * 2); g.fill(); g.fillStyle = '#efe6cc'; g.beginPath(); g.arc(32, 40, 12, 0, Math.PI * 2); g.fill(); g.fillStyle = '#c02030'; g.beginPath(); g.moveTo(32, 29); g.lineTo(35, 40); g.lineTo(29, 40); g.fill(); g.fillStyle = '#333'; g.beginPath(); g.moveTo(32, 51); g.lineTo(35, 40); g.lineTo(29, 40); g.fill(); r(g, 29, 21, 6, 4, c); },
+  catalejo(g, c, o) { g.save(); g.translate(32, 40); g.rotate(-0.5); r(g, -22, -4, 16, 8, o); r(g, -6, -5, 14, 10, c); r(g, 8, -6, 12, 12, o); r(g, 9, -5, 10, 3, c); g.restore(); },
+  cofre(g, c, o) { r(g, 14, 34, 36, 24, '#6b3e1f'); r(g, 14, 28, 36, 8, '#8a5530'); r(g, 14, 34, 36, 3, o); r(g, 14, 46, 36, 3, o); r(g, 29, 36, 6, 8, c); r(g, 16, 22, 32, 6, c); r(g, 20, 18, 8, 4, c); r(g, 34, 19, 6, 3, '#c02030'); },
+  cuerno(g, c, o) { g.strokeStyle = o; g.lineWidth = 9; g.beginPath(); g.arc(30, 30, 18, 0.2, 2.6); g.stroke(); g.strokeStyle = c; g.lineWidth = 6; g.beginPath(); g.arc(30, 30, 18, 0.2, 2.6); g.stroke(); r(g, 44, 34, 8, 6, o); },
+  hacha(g, c, o) { r(g, 30, 16, 4, 44, '#6b3e1f'); g.fillStyle = c; g.beginPath(); g.moveTo(34, 18); g.lineTo(50, 12); g.lineTo(50, 40); g.lineTo(34, 32); g.fill(); r(g, 34, 22, 6, 6, o); r(g, 29, 56, 6, 4, o); },
+  disco(g, c, o) { g.fillStyle = o; g.beginPath(); g.arc(32, 38, 20, 0, Math.PI * 2); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(32, 38, 17, 0, Math.PI * 2); g.fill(); g.fillStyle = o; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.fillRect(32 + Math.cos(a) * 12 - 1, 38 + Math.sin(a) * 12 - 1, 3, 3); } g.beginPath(); g.arc(32, 38, 6, 0, Math.PI * 2); g.fill(); },
   escarabajo(g, c, o) { r(g, 22, 28, 20, 26, o); r(g, 24, 30, 16, 22, c); r(g, 31, 30, 2, 22, o); r(g, 26, 22, 12, 7, o); r(g, 18, 34, 4, 2, o); r(g, 42, 34, 4, 2, o); r(g, 18, 44, 4, 2, o); r(g, 42, 44, 4, 2, o); },
 };
 

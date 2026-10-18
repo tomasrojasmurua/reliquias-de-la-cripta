@@ -15,6 +15,9 @@ const LEYENDA_BASE = {
   'v': { tipo: 'suelo', objeto: 'vendas' },
   'm': { tipo: 'suelo', enemigo: 'momia' },
   'k': { tipo: 'suelo', enemigo: 'esqueleto' },
+  'g': { tipo: 'suelo', enemigo: 'draugr' },
+  'p': { tipo: 'suelo', enemigo: 'pirata' },
+  'j': { tipo: 'suelo', enemigo: 'jaguar' },
 };
 
 const SOLIDOS_FIJOS = new Set(['muro', 'vacio', 'tablilla', 'salida']);
@@ -33,8 +36,8 @@ export function cargarMazmorra(def) {
 
   for (const [car, a] of Object.entries(def.acertijos || {})) {
     acertijos[a.id] = { ...a, caracter: car, resuelto: false };
-    leyenda[car] = { tipo: 'tablilla', tex: 'tablilla', acertijo: a.id };
-    leyenda[a.sello] = { tipo: 'sello', tex: 'sello', acertijo: a.id };
+    leyenda[car] = { tipo: 'tablilla', tex: a.texTablilla || def.texTablilla || 'tablilla', acertijo: a.id };
+    leyenda[a.sello] = { tipo: 'sello', tex: def.texSello || 'sello', acertijo: a.id };
   }
 
   for (let y = 0; y < alto; y++) {
@@ -46,7 +49,7 @@ export function cargarMazmorra(def) {
       const c = {
         tipo: l.tipo,
         tex: l.tex || (l.tipo === 'suelo' ? null : def.muro),
-        suelo: def.suelo, techo: def.techo,
+        suelo: l.suelo || def.suelo, techo: l.techo || def.techo,
         luz: def.luz,
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
@@ -83,6 +86,17 @@ export function cargarMazmorra(def) {
       return !c || SOLIDOS_FIJOS.has(c.tipo);
     },
   };
+
+  // Zonas con otro suelo, techo o muro: [x0, y0, x1, y1, {suelo, techo, muro}].
+  for (const [x0, y0, x1, y1, z] of def.zonas || []) {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const c = mapa.celda(x, y);
+      if (!c) continue;
+      if (z.suelo) c.suelo = z.suelo;
+      if (z.techo) c.techo = z.techo;
+      if (z.muro && c.tipo === 'muro' && !c.antorcha && def.plano[y][x] === '#') c.tex = z.muro;
+    }
+  }
 
   // Luces por zona y resplandor de antorchas.
   for (const [x0, y0, x1, y1, luz] of def.luces || []) {
