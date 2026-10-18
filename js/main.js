@@ -263,7 +263,8 @@ function cuadro(t) {
   if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, juego.tension()); }
 
   render.ajustarTamano(CALIDADES[calidad]);
-  const linterna = 0.85 + Math.sin(t * 0.011) * 0.04 + Math.sin(t * 0.023) * 0.03;
+  // la antorcha titila
+  const linterna = juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025;
   render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo });
 
   const dpr = Math.min(devicePixelRatio || 1, 2);

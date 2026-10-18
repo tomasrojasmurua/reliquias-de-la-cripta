@@ -33,6 +33,10 @@ const LEYENDA_BASE = {
 const ALTO = 1.25;       // altura de un tramo de muro (igual que ALTO_MURO en render.js)
 export const HONDO = 6.25; // profundidad del abismo
 
+// Las mazmorras son oscuras: la luz propia de cada sala se multiplica por esto
+// y el resto lo ponen las antorchas de los muros, la lava y la antorcha del jugador.
+const PENUMBRA = 0.3;
+
 const SOLIDOS_FIJOS = new Set(['muro', 'vacio', 'tablilla', 'aviso', 'salida']);
 export const MOVILES = new Set(['puerta', 'secreto', 'sello']);
 
@@ -74,7 +78,7 @@ export function cargarMazmorra(def) {
         tipo: l.tipo,
         tex: l.tex || (l.tipo === 'suelo' ? null : def.muro),
         suelo: l.suelo || def.suelo, techo: l.techo || def.techo,
-        luz: def.luz,
+        luz: def.luz * PENUMBRA,
         piso: 0, techoY: ALTO, // alturas del suelo y del techo de la casilla
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
@@ -146,23 +150,23 @@ export function cargarMazmorra(def) {
 
   // Luces por zona y resplandor de antorchas.
   for (const [x0, y0, x1, y1, luz] of def.luces || []) {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const c = mapa.celda(x, y); if (c && c.peligro !== 'lava') c.luz = luz; }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const c = mapa.celda(x, y); if (c && c.peligro !== 'lava') c.luz = luz * PENUMBRA; }
   }
   for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++) {
     const fuente = mapa.celda(x, y);
     if (fuente.peligro === 'lava') {
       for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
         const c = mapa.celda(x + i, y + j);
-        if (c && c.luz <= 1) c.luz = Math.min(1, c.luz + 0.12 * (1 - Math.hypot(i, j) / 3));
+        if (c && c.luz <= 1) c.luz = Math.min(1, c.luz + 0.3 * (1 - Math.hypot(i, j) / 3.2));
       }
       continue;
     }
     if (!fuente.antorcha) continue;
-    for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) {
+    for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) {
       const c = mapa.celda(x + i, y + j);
       if (!c) continue;
       const d = Math.hypot(i, j);
-      if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.35 * (1 - d / 3.5)));
+      if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.6 * (1 - d / 4.5)));
     }
   }
   return mapa;
