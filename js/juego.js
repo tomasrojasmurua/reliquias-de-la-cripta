@@ -64,6 +64,73 @@ export class Juego {
     this.proyectiles = [];
     this.terminado = false;
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
+    this.prepararAmbiente();
+  }
+
+  // ---------- Ambiente: llamas de las antorchas, decorado, polvo en el aire ----------
+
+  prepararAmbiente() {
+    const m = this.mapa;
+    let s = 0;
+    for (const ch of this.def.id) s = (s * 31 + ch.charCodeAt(0)) >>> 0;
+    const azarFijo = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    const DIRS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    const abierta = (x, z) => { const c = m.celda(x, z); return c && !m.solida(x, z); };
+    // una llama delante de cada cara visible de las antorchas de muro
+    this.llamas = [];
+    for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
+      if (!m.celda(x, z).antorcha) continue;
+      for (const [dx, dz] of DIRS) {
+        if (!abierta(x + dx, z + dz)) continue;
+        this.llamas.push({ x: x + 0.5 + dx * 0.58, z: z + 0.5 + dz * 0.58, dx, dz, y: m.piso(x + dx, z + dz) + 0.62, fase: azarFijo() * 10 });
+      }
+    }
+    // decorado junto a los muros y telarañas en las esquinas
+    const ocupada = new Set(this.objetos.map(o => Math.floor(o.x) + ',' + Math.floor(o.z)));
+    ocupada.add(Math.floor(m.inicio.x) + ',' + Math.floor(m.inicio.z));
+    const TIPOS = ['deco_huesos', 'deco_craneo', 'deco_vasija', 'deco_escombros', 'deco_velas'];
+    this.decorado = [];
+    for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
+      const c = m.celda(x, z);
+      if (c.tipo !== 'suelo' || c.trampa || c.peligro || ocupada.has(x + ',' + z)) continue;
+      const muros = DIRS.filter(([dx, dz]) => m.solida(x + dx, z + dz));
+      if (!muros.length) continue;
+      const [dx, dz] = muros[Math.floor(azarFijo() * muros.length)];
+      if (azarFijo() < 0.07) {
+        const tex = TIPOS[Math.floor(azarFijo() * TIPOS.length)];
+        const lado = (azarFijo() - 0.5) * 0.5;
+        this.decorado.push({ tex, x: x + 0.5 + dx * 0.3 + dz * lado, z: z + 0.5 + dz * 0.3 + dx * lado, y: c.piso, tam: tex === 'deco_vasija' ? 0.42 : 0.34, fase: azarFijo() * 4 });
+      }
+      if (muros.length >= 2 && azarFijo() < 0.18) {
+        const [ex, ez] = muros.find(([a, b]) => a !== dx || b !== dz);
+        this.decorado.push({ tex: 'deco_telarana', x: x + 0.5 + (dx + ex) * 0.4, z: z + 0.5 + (dz + ez) * 0.4, y: c.techoY - 0.62, tam: 0.6 });
+      }
+    }
+    // motas de polvo que flotan alrededor del jugador y brasas que suben de las antorchas
+    this.motas = [];
+    this.brasas = [];
+  }
+
+  actualizarAmbiente(dt) {
+    const j = this.j, m = this.mapa;
+    while (this.motas.length < 28) {
+      const a = Math.random() * Math.PI * 2, d = 0.6 + Math.random() * 3.5;
+      this.motas.push({ x: j.x + Math.cos(a) * d, z: j.z + Math.sin(a) * d, y: j.y + 0.2 + Math.random() * 1.4, fase: Math.random() * 6 });
+    }
+    for (const q of this.motas) {
+      q.fase += dt;
+      q.x += Math.sin(q.fase * 0.7) * dt * 0.05; q.z += Math.cos(q.fase * 0.5) * dt * 0.05; q.y += Math.sin(q.fase * 0.9) * dt * 0.03;
+      const lejos = Math.hypot(q.x - j.x, q.z - j.z) > 4.5;
+      if (lejos || m.solida(Math.floor(q.x), Math.floor(q.z))) q.x = NaN;
+    }
+    this.motas = this.motas.filter(q => !Number.isNaN(q.x));
+    for (const l of this.llamas) {
+      if (Math.random() < dt * 1.5 && Math.hypot(l.x - j.x, l.z - j.z) < 9) {
+        this.brasas.push({ x: l.x + (Math.random() - 0.5) * 0.1, z: l.z + (Math.random() - 0.5) * 0.1, y: l.y + 0.3, vida: 0.8 + Math.random() * 0.8, deriva: Math.random() * 6 });
+      }
+    }
+    for (const b of this.brasas) { b.vida -= dt; b.y += dt * 0.55; b.x += Math.sin(b.deriva + b.vida * 5) * dt * 0.08; }
+    this.brasas = this.brasas.filter(b => b.vida > 0);
   }
 
   // ---------- Física de rejilla ----------
@@ -181,6 +248,7 @@ export class Juego {
     this.actualizarEnemigos(dt);
     this.actualizarProyectiles(dt);
     this.actualizarParticulas(dt);
+    this.actualizarAmbiente(dt);
   }
 
   // ---------- Partículas y proyectiles ----------
@@ -530,14 +598,34 @@ export class Juego {
   }
 
   sprites() {
-    const s = [], m = this.mapa;
+    const s = [], m = this.mapa, j = this.j;
     const luzEn = (x, z) => m.celda(Math.floor(x), Math.floor(z))?.luz ?? 0.5;
     const pisoEn = (x, z) => m.piso(Math.floor(x), Math.floor(z));
     for (const o of this.objetos) {
       if (o.cogido) continue;
       const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
       if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: Math.max(0.3, luzEn(o.x, o.z)) });
-      else if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: Math.max(0.3, luzEn(o.x, o.z)) });
+      else if (o.tipo === 'tesoro') {
+        const piso = pisoEn(o.x, o.z), y = piso + 0.08 + flota;
+        const rareza = TESORO[o.tesoro]?.rareza || 'comun';
+        // pequeños desplazamientos hacia el jugador (o lejos de él) para que nada parpadee al cruzarse
+        const dx = j.x - o.x, dz = j.z - o.z, dl = Math.hypot(dx, dz) || 1;
+        const hacia = k => [o.x + dx / dl * k, o.z + dz / dl * k];
+        if (rareza !== 'comun') {
+          const [hx, hz] = hacia(-0.05);
+          s.push({ x: hx, z: hz, y: y - 0.06, ancho: 0.66, alto: 0.66, tex: `halo_${rareza}_${Math.floor(this.tiempo * 3 + o.fase) % 2}`, luz: 1.2 });
+        }
+        s.push({ x: o.x, z: o.z, y, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: Math.max(0.3, luzEn(o.x, o.z)) });
+        const n = { comun: 1, raro: 1, epico: 2, legendario: 3 }[rareza];
+        for (let i = 0; i < n; i++) {
+          const t = this.tiempo * 1.6 + o.fase + i * 2.1;
+          const ciclo = t % 3;
+          if (ciclo > 1) continue; // cada destello vive un tercio del ciclo
+          const [px, pz] = hacia(0.06);
+          const ang = Math.floor(t / 3) * 2.4 + i;
+          s.push({ x: px + Math.cos(ang) * 0.16 * (dz / dl), z: pz - Math.cos(ang) * 0.16 * (dx / dl), y: y + 0.15 + Math.sin(ang) * 0.16, ancho: 0.16, alto: 0.16, tex: 'destello_' + Math.min(3, Math.floor(ciclo * 4)), luz: 1.3 });
+        }
+      }
       else s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z), ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
     }
     for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
@@ -551,10 +639,24 @@ export class Juego {
       else if (e.estado === 'dolor') pose = 3;
       else if (e.estado === 'ataca') pose = 2;
       else if (e.estado === 'dormido') pose = 0;
-      else pose = Math.floor(e.anim * (e.vel * 3)) % 2;
+      else pose = [0, 8, 1, 8][Math.floor(e.anim * (e.vel * 6)) % 4];
       s.push({ x: e.x, z: e.z, y: e.y, ancho: 1.0, alto: 1.0, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
     for (const f of this.proyectiles) s.push({ x: f.x, z: f.z, y: f.y - 0.15, ancho: 0.3, alto: 0.3, tex: 'fuego_' + (Math.floor(this.tiempo * 12) % 2), luz: 1.3 });
+    const parpadeo = this.tiempo * 9;
+    for (const l of this.llamas) {
+      if (Math.abs(l.x - j.x) > 14 || Math.abs(l.z - j.z) > 14) continue;
+      const k = Math.floor(parpadeo + l.fase) % 3;
+      const crece = 1 + Math.sin(this.tiempo * 13 + l.fase) * 0.06;
+      s.push({ x: l.x, z: l.z, y: l.y, ancho: 0.24 * crece, alto: 0.34 * crece, tex: 'llama_' + k, luz: 1.3 });
+    }
+    for (const b of this.brasas) s.push({ x: b.x, z: b.z, y: b.y, ancho: 0.035, alto: 0.035, tex: 'brasa', luz: 1.3 });
+    for (const q of this.motas) s.push({ x: q.x, z: q.z, y: q.y, ancho: 0.025, alto: 0.025, tex: 'mota', luz: luzEn(q.x, q.z) });
+    for (const d of this.decorado) {
+      if (Math.abs(d.x - j.x) > 16 || Math.abs(d.z - j.z) > 16) continue;
+      const tex = d.tex === 'deco_velas' ? 'deco_velas_' + (Math.floor(this.tiempo * 5 + d.fase) % 2) : d.tex;
+      s.push({ x: d.x, z: d.z, y: d.y, ancho: d.tam, alto: d.tam, tex, luz: d.tex === 'deco_velas' ? 1.2 : luzEn(d.x, d.z) });
+    }
     for (const q of this.particulas) s.push({ x: q.x, z: q.z, y: q.y - q.tam / 2, ancho: q.tam, alto: q.tam, tex: q.tex, luz: q.tex === 'chispa' ? 1.3 : luzEn(q.x, q.z) });
     return s;
   }
