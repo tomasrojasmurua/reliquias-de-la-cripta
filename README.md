@@ -18,16 +18,20 @@ Para probarlo en local: `python3 -m http.server` en esta carpeta y abrir http://
 6. **El Templo Maldito** (una secta, tres piedras sagradas y un río de lava): pinchos y un camino entre la lava hasta el revólver.
 7. **La Tumba del Cruzado** (catacumbas y las tres pruebas del cáliz): la senda del penitente (pinchos), la palabra (una tablilla de dificultad 4–5) y el salto de fe (un puente oculto sobre un abismo). Al final hay varios cálices, y solo uno es el verdadero.
 
-En las tres últimas, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
+Cada mazmorra tiene además un **ala nueva con alturas**, con su propia tablilla (`L`) y su sello (`Q`): una galería con foso y estrado en la cripta, una pirámide escalonada en el templo de las arenas, el salón del jarl con balcón y lago helado, una bahía de contrabandistas con muelle y acantilado, un cenote sagrado en la selva, unas minas con pasarelas sobre un río de lava y un osario con entresuelo y sala de lectura hundida.
+
+En las últimas mazmorras, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
 
 ## Controles
-- **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Shift para correr, Esc para pausar.
-- **Celular:** arrastra en la mitad izquierda para moverte y en la derecha para mirar; botones para atacar, usar, recargar y cambiar de arma.
+- **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Shift para correr, Tab o M para el mapa, Esc para pausar.
+- **Celular:** arrastra en la mitad izquierda para moverte y en la derecha para mirar; botones para atacar, usar, recargar, cambiar de arma y ver el mapa.
 
 ## Cómo está hecho
 El motor usa **WebGL directo** (sin librerías). Cada mazmorra es una rejilla, como en Wolfenstein y Doom, pero se convierte en geometría 3D real: muros, suelos y techos son polígonos, y enemigos y objetos son sprites que siempre miran a la cámara. Así se consigue el aspecto de Doom (texturas pixel art con filtro *nearest*, luz que se apaga con la distancia, bandas de luz) pero dibujado a la resolución nativa de la pantalla, más nítido que el original, y la tarjeta gráfica hace el trabajo, así que corre fluido en celulares. La opción **Retro** dibuja a baja resolución para el aspecto original.
 
-Las texturas, sprites, el arma en pantalla y los sonidos se generan por código, así que no hay imágenes ni audio que descargar.
+Cada casilla tiene su propia altura de suelo y de techo, así que hay escaleras, plataformas, balcones y fosos (como los sectores de Doom): los escalones bajos se suben caminando y los altos solo se pueden bajar. Los enemigos tampoco saltan desniveles.
+
+Las texturas, sprites, el arma en pantalla y los sonidos se generan por código, así que no hay imágenes ni audio que descargar. Los sprites reciben luz, sombra y contorno al generarse; los enemigos se iluminan al recibir un golpe, salpican polvo, huesos, sangre o chispas y caen en varios fotogramas. Cada mazmorra tiene su ambiente sonoro (gotas, viento, olas y crujidos de madera, pájaros e insectos, burbujas de lava, susurros), una música de fondo procedural que se tensa cuando te persiguen, pasos según el suelo y eco. El **automapa** dibuja solo lo que ya viste.
 
 ## Archivos
 - `index.html`, `css/estilo.css`: pantallas, HUD y controles táctiles.
@@ -39,7 +43,8 @@ Las texturas, sprites, el arma en pantalla y los sonidos se generan por código,
 - `js/entrada.js`: teclado, ratón y pantalla táctil.
 - `js/arma.js`: revólver y látigo en primera persona.
 - `js/acertijos.js`: tablillas con pistas crípticas y ayudas progresivas.
-- `js/audio.js`: efectos de sonido sintetizados.
+- `js/audio.js`: efectos, ambiente, música y eco sintetizados.
+- `js/automapa.js`: mapa de lo explorado.
 - `datos/mazmorras.js`: las mazmorras (planos de texto, ver abajo).
 - `datos/tesoros.js`: catálogo de tesoros y rarezas.
 - `datos/pistas.js`: banco de pistas crípticas, generado (no editar a mano).
@@ -67,7 +72,7 @@ Cada mazmorra en `datos/mazmorras.js` es un plano de texto donde cada carácter 
 | `f` | cáliz falso: parece un tesoro y es una trampa |
 | `1`–`9` | tesoros, según el campo `tesoros` |
 
-Otros campos opcionales: `zonas` (rectángulos con otro suelo, techo o muro), `avisos` (inscripciones de pista que se leen con «Usar»: `{ K: 'texto' }`), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
+Otros campos opcionales: `alturas` (un plano paralelo con la altura del suelo: `.` a ras de suelo, `1`–`9` sube 0.3 m por número, `a`–`e` baja 0.3 m por letra; un escalón de 0.3 m se sube caminando, uno de 0.6 m ya no), `zonas` (rectángulos con otro suelo, techo o muro, la altura del techo `cielo` y la textura `desnivel` de escalones y paredes entre alturas), `ambiente` (`cripta`, `desierto`, `nieve`, `mar`, `selva`, `lava` o `catacumba`), `avisos` (inscripciones de pista que se leen con «Usar»: `{ K: 'texto' }`), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
 
 Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [min, max], sello: 'Z', titulo }` pone una tablilla en cada `T` del plano y un sello en cada `Z`. Al acertar la pista de la tablilla se abren sus sellos. La dificultad (1 a 5) elige al azar una pista del banco de esa dificultad, evitando las que el jugador ya resolvió. La regla es poner tesoros más valiosos tras pistas más difíciles y tras los pasadizos secretos.
 

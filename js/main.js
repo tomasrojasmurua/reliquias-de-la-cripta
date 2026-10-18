@@ -3,7 +3,8 @@ import { Render } from './render.js';
 import { Entrada } from './entrada.js';
 import { Juego } from './juego.js';
 import { dibujarArma } from './arma.js';
-import { activarAudio, sonar, alternarSilencio } from './audio.js';
+import { dibujarAutomapa } from './automapa.js';
+import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { MAZMORRAS } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
@@ -41,6 +42,8 @@ try {
 
 const capaArma = $('#arma');
 const ctxArma = capaArma.getContext('2d');
+const capaMapa = $('#automapa');
+const ctxMapa = capaMapa.getContext('2d');
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const entrada = new Entrada(vista, { zona: $('#zona-tactil'), base: $('#joy-base'), palanca: $('#joy-palanca'), botones });
@@ -119,7 +122,7 @@ document.addEventListener('click', e => {
   if (ir === 'mazmorras') pintarMazmorras();
   if (ir === 'coleccion') pintarColeccion();
   if (ir === 'opciones') pintarOpciones();
-  if (ir === 'portada') { juego = null; document.body.classList.remove('jugando'); }
+  if (ir === 'portada') { juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); }
   mostrar(ir);
 });
 
@@ -128,7 +131,15 @@ for (const b of document.querySelectorAll('[data-calidad]')) b.onclick = () => {
   document.body.classList.toggle('retro', calidad === 'retro');
 };
 document.body.classList.toggle('retro', calidad === 'retro');
-$('#btn-sonido').onclick = e => { e.target.textContent = alternarSilencio() ? 'Sonido: no' : 'Sonido: sí'; };
+function pintarSonido() {
+  $('#btn-sonido').textContent = progreso.opciones.silencio ? 'Sonido: no' : 'Sonido: sí';
+  $('#btn-musica').textContent = progreso.opciones.sinMusica ? 'Música: no' : 'Música: sí';
+}
+ponerSilencio(!!progreso.opciones.silencio);
+ponerMusica(!progreso.opciones.sinMusica);
+pintarSonido();
+$('#btn-sonido').onclick = () => { progreso.opciones.silencio = alternarSilencio(); guardar(); pintarSonido(); };
+$('#btn-musica').onclick = () => { progreso.opciones.sinMusica = alternarMusica(); guardar(); pintarSonido(); };
 
 // ---------- Partida ----------
 
@@ -150,6 +161,8 @@ function empezar(def) {
     muerte: r => setTimeout(() => terminar(r, false), 1400),
   });
   render.construir(juego.mapa);
+  capaMapa.hidden = true;
+  iniciarAmbiente(def.ambiente);
   document.body.classList.add('jugando');
   mostrar('juego');
   reanudar();
@@ -160,6 +173,7 @@ function reanudar() {
   pausado = false;
   entrada.activa = true;
   $('#pausa').hidden = true;
+  atenuarAmbiente(false);
   ultimo = performance.now();
   if (!document.body.classList.contains('tactil')) vista.requestPointerLock?.();
 }
@@ -169,6 +183,7 @@ function pausar() {
   pausado = true;
   entrada.activa = false;
   entrada.soltarTodo();
+  atenuarAmbiente(true);
   if (document.pointerLockElement) document.exitPointerLock();
 }
 
@@ -212,6 +227,7 @@ function terminar(r, exito) {
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre}</span>`).join('');
   $('#btn-reintentar').onclick = () => empezar(r.mazmorra);
   mostrar('resumen');
+  detenerAmbiente();
   document.body.classList.remove('jugando');
 }
 
@@ -221,7 +237,7 @@ document.addEventListener('pointerlockchange', () => {
   }
 });
 $('#btn-continuar').onclick = () => reanudar();
-$('#btn-menu-pausa').onclick = () => { $('#pausa').hidden = true; juego = null; document.body.classList.remove('jugando'); pintarMazmorras(); mostrar('mazmorras'); };
+$('#btn-menu-pausa').onclick = () => { $('#pausa').hidden = true; juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); pintarMazmorras(); mostrar('mazmorras'); };
 $('#btn-pausa').addEventListener('click', () => { pausar(); $('#pausa').hidden = false; });
 
 function actualizarHUD() {
@@ -243,7 +259,8 @@ function cuadro(t) {
   ultimo = t;
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
-  if (!pausado) juego.actualizar(dt, ent);
+  if (ent.pulsos.has('mapa') && !pausado) capaMapa.hidden = !capaMapa.hidden;
+  if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, juego.tension()); }
 
   render.ajustarTamano(CALIDADES[calidad]);
   const linterna = 0.85 + Math.sin(t * 0.011) * 0.04 + Math.sin(t * 0.023) * 0.03;
@@ -253,6 +270,10 @@ function cuadro(t) {
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);
   if (capaArma.width !== w || capaArma.height !== h) { capaArma.width = w; capaArma.height = h; }
   dibujarArma(ctxArma, w, h, juego.j);
+  if (!capaMapa.hidden) {
+    if (capaMapa.width !== w || capaMapa.height !== h) { capaMapa.width = w; capaMapa.height = h; }
+    dibujarAutomapa(ctxMapa, w, h, juego);
+  }
   actualizarHUD();
 
   fpsN++; fpsT += dt;

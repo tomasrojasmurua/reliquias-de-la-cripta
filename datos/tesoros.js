@@ -75,6 +75,22 @@ export const TESOROS = [
   t('escudo_cruzado', 'Escudo del caballero cruzado', 'escudo', PLATA, 'epico', 'Lo llevó uno de los tres hermanos que juraron proteger el cáliz.'),
   t('espada_templaria', 'Espada del último guardián', 'daga', PLATA, 'epico', 'El guardián la dejó al fin, después de setecientos años.'),
   t('caliz_carpintero', 'El cáliz del carpintero', 'caliz', MADERA, 'legendario', 'Una copa sencilla de madera. El verdadero tesoro nunca necesitó oro.'),
+  // Alas nuevas
+  t('vaso_canopo', 'Vaso canopo de alabastro', 'anfora', MARFIL, 'raro', 'Guardaba el corazón de un escriba, con tapa de cabeza de chacal.'),
+  t('escarabajo_lapis', 'Escarabajo de lapislázuli', 'escarabajo', ZAFIRO, 'raro', 'Azul como el cielo de noche sobre el Nilo.'),
+  t('collar_escarabajo', 'Pectoral del escarabajo alado', 'amuleto', ORO, 'epico', 'Las alas del escarabajo sostienen el disco del sol.'),
+  t('ojo_horus', 'Ojo de Horus', 'amuleto', ZAFIRO, 'raro', 'Protege a quien lo lleva de todo lo que no ve.'),
+  t('ankh_oro', 'Ankh de la vida eterna', 'ankh', ORO, 'epico', 'La llave que, según los sacerdotes, abre el más allá.'),
+  t('anillo_draupnir', 'Draupnir, el anillo de Odín', 'anillo', ORO, 'epico', 'Cada nueve noches gotean de él ocho anillos iguales.'),
+  t('diadema_valquiria', 'Diadema de la valquiria', 'corona', PLATA, 'raro', 'La llevaba quien elegía a los caídos en batalla.'),
+  t('sable_drake', 'Sable de abordaje de Drake', 'daga', PLATA, 'epico', 'Lo desenvainó en cada abordaje de su vuelta al mundo.'),
+  t('perla_negra', 'Perla negra de Panamá', 'gema', OBSIDIANA, 'raro', 'Robada de un galeón español junto con su capitán.'),
+  t('silbato_calavera', 'Silbato de la muerte', 'calavera', MARFIL, 'raro', 'Suena como un grito humano. Mejor no probarlo aquí dentro.'),
+  t('pectoral_jade', 'Pectoral de jade del rey Pakal', 'amuleto', JADE, 'epico', 'El rey lo llevó en su viaje al inframundo.'),
+  t('brazalete_oro', 'Brazalete de los mineros', 'anillo', BRONCE, 'raro', 'Lo dejó atrás uno de los niños que escaparon de las minas.'),
+  t('idolo_kali', 'Ídolo de la diosa negra', 'idolo', OBSIDIANA, 'epico', 'Los sectarios rezaban frente a él antes de cada ritual.'),
+  t('tablilla_grial', 'Tablilla de los tres retos', 'libro', MARFIL, 'raro', 'Describe las tres pruebas: el aliento de Dios, la palabra de Dios y el sendero de Dios.'),
+  t('cruz_coronado', 'Cruz de Coronado', 'cruz', ORO, 'epico', 'Pertenece a un museo. Ahora sí.'),
 ];
 
 export const TESORO = Object.fromEntries(TESOROS.map(x => [x.id, x]));

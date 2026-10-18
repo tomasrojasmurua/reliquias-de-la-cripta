@@ -6,7 +6,7 @@ const TECLAS = {
   KeyA: 'izq', KeyD: 'der', ArrowLeft: 'girarIzq', ArrowRight: 'girarDer',
   ShiftLeft: 'correr', ShiftRight: 'correr', ControlLeft: 'disparar', KeyF: 'disparar',
 };
-const PULSOS = { KeyE: 'usar', Space: 'usar', Enter: 'usar', KeyR: 'recargar', Digit1: 'arma1', Digit2: 'arma2', KeyQ: 'cambiarArma', Escape: 'pausa', KeyP: 'pausa' };
+const PULSOS = { KeyE: 'usar', Space: 'usar', Enter: 'usar', KeyR: 'recargar', Digit1: 'arma1', Digit2: 'arma2', KeyQ: 'cambiarArma', Escape: 'pausa', KeyP: 'pausa', Tab: 'mapa', KeyM: 'mapa' };
 
 export class Entrada {
   constructor(canvas, tactil) {

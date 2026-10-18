@@ -6,7 +6,6 @@ import { casilla, COLS, FILAS } from './texturas.js';
 import { MOVILES } from './mapa.js';
 
 export const ALTO_MURO = 1.25;
-const PROFUNDIDAD = 6.25; // fondo del abismo
 const FLOTANTES = 8; // x y z, u v, col fila, luz
 
 const VS = `
@@ -68,6 +67,30 @@ function carasBloque(arr, mapa, x, y, tile, y0, y1, esVecinoAbierto) {
   }
 }
 
+const VECINOS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+
+// Cara de la casilla (x, y) que mira a su vecina (x + dx, y + dy), entre las alturas y0 e y1.
+function cara(arr, x, y, dx, dy, tile, y0, y1, luz) {
+  let a, b;
+  if (dy === -1) { a = [x + 1, y]; b = [x, y]; }
+  else if (dy === 1) { a = [x, y + 1]; b = [x + 1, y + 1]; }
+  else if (dx === -1) { a = [x, y]; b = [x, y + 1]; }
+  else { a = [x + 1, y + 1]; b = [x + 1, y]; }
+  const vTop = (y1 - y0) / ALTO_MURO;
+  quad(arr, [a[0], y0, a[1]], [b[0], y0, b[1]], [b[0], y1, b[1]], [a[0], y1, a[1]], tile, luz, vTop, 0);
+}
+
+function luzCara(v, dx) { return Math.min(1, v.luz * (dx !== 0 ? 1.08 : 0.94)); } // contraste falso como en Doom
+
+// Divide [y0, y1] en tramos de ALTO_MURO (desde abajo, o desde arriba si desdeArriba).
+function tramos(y0, y1, fn, desdeArriba = false) {
+  const n = Math.max(1, Math.ceil((y1 - y0) / ALTO_MURO - 1e-6));
+  for (let k = 0; k < n; k++) {
+    if (desdeArriba) fn(Math.max(y0, y1 - (k + 1) * ALTO_MURO), y1 - k * ALTO_MURO, k, n);
+    else fn(y0 + k * ALTO_MURO, Math.min(y1, y0 + (k + 1) * ALTO_MURO), k, n);
+  }
+}
+
 export class Render {
   constructor(canvas) {
     this.canvas = canvas;
@@ -111,36 +134,50 @@ export class Render {
     gl.uniform2f(this.loc.uCasilla, 1 / COLS, 1 / FILAS);
   }
 
-  // Geometría que no cambia: muros, suelos y techos.
+  // Geometría que no cambia: muros, suelos, techos y desniveles.
+  // Cada casilla abierta tiene su piso (c.piso) y su techo (c.techoY); los muros cubren
+  // desde el piso hasta el techo de la casilla que los mira, en tramos de ALTO_MURO.
   construir(mapa) {
     const arr = [];
-    const abierto = (x, y) => !mapa.fija(x, y);
+    const abierta = (x, y) => !mapa.fija(x, y);
+    const muroBase = casilla(mapa.def.muro);
     for (let y = 0; y < mapa.alto; y++) for (let x = 0; x < mapa.ancho; x++) {
       const c = mapa.celda(x, y);
       if (c.tipo === 'vacio') continue;
       if (mapa.fija(x, y)) {
-        const antes = arr.length;
-        carasBloque(arr, mapa, x, y, casilla(c.tex), 0, ALTO_MURO, abierto);
-        // la salida brilla con luz propia (luz > 1 = emisivo en el shader)
-        if (c.tipo === 'salida') for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 1.2;
+        // la textura especial (tablilla, salida, antorcha...) solo va en el primer tramo
+        const especial = c.tipo !== 'muro' || c.antorcha;
+        const texArriba = especial ? muroBase : casilla(c.tex);
+        for (const [dx, dy] of VECINOS) {
+          const v = mapa.celda(x + dx, y + dy);
+          if (!v || !abierta(x + dx, y + dy)) continue;
+          tramos(v.piso, v.techoY, (y0, y1, k) => {
+            const antes = arr.length;
+            cara(arr, x, y, dx, dy, k === 0 ? casilla(c.tex) : texArriba, y0, y1, luzCara(v, dx));
+            if (c.tipo === 'salida' && k === 0) for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 1.2;
+          });
+        }
         continue;
       }
-      // casilla transitable o móvil: suelo y techo (el abismo tiene el fondo muy abajo)
+      // casilla abierta o móvil: suelo, techo y desniveles con sus vecinas
       const ts = casilla(c.suelo), tt = casilla(c.techo);
-      const ys = c.peligro === 'abismo' ? -PROFUNDIDAD : 0;
-      quad(arr, [x, ys, y + 1], [x + 1, ys, y + 1], [x + 1, ys, y], [x, ys, y], ts, ys ? 0.25 : c.luz);
-      quad(arr, [x, ALTO_MURO, y], [x + 1, ALTO_MURO, y], [x + 1, ALTO_MURO, y + 1], [x, ALTO_MURO, y + 1], tt, Math.min(c.luz, 1) * 0.85);
-    }
-    // Paredes del abismo: todo lo que lo rodea (menos los puentes ocultos) baja hasta el fondo.
-    const esAbismo = (x, y) => mapa.celda(x, y)?.peligro === 'abismo';
-    for (let y = 0; y < mapa.alto; y++) for (let x = 0; x < mapa.ancho; x++) {
-      const c = mapa.celda(x, y);
-      if (c.tipo === 'vacio' || c.peligro === 'abismo' || c.suelo === 'abismo_puente') continue;
-      const tex = casilla(c.tex && mapa.fija(x, y) ? c.tex : mapa.def.muro);
-      for (let k = 0; k * ALTO_MURO < PROFUNDIDAD; k++) {
-        const antes = arr.length;
-        carasBloque(arr, mapa, x, y, tex, -(k + 1) * ALTO_MURO, -k * ALTO_MURO, esAbismo);
-        for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 0.3 / (k + 1);
+      const ys = c.piso, yt = c.techoY;
+      const hondo = c.piso < -1;
+      quad(arr, [x, ys, y + 1], [x + 1, ys, y + 1], [x + 1, ys, y], [x, ys, y], ts, hondo ? 0.25 : c.luz);
+      quad(arr, [x, yt, y], [x + 1, yt, y], [x + 1, yt, y + 1], [x, yt, y + 1], tt, Math.min(c.luz, 1) * 0.85);
+      const texDesnivel = casilla(c.muroDesnivel || mapa.def.muro);
+      for (const [dx, dy] of VECINOS) {
+        const v = mapa.celda(x + dx, y + dy);
+        if (!v || !abierta(x + dx, y + dy)) continue;
+        // escalón o pared de foso hacia la vecina más baja (los puentes ocultos no muestran su borde)
+        if (v.piso < c.piso && c.suelo !== 'abismo_puente') {
+          tramos(v.piso, c.piso, (y0, y1, k, n) => {
+            const luz = v.piso < -1 ? 0.3 / (n - k) : luzCara(v, dx) * 0.85;
+            cara(arr, x, y, dx, dy, texDesnivel, y0, y1, luz);
+          }, true);
+        }
+        // pared superior hacia la vecina con techo más alto
+        if (v.techoY > c.techoY) tramos(c.techoY, v.techoY, (y0, y1) => cara(arr, x, y, dx, dy, texDesnivel, y0, y1, luzCara(v, dx) * 0.8));
       }
     }
     const gl = this.gl;
@@ -195,7 +232,7 @@ export class Render {
       const c = mapa.celda(x, y);
       if (!MOVILES.has(c.tipo) || c.abierto >= 1) continue;
       // puertas y sellos suben; los pasadizos secretos se hunden en el suelo
-      const d = c.tipo === 'secreto' ? -c.abierto * ALTO_MURO : c.abierto * ALTO_MURO;
+      const d = c.piso + (c.tipo === 'secreto' ? -c.abierto * ALTO_MURO : c.abierto * ALTO_MURO);
       carasBloque(arr, mapa, x, y, casilla(c.tex), d, d + ALTO_MURO, abierto);
     }
     const rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
