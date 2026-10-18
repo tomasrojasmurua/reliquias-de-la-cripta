@@ -1,6 +1,7 @@
 // Convierte la definición de una mazmorra (datos/mazmorras.js) en casillas y objetos.
 
-// tipo: muro | vacio | suelo | puerta | secreto | sello | tablilla | salida
+// tipo: muro | vacio | suelo | puerta | secreto | sello | tablilla | aviso | salida
+// Peligros en el suelo: trampa 'pinchos' (suben y bajan), peligro 'lava' (quema) y 'abismo' (caída mortal).
 const LEYENDA_BASE = {
   '#': { tipo: 'muro' },
   ' ': { tipo: 'vacio' },
@@ -18,9 +19,16 @@ const LEYENDA_BASE = {
   'g': { tipo: 'suelo', enemigo: 'draugr' },
   'p': { tipo: 'suelo', enemigo: 'pirata' },
   'j': { tipo: 'suelo', enemigo: 'jaguar' },
+  'c': { tipo: 'suelo', enemigo: 'sectario' },
+  'n': { tipo: 'suelo', enemigo: 'caballero' },
+  '^': { tipo: 'suelo', trampa: 'pinchos', suelo: 'agujeros' },
+  '~': { tipo: 'suelo', peligro: 'lava', suelo: 'lava' },
+  '_': { tipo: 'suelo', peligro: 'abismo', suelo: 'abismo' },
+  ':': { tipo: 'suelo', suelo: 'abismo_puente' },
+  'f': { tipo: 'suelo', objeto: 'falso' },
 };
 
-const SOLIDOS_FIJOS = new Set(['muro', 'vacio', 'tablilla', 'salida']);
+const SOLIDOS_FIJOS = new Set(['muro', 'vacio', 'tablilla', 'aviso', 'salida']);
 export const MOVILES = new Set(['puerta', 'secreto', 'sello']);
 
 export function cargarMazmorra(def) {
@@ -34,6 +42,9 @@ export function cargarMazmorra(def) {
   let totalSecretos = 0;
   const acertijos = {};
 
+  for (const [car, texto] of Object.entries(def.avisos || {})) {
+    leyenda[car] = { tipo: 'aviso', tex: def.texTablilla || 'tablilla', texto };
+  }
   for (const [car, a] of Object.entries(def.acertijos || {})) {
     acertijos[a.id] = { ...a, caracter: car, resuelto: false };
     leyenda[car] = { tipo: 'tablilla', tex: a.texTablilla || def.texTablilla || 'tablilla', acertijo: a.id };
@@ -54,7 +65,9 @@ export function cargarMazmorra(def) {
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
         antorcha: !!l.antorcha,
+        trampa: l.trampa || null, peligro: l.peligro || null, texto: l.texto || null,
       };
+      if (l.peligro === 'lava') c.luz = 1.2;
       if (l.tipo === 'puerta' || l.tipo === 'sello') c.tex = l.tex;
       if (l.tipo === 'secreto') totalSecretos++;
       celdas.push(c);
@@ -80,6 +93,10 @@ export function cargarMazmorra(def) {
       if (MOVILES.has(c.tipo)) return c.abierto < 0.9;
       return false;
     },
+    // Los enemigos además evitan la lava y el abismo.
+    bloqueaEnemigo(x, y) {
+      return this.solida(x, y) || !!this.celda(x, y).peligro;
+    },
     // ¿Es parte fija de la geometría (no se mueve nunca)?
     fija(x, y) {
       const c = this.celda(x, y);
@@ -100,15 +117,23 @@ export function cargarMazmorra(def) {
 
   // Luces por zona y resplandor de antorchas.
   for (const [x0, y0, x1, y1, luz] of def.luces || []) {
-    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const c = mapa.celda(x, y); if (c) c.luz = luz; }
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const c = mapa.celda(x, y); if (c && c.peligro !== 'lava') c.luz = luz; }
   }
   for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++) {
-    if (!mapa.celda(x, y).antorcha) continue;
+    const fuente = mapa.celda(x, y);
+    if (fuente.peligro === 'lava') {
+      for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
+        const c = mapa.celda(x + i, y + j);
+        if (c && c.luz <= 1) c.luz = Math.min(1, c.luz + 0.12 * (1 - Math.hypot(i, j) / 3));
+      }
+      continue;
+    }
+    if (!fuente.antorcha) continue;
     for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) {
       const c = mapa.celda(x + i, y + j);
       if (!c) continue;
       const d = Math.hypot(i, j);
-      c.luz = Math.min(1, c.luz + Math.max(0, 0.35 * (1 - d / 3.5)));
+      if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.35 * (1 - d / 3.5)));
     }
   }
   return mapa;

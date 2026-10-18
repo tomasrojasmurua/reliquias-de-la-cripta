@@ -18,6 +18,10 @@ const CRISTAL = ['#cfefff', '#6aa6c4'];
 const OBSIDIANA = ['#4a4458', '#16131e'];
 const HIELO = ['#bfe8ff', '#4f8fb8'];
 const MARFIL = ['#efe4c8', '#9a8a62'];
+const AMBAR = ['#f0a830', '#8a5010'];
+const DIAMANTE = ['#f4fbff', '#9ab8cc'];
+const MADERA = ['#9a6a3a', '#5a3a1a'];
+const CUERO = ['#8a5530', '#4a2a12'];
 
 function t(id, nombre, forma, [color, oscuro], rareza, descripcion) {
   return { id, nombre, forma, color, oscuro, rareza, descripcion };
@@ -61,6 +65,16 @@ export const TESOROS = [
   // Templo de la selva
   t('disco_solar', 'Disco solar de Kinich Ahau', 'disco', ORO, 'epico', 'El calendario del sol, tallado en oro.'),
   t('corona_plumas', 'Corona de plumas del rey jaguar', 'corona', JADE, 'epico', 'Las plumas de quetzal siguen intactas.'),
+  // Templo maldito
+  t('piedra_ambar', 'Piedra sagrada de ámbar', 'piedra', AMBAR, 'raro', 'Una de las tres piedras que robaron a la aldea.'),
+  t('piedra_rubi', 'Piedra sagrada de rubí', 'piedra', RUBI, 'epico', 'Arde cuando se acerca a las otras dos.'),
+  t('piedra_diamante', 'La tercera piedra sagrada', 'piedra', DIAMANTE, 'legendario', 'Con ella, las tres piedras vuelven a estar juntas.'),
+  t('daga_ritual', 'Daga ritual del sumo sacerdote', 'daga', OBSIDIANA, 'epico', 'Su filo de obsidiana nunca pierde el corte.'),
+  // Tumba del cruzado
+  t('diario_profesor', 'Diario del profesor', 'libro', CUERO, 'raro', 'Cuarenta años de pistas sobre el cáliz, anotadas a mano.'),
+  t('escudo_cruzado', 'Escudo del caballero cruzado', 'escudo', PLATA, 'epico', 'Lo llevó uno de los tres hermanos que juraron proteger el cáliz.'),
+  t('espada_templaria', 'Espada del último guardián', 'daga', PLATA, 'epico', 'El guardián la dejó al fin, después de setecientos años.'),
+  t('caliz_carpintero', 'El cáliz del carpintero', 'caliz', MADERA, 'legendario', 'Una copa sencilla de madera. El verdadero tesoro nunca necesitó oro.'),
 ];
 
 export const TESORO = Object.fromEntries(TESOROS.map(x => [x.id, x]));

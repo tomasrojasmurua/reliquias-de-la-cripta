@@ -6,6 +6,7 @@ import { casilla, COLS, FILAS } from './texturas.js';
 import { MOVILES } from './mapa.js';
 
 export const ALTO_MURO = 1.25;
+const PROFUNDIDAD = 6.25; // fondo del abismo
 const FLOTANTES = 8; // x y z, u v, col fila, luz
 
 const VS = `
@@ -124,10 +125,23 @@ export class Render {
         if (c.tipo === 'salida') for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 1.2;
         continue;
       }
-      // casilla transitable o móvil: suelo y techo
+      // casilla transitable o móvil: suelo y techo (el abismo tiene el fondo muy abajo)
       const ts = casilla(c.suelo), tt = casilla(c.techo);
-      quad(arr, [x, 0, y + 1], [x + 1, 0, y + 1], [x + 1, 0, y], [x, 0, y], ts, c.luz);
-      quad(arr, [x, ALTO_MURO, y], [x + 1, ALTO_MURO, y], [x + 1, ALTO_MURO, y + 1], [x, ALTO_MURO, y + 1], tt, c.luz * 0.85);
+      const ys = c.peligro === 'abismo' ? -PROFUNDIDAD : 0;
+      quad(arr, [x, ys, y + 1], [x + 1, ys, y + 1], [x + 1, ys, y], [x, ys, y], ts, ys ? 0.25 : c.luz);
+      quad(arr, [x, ALTO_MURO, y], [x + 1, ALTO_MURO, y], [x + 1, ALTO_MURO, y + 1], [x, ALTO_MURO, y + 1], tt, Math.min(c.luz, 1) * 0.85);
+    }
+    // Paredes del abismo: todo lo que lo rodea (menos los puentes ocultos) baja hasta el fondo.
+    const esAbismo = (x, y) => mapa.celda(x, y)?.peligro === 'abismo';
+    for (let y = 0; y < mapa.alto; y++) for (let x = 0; x < mapa.ancho; x++) {
+      const c = mapa.celda(x, y);
+      if (c.tipo === 'vacio' || c.peligro === 'abismo' || c.suelo === 'abismo_puente') continue;
+      const tex = casilla(c.tex && mapa.fija(x, y) ? c.tex : mapa.def.muro);
+      for (let k = 0; k * ALTO_MURO < PROFUNDIDAD; k++) {
+        const antes = arr.length;
+        carasBloque(arr, mapa, x, y, tex, -(k + 1) * ALTO_MURO, -k * ALTO_MURO, esAbismo);
+        for (let i = antes; i < arr.length; i += FLOTANTES) arr[i + 7] = 0.3 / (k + 1);
+      }
     }
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufFijo);

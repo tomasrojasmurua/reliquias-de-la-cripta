@@ -6,7 +6,9 @@
 //   X  salida           !  antorcha en el muro
 //   R  revólver         b  balas            v  vendas (vida)
 //   m  momia            k  esqueleto        g  draugr
-//   p  pirata           j  guerrero jaguar
+//   p  pirata           j  guerrero jaguar  c  sectario        n  caballero cruzado
+//   ^  pinchos (suben y bajan)   ~  lava (quema)   _  abismo (caída mortal)
+//   :  puente oculto (parece abismo, pero se puede pisar)   f  cáliz falso (trampa)
 //   0-9 tesoros (según `tesoros`)
 //   Las tablillas y los sellos se definen en `acertijos`: la tablilla muestra una pista
 //   críptica y, al resolverla, se abren todos los sellos con el mismo acertijo.
@@ -14,6 +16,7 @@
 // `luces`: rectángulos [x0, y0, x1, y1, luz] con luz entre 0 y 1 (por defecto `luz`).
 // `zonas`: rectángulos [x0, y0, x1, y1, {suelo, techo, muro}] con otras texturas.
 // `texTablilla`, `texSello`: texturas de tablillas y sellos. `tinte`: color de la luz [r, g, b].
+// `avisos`: { carácter: 'texto' } pone inscripciones en el muro que se leen con «Usar».
 
 export const MAZMORRAS = [
   {
@@ -203,5 +206,89 @@ export const MAZMORRAS = [
       '###########################',
     ],
     luces: [[1, 13, 9, 17, 0.35], [17, 13, 25, 17, 0.9], [21, 1, 25, 11, 0.7]],
+  },
+
+  {
+    id: 'templo-maldito',
+    nombre: 'El Templo Maldito',
+    descripcion: 'Bajo un palacio en las montañas, una secta esconde las tres piedras sagradas robadas a una aldea. Cuidado con la lava.',
+    muro: 'volcanica', suelo: 'losa_roja', techo: 'techo_roca',
+    texTablilla: 'tablilla_volcanica',
+    tinte: [1.08, 0.93, 0.85],
+    luz: 0.55,
+    angulo: 0,
+    leyenda: { S: { tipo: 'secreto', tex: 'volcanica_grieta' } },
+    tesoros: { 1: 'piedra_ambar', 2: 'piedra_rubi', 3: 'piedra_diamante', 4: 'daga_ritual' },
+    acertijos: {
+      T: { id: 'mural-aldea', tipo: 'pista', dificultad: [1, 2], sello: 'Z', titulo: 'El mural de la aldea' },
+      V: { id: 'mantra-secta', tipo: 'pista', dificultad: [3, 3], sello: 'Y', titulo: 'El mantra de la secta' },
+      U: { id: 'altar-piedras', tipo: 'pista', dificultad: [4, 5], sello: 'W', titulo: 'El altar de las piedras' },
+    },
+    plano: [
+      '###########################',
+      '#.....#############~~~~~~~#',
+      '#.....#..^..^..^..#~~~~~~~#',
+      '#..P..D..^..^..^.....~~~~~#',
+      '#.....#..^..^..^..#~.~~~~~#',
+      '#.....#############~...~~~#',
+      '###D####T##########~~~.~~~#',
+      '#....c........#...#~~~.R.~#',
+      '#.............#.4.#########',
+      'X..b..........S...#.......#',
+      '#......c......#.b.#...3...#',
+      '#.v...........#...#.......#',
+      '########Z#############W####',
+      '#...............#.........#',
+      '#......1........#..c...^..#',
+      'V...c...........Y....2....U',
+      '#..............b#.....c...#',
+      '#...............#...^.....#',
+      '###########################',
+    ],
+    luces: [[1, 13, 15, 17, 0.6], [19, 9, 25, 11, 0.95], [15, 7, 17, 11, 0.3]],
+  },
+  {
+    id: 'tumba-cruzado',
+    nombre: 'La Tumba del Cruzado',
+    descripcion: 'Bajo una vieja biblioteca, unas catacumbas llevan a las tres pruebas que protegen el cáliz. Elige con sabiduría.',
+    muro: 'catacumba', suelo: 'losa', techo: 'techo',
+    texTablilla: 'tablilla_catacumba',
+    tinte: [1.0, 0.97, 0.9],
+    luz: 0.5,
+    angulo: Math.PI / 2,
+    leyenda: { S: { tipo: 'secreto', tex: 'catacumba_grieta' } },
+    tesoros: { 1: 'diario_profesor', 2: 'escudo_cruzado', 3: 'caliz_carpintero', 4: 'espada_templaria' },
+    avisos: {
+      K: 'Solo el penitente pasará. Espera con humildad a que las cuchillas duerman.',
+      I: 'Solo con un salto de fe se demostrará su valía.',
+      J: 'Elige con sabiduría: el cáliz de un carpintero no lleva oro ni joyas.',
+    },
+    acertijos: {
+      T: { id: 'lapida-hermanos', tipo: 'pista', dificultad: [1, 2], sello: 'Z', titulo: 'La lápida de los tres hermanos' },
+      V: { id: 'vitral', tipo: 'pista', dificultad: [3, 3], sello: 'Y', titulo: 'El vitral de la biblioteca' },
+      U: { id: 'palabra', tipo: 'pista', dificultad: [4, 5], sello: 'W', titulo: 'La palabra del guardián' },
+    },
+    plano: [
+      '###########################',
+      '#.......#.....#######.....#',
+      '#...P...S..4..#######..b..#',
+      '#.......#...k.#######.....U',
+      '####D################.....#',
+      '#.............#######.....#',
+      '#......n......#########.###',
+      '#...#.....#...K..^..^..^..#',
+      'T.....k.......D..^..^..^..#',
+      '#...#.....#...#..^..^..^..#',
+      'X...........R.########W####',
+      '#..v.....n....#...........I',
+      '###Z###########_______:___#',
+      '#.....#.......#_______:___#',
+      '#..1..#...2...#_______:___#',
+      '#.....Y.......#...........#',
+      '#.....#..n....#.f.3.f...f.J',
+      '#.....#.......#..f......f.#',
+      '###V#######################',
+    ],
+    luces: [[15, 15, 25, 17, 0.9], [21, 1, 25, 5, 0.65], [9, 1, 13, 3, 0.3]],
   },
 ];

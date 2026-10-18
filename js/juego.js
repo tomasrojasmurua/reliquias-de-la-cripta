@@ -16,7 +16,15 @@ const ENEMIGOS = {
   draugr: { vida: 75, vel: 1.25, daño: [9, 15], alcance: 1.0, espera: 1.3, vista: 11 },
   pirata: { vida: 45, vel: 1.7, daño: [7, 12], alcance: 1.05, espera: 0.9, vista: 13 },
   jaguar: { vida: 50, vel: 2.3, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 14 },
+  sectario: { vida: 40, vel: 1.9, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 13 },
+  caballero: { vida: 95, vel: 1.1, daño: [12, 18], alcance: 1.1, espera: 1.3, vista: 12 },
 };
+
+// Pinchos: suben durante ARRIBA segundos de cada CICLO, desfasados por columna.
+const PINCHOS = { ciclo: 2.4, arriba: 0.9, daño: 15 };
+export function pinchosArriba(x, t) {
+  return ((t + x * 0.55) % PINCHOS.ciclo) < PINCHOS.arriba;
+}
 
 const ARMAS = {
   latigo: { nombre: 'Látigo', espera: 0.55, alcance: 1.9, daño: [14, 22] },
@@ -50,16 +58,16 @@ export class Juego {
 
   // ---------- Física de rejilla ----------
 
-  choca(x, z, r) {
+  choca(x, z, r, enemigo = false) {
     for (let cz = Math.floor(z - r); cz <= Math.floor(z + r); cz++)
       for (let cx = Math.floor(x - r); cx <= Math.floor(x + r); cx++)
-        if (this.mapa.solida(cx, cz)) return true;
+        if (enemigo ? this.mapa.bloqueaEnemigo(cx, cz) : this.mapa.solida(cx, cz)) return true;
     return false;
   }
 
-  mover(e, dx, dz, r) {
-    if (!this.choca(e.x + dx, e.z, r)) e.x += dx;
-    if (!this.choca(e.x, e.z + dz, r)) e.z += dz;
+  mover(e, dx, dz, r, enemigo = false) {
+    if (!this.choca(e.x + dx, e.z, r, enemigo)) e.x += dx;
+    if (!this.choca(e.x, e.z + dz, r, enemigo)) e.z += dz;
   }
 
   // DDA: primera casilla sólida en la dirección (dx, dz). Devuelve {dist, cx, cz}.
@@ -95,7 +103,7 @@ export class Juego {
     j.yaw += ent.giro + ent.giroTeclas * GIRO_TECLAS * dt;
     j.cabeceo = Math.max(-MAX_CABECEO, Math.min(MAX_CABECEO, j.cabeceo + ent.cabeceo));
 
-    const vel = (ent.correr ? VEL_CORRER : VEL) * dt;
+    const vel = j.cayendo !== undefined ? 0 : (ent.correr ? VEL_CORRER : VEL) * dt;
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
     const rx = -fz, rz = fx;
     let mx = fx * ent.adelante + rx * ent.lado, mz = fz * ent.adelante + rz * ent.lado;
@@ -123,7 +131,36 @@ export class Juego {
     if (ent.disparar) this.atacar();
 
     this.recoger();
+    this.peligros(dt);
     this.actualizarEnemigos(dt);
+  }
+
+  // Trampas y peligros bajo los pies del jugador.
+  peligros(dt) {
+    const j = this.j;
+    if (j.cayendo !== undefined) {
+      j.cayendo += dt;
+      if (j.cayendo > 0.9 && !j.muerto) { j.vida = 0; j.muerto = true; this.ev.muerte(this.resumen('Caíste al abismo.')); }
+      return;
+    }
+    const cx = Math.floor(j.x), cz = Math.floor(j.z);
+    const c = this.mapa.celda(cx, cz);
+    if (!c) return;
+    if (c.peligro === 'abismo') {
+      j.cayendo = 0; sonar('dolor'); this.ev.mensaje('¡Aaaah!');
+      return;
+    }
+    if (c.peligro === 'lava') {
+      j.quemadura = (j.quemadura || 0) + dt * 28;
+      if (j.quemadura >= 1) { const n = Math.floor(j.quemadura); j.quemadura -= n; this.dañarJugador(n, 'La lava no perdona.'); }
+    }
+    if (c.trampa === 'pinchos' && pinchosArriba(cx, this.tiempo)) {
+      const ciclo = Math.floor((this.tiempo + cx * 0.55) / PINCHOS.ciclo);
+      if (j.ultimoPincho !== cx + ':' + cz + ':' + ciclo) {
+        j.ultimoPincho = cx + ':' + cz + ':' + ciclo;
+        this.dañarJugador(PINCHOS.daño, 'Te atravesaron los pinchos.');
+      }
+    }
   }
 
   cambiarArma(a) {
@@ -204,6 +241,7 @@ export class Juego {
       if (a.resuelto) this.ev.mensaje('Ya descifraste esta inscripción.');
       else this.ev.abrirTablilla(a);
     }
+    else if (c.tipo === 'aviso') this.ev.mensaje(`«${c.texto}»`, 6);
     else if (c.tipo === 'salida') this.salir();
   }
 
@@ -219,8 +257,9 @@ export class Juego {
     this.ev.salida(this.resumen());
   }
 
-  resumen() {
+  resumen(causa = null) {
     return {
+      causa,
       mazmorra: this.def, tesoros: this.tesoros, totalTesoros: this.totalTesoros,
       secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
       abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,
@@ -250,6 +289,11 @@ export class Juego {
         if (j.vida >= 100) continue;
         o.cogido = true; j.vida = Math.min(100, j.vida + 25);
         sonar('recoger'); this.ev.mensaje('Vendas (+25 de vida).');
+      } else if (o.tipo === 'falso') {
+        o.cogido = true;
+        sonar('error');
+        this.dañarJugador(45, 'Elegiste mal.');
+        if (!j.muerto) this.ev.mensaje('Elegiste mal: ese cáliz era una trampa y se convierte en polvo.', 4);
       } else if (o.tipo === 'tesoro') {
         o.cogido = true;
         const t = TESORO[o.tesoro];
@@ -275,7 +319,7 @@ export class Juego {
       if (e.estado === 'ataca') {
         e.t -= dt;
         if (e.t <= 0) {
-          if (d < e.alcance + 0.25) this.dañarJugador(azar(e.daño));
+          if (d < e.alcance + 0.25) this.dañarJugador(azar(e.daño), 'Has caído en la cripta.');
           e.estado = 'caza'; e.espera = e.espera || 0.6;
         }
         continue;
@@ -290,24 +334,25 @@ export class Juego {
       const mx = meta.x - e.x, mz = meta.z - e.z, ml = Math.hypot(mx, mz);
       if (ml > 0.6) {
         const v = e.vel * dt;
-        this.mover(e, mx / ml * v, mz / ml * v, 0.28);
+        this.mover(e, mx / ml * v, mz / ml * v, 0.28, true);
       } else e.visto = null;
       // separación entre enemigos
       for (const o of this.enemigos) {
         if (o === e || o.estado === 'muerto') continue;
         const sx = e.x - o.x, sz = e.z - o.z, sd = Math.hypot(sx, sz);
-        if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, 0.28);
+        if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, 0.28, true);
       }
       if (Math.random() < dt * 0.08) sonar('gruñido');
     }
   }
 
-  dañarJugador(n) {
+  dañarJugador(n, causa = 'Has caído en la cripta.') {
     const j = this.j;
+    if (j.muerto) return;
     j.vida = Math.max(0, j.vida - Math.round(n));
     sonar('dolor');
     this.ev.daño();
-    if (j.vida <= 0) { j.muerto = true; this.ev.muerte(this.resumen()); }
+    if (j.vida <= 0) { j.muerto = true; this.ev.muerte(this.resumen(causa)); }
   }
 
   // ---------- Vista ----------
@@ -315,7 +360,8 @@ export class Juego {
   camara() {
     const j = this.j;
     const bob = Math.sin(j.paso) * 0.025;
-    return { x: j.x, y: (j.muerto ? 0.2 : OJO) + bob, z: j.z, yaw: j.yaw, pitch: j.cabeceo };
+    const caida = j.cayendo !== undefined ? -j.cayendo * j.cayendo * 6 : 0;
+    return { x: j.x, y: (j.muerto && caida === 0 ? 0.2 : OJO) + bob + caida, z: j.z, yaw: j.yaw, pitch: j.cayendo !== undefined ? 0.5 : j.cabeceo };
   }
 
   sprites() {
@@ -324,8 +370,13 @@ export class Juego {
     for (const o of this.objetos) {
       if (o.cogido) continue;
       const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
-      if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: 0.04 + flota + 0.04, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: 1.2 });
+      if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: 1.2 });
+      else if (o.tipo === 'tesoro') s.push({ x: o.x, z: o.z, y: 0.04 + flota + 0.04, ancho: 0.55, alto: 0.55, tex: 'tesoro_' + o.tesoro, luz: 1.2 });
       else s.push({ x: o.x, z: o.z, y: 0, ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
+    }
+    for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
+      const c = m.celdas[z * m.ancho + x];
+      if (c.trampa === 'pinchos' && pinchosArriba(x, this.tiempo)) s.push({ x: x + 0.5, z: z + 0.5, y: 0, ancho: 0.95, alto: 0.45, tex: 'pinchos', luz: c.luz });
     }
     for (const e of this.enemigos) {
       let pose;

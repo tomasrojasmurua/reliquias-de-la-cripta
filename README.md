@@ -15,6 +15,8 @@ Para probarlo en local: `python3 -m http.server` en esta carpeta y abrir http://
 3. **La Fortaleza del Glaciar** (vikingos en el hielo): tres tablillas encadenadas.
 4. **La Cueva de Drake** (el galeón del corsario Francis Drake): tres tablillas encadenadas.
 5. **El Templo del Jaguar** (pirámide maya en la selva): tres tablillas encadenadas.
+6. **El Templo Maldito** (una secta, tres piedras sagradas y un río de lava): pinchos y un camino entre la lava hasta el revólver.
+7. **La Tumba del Cruzado** (catacumbas y las tres pruebas del cáliz): la senda del penitente (pinchos), la palabra (una tablilla de dificultad 4–5) y el salto de fe (un puente oculto sobre un abismo). Al final hay varios cálices, y solo uno es el verdadero.
 
 En las tres últimas, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
 
@@ -57,10 +59,15 @@ Cada mazmorra en `datos/mazmorras.js` es un plano de texto donde cada carácter 
 | `X` | salida |
 | `!` | antorcha (ilumina alrededor) |
 | `R` `b` `v` | revólver, caja de balas, vendas |
-| `m` `k` `g` `p` `j` | momia, esqueleto, draugr (vikingo congelado), pirata esqueleto, guerrero jaguar |
+| `m` `k` `g` `p` `j` `c` `n` | momia, esqueleto, draugr (vikingo congelado), pirata esqueleto, guerrero jaguar, sectario, caballero cruzado |
+| `^` | pinchos que suben y bajan (hay que cruzar a tiempo) |
+| `~` | lava (quema mientras la pisas) |
+| `_` | abismo (caída mortal) |
+| `:` | puente oculto: parece abismo, pero se puede pisar |
+| `f` | cáliz falso: parece un tesoro y es una trampa |
 | `1`–`9` | tesoros, según el campo `tesoros` |
 
-Otros campos opcionales: `zonas` (rectángulos con otro suelo, techo o muro), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
+Otros campos opcionales: `zonas` (rectángulos con otro suelo, techo o muro), `avisos` (inscripciones de pista que se leen con «Usar»: `{ K: 'texto' }`), `texTablilla` y `texSello` (texturas de tablillas y sellos), `tinte` (color de la luz) y `leyenda` (caracteres propios, por ejemplo `'=': { tipo: 'muro', tex: 'madera' }`).
 
 Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [min, max], sello: 'Z', titulo }` pone una tablilla en cada `T` del plano y un sello en cada `Z`. Al acertar la pista de la tablilla se abren sus sellos. La dificultad (1 a 5) elige al azar una pista del banco de esa dificultad, evitando las que el jugador ya resolvió. La regla es poner tesoros más valiosos tras pistas más difíciles y tras los pasadizos secretos.
 
