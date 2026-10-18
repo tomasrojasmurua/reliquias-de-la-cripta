@@ -1,0 +1,16 @@
+{
+  "name": "Reliquias de la Cripta",
+  "short_name": "Reliquias",
+  "description": "Un cazador de tesoros en mazmorras llenas de acertijos crípticos.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#120d08",
+  "theme_color": "#120d08",
+  "icons": [
+    { "src": "iconos/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "iconos/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
