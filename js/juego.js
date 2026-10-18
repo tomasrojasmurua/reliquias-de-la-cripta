@@ -140,6 +140,9 @@ export class Juego {
 
     j.yaw += ent.giro + ent.giroTeclas * GIRO_TECLAS * dt;
     j.cabeceo = Math.max(-MAX_CABECEO, Math.min(MAX_CABECEO, j.cabeceo + ent.cabeceo));
+    if (ent.nivelar) j.cabeceo *= Math.max(0, 1 - dt * 2.5);
+    this.asistir = ent.asistir;
+    if (ent.asistir) this.imantar(dt);
 
     const vel = j.cayendo !== undefined ? 0 : (ent.correr ? VEL_CORRER : VEL) * dt;
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
@@ -300,6 +303,7 @@ export class Juego {
       j.tambor--;
       sonar('disparo');
       this.fogonazo = 1;
+      this.ev.vibrar?.(18);
       // el ruido despierta a los enemigos cercanos
       for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 12) e.estado = 'caza';
     } else {
@@ -316,7 +320,8 @@ export class Juego {
       const ex = e.x - j.x, ez = e.z - j.z;
       const a = ex * fx + ez * fz;
       const lat = Math.abs(ex * fz - ez * fx);
-      if (a > 0 && a < Math.min(muro, arma.alcance) && lat < 0.32 + a * 0.02 && a < mejorD) { mejor = e; mejorD = a; }
+      const cono = (0.32 + a * 0.02) * (this.asistir ? 1.8 : 1);
+      if (a > 0 && a < Math.min(muro, arma.alcance) && lat < cono && a < mejorD) { mejor = e; mejorD = a; }
     }
     if (mejor) this.herir(mejor, azar(arma.daño));
     else if (muro < arma.alcance) {
@@ -327,6 +332,32 @@ export class Juego {
       if (j.arma === 'revolver') this.salpicar(ix, iy, iz, 'chispa', 3, 1.2);
       else setTimeout(() => sonar('golpe'), 90);
     }
+  }
+
+  // Puntería asistida (táctil): la vista se desliza suavemente hacia el enemigo
+  // despierto más cercano que esté casi en la mira.
+  imantar(dt) {
+    const j = this.j;
+    let mejor = null, mejorD = 14;
+    for (const e of this.enemigos) {
+      if (e.estado === 'muerto' || e.estado === 'dormido') continue;
+      const d = Math.hypot(e.x - j.x, e.z - j.z);
+      if (d >= mejorD) continue;
+      let dif = Math.atan2(e.z - j.z, e.x - j.x) - j.yaw;
+      dif = Math.atan2(Math.sin(dif), Math.cos(dif));
+      if (Math.abs(dif) > 0.16 || !this.seVe(j, e)) continue;
+      mejor = dif; mejorD = d;
+    }
+    if (mejor !== null) j.yaw += Math.max(-dt * 0.9, Math.min(dt * 0.9, mejor * dt * 4));
+  }
+
+  // ¿Hay algo que usar justo enfrente? (ilumina el botón «Usar»; los pasadizos secretos no se delatan)
+  puedeUsar() {
+    const j = this.j;
+    const h = this.rayo(j.x, j.z, Math.cos(j.yaw), Math.sin(j.yaw), 1.4);
+    if (h.dist >= 1.4) return false;
+    const c = this.mapa.celda(h.cx, h.cz);
+    return !!c && (['tablilla', 'aviso', 'salida', 'sello'].includes(c.tipo) || (c.tipo === 'puerta' && !c.abriendo));
   }
 
   herir(e, daño) {
@@ -485,6 +516,7 @@ export class Juego {
     j.vida = Math.max(0, j.vida - Math.round(n));
     sonar('dolor');
     this.ev.daño();
+    this.ev.vibrar?.(60);
     if (j.vida <= 0) { j.muerto = true; this.ev.muerte(this.resumen(causa)); }
   }
 
