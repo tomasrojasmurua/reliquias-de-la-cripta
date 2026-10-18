@@ -202,7 +202,7 @@ function terminar(r, exito) {
     guardar();
   }
   const min = Math.floor(r.tiempo / 60), seg = Math.floor(r.tiempo % 60);
-  $('#resumen h2').textContent = exito ? '¡Escapaste con vida!' : 'Has caído en la cripta';
+  $('#resumen h2').textContent = exito ? '¡Escapaste con vida!' : (r.causa || 'Has caído en la cripta.');
   $('#resumen .datos').innerHTML = `
     <li>Tesoros: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
     <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>

@@ -3,7 +3,7 @@
 
 export const T = 64;
 export const COLS = 16;
-export const FILAS = 8;
+export const FILAS = 16;
 
 const casillas = {};   // nombre -> [col, fila]
 const dibujos = [];
@@ -382,6 +382,70 @@ registrar('techo_arena', b => {
   for (let x = 0; x < T; x++) { b.tinte(x, 0, 0.55); b.tinte(0, x, 0.55); }
 });
 
+// ---------- Templo maldito ----------
+
+function dibujaVolcanica(b, r) {
+  ladrillos(b, r, [92, 58, 48], { alto: 16, ancho: 32, mortero: [36, 20, 16], variacion: 0.25 });
+  ruido(b, r, 0.22);
+  for (let n = 0; n < 6; n++) { const x = Math.floor(r() * T), y = Math.floor(r() * T); b.set(x, y, 220, 90, 30); b.set(x + 1, y, 180, 60, 20); }
+}
+registrar('volcanica', b => dibujaVolcanica(b, rng(141)));
+registrar('volcanica_grieta', b => { dibujaVolcanica(b, rng(141)); const r = rng(19); grieta(b, r, 31, 2, 40); grieta(b, r, 20, 30, 26); });
+registrar('tablilla_volcanica', b => dibujaTablilla(b, b => dibujaVolcanica(b, rng(141)), [150, 112, 84]));
+registrar('losa_roja', b => {
+  const r = rng(143);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const junta = x % 32 === 0 || y % 32 === 0;
+    const f = junta ? 0.5 : 1;
+    b.set(x, y, 110 * f, 70 * f, 56 * f);
+  }
+  ruido(b, r, 0.25);
+});
+registrar('lava', b => {
+  const r = rng(145);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const v = Math.sin(x * 0.2 + Math.sin(y * 0.15) * 3) + Math.sin(y * 0.23 + Math.cos(x * 0.1) * 2);
+    const t = (v + 2) / 4;
+    if (t < 0.35) b.set(x, y, 90, 20, 8);
+    else b.set(x, y, 200 + t * 55, 60 + t * 150, 10 + t * 40);
+  }
+  ruido(b, r, 0.1);
+});
+registrar('agujeros', b => {
+  const r = rng(147);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) b.set(x, y, 92, 86, 78);
+  ruido(b, r, 0.25);
+  for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { b.rect(5 + i * 16, 5 + j * 16, 5, 5, [16, 12, 10]); b.rect(5 + i * 16, 5 + j * 16, 5, 1, [50, 44, 40]); }
+});
+registrar('abismo', b => {
+  const r = rng(149);
+  b.rect(0, 0, T, T, [14, 12, 12]); ruido(b, r, 0.6);
+});
+registrar('abismo_puente', b => {
+  const r = rng(149);
+  b.rect(0, 0, T, T, [14, 12, 12]); ruido(b, r, 0.6);
+  // el puente se camufla con el fondo: solo lo delatan juntas casi invisibles
+  for (let x = 0; x < T; x++) { b.tinte(x, 0, 1.6); b.tinte(x, 32, 1.4); }
+});
+
+// ---------- Tumba del cruzado ----------
+
+function dibujaCatacumba(b, r) {
+  ladrillos(b, r, [140, 128, 108], { alto: 16, ancho: 32, mortero: [70, 62, 52], variacion: 0.2 });
+  ruido(b, r, 0.18);
+  // nicho con calaveras
+  b.rect(12, 22, 40, 20, [30, 24, 20]);
+  for (let i = 0; i < 4; i++) {
+    const x = 14 + i * 9;
+    b.rect(x, 30, 7, 7, [214, 204, 180]); b.rect(x + 1, 37, 5, 3, [214, 204, 180]);
+    b.set(x + 1, 32, 30, 24, 20); b.set(x + 2, 32, 30, 24, 20); b.set(x + 4, 32, 30, 24, 20); b.set(x + 5, 32, 30, 24, 20);
+  }
+  for (let x = 14; x < 50; x += 3) b.rect(x, 25, 2, 3, [190, 180, 156]);
+}
+registrar('catacumba', b => dibujaCatacumba(b, rng(151)));
+registrar('catacumba_grieta', b => { dibujaCatacumba(b, rng(151)); const r = rng(23); grieta(b, r, 6, 2, 18); grieta(b, r, 56, 44, 18); });
+registrar('tablilla_catacumba', b => dibujaTablilla(b, b => dibujaCatacumba(b, rng(151)), [176, 164, 136]));
+
 // ---------- Sprites (fondo transparente) ----------
 
 function sprite(fn) {
@@ -410,6 +474,10 @@ const ESTILOS = {
   pirata: { cuerpo: 'huesos', piel: '#ddd3b8', sombra: '#9e957c', ojo: '#2a1a10', accesorio: 'pañuelo' },
   // guerrero jaguar con piel moteada y tocado de plumas
   jaguar: { cuerpo: 'momia', piel: '#d9a441', sombra: '#8a5e1c', ojo: '#ffe14a', accesorio: 'plumas', manchas: true },
+  // sectario del templo maldito: túnica roja y máscara de calavera
+  sectario: { cuerpo: 'momia', piel: '#8a2418', sombra: '#4e0f0a', ojo: '#ffcc33', accesorio: 'mascara', liso: true },
+  // caballero cruzado guardián: armadura y sobreveste blanca con cruz roja
+  caballero: { cuerpo: 'momia', piel: '#a4aab2', sombra: '#5c626a', ojo: '#111111', accesorio: 'yelmo', liso: true },
 };
 
 function humanoide(g, tipo, pose) {
@@ -420,6 +488,8 @@ function humanoide(g, tipo, pose) {
     if (momia) { r(g, 8, 52, 48, 9, sombra); r(g, 10, 52, 44, 6, piel); r(g, 48, 50, 10, 9, piel); }
     else { r(g, 10, 56, 40, 4, piel); r(g, 46, 50, 10, 9, piel); r(g, 20, 54, 4, 4, sombra); r(g, 30, 54, 4, 4, sombra); }
     if (e.accesorio === 'pañuelo') r(g, 46, 48, 10, 3, '#b02020');
+    if (e.accesorio === 'mascara') r(g, 46, 50, 9, 8, '#e8e0c8');
+    if (e.accesorio === 'yelmo') { r(g, 46, 49, 11, 10, '#8a9098'); r(g, 20, 54, 16, 4, '#eeeae0'); r(g, 26, 53, 3, 6, '#b02020'); }
     if (e.accesorio === 'cuernos') { r(g, 44, 46, 3, 4, '#e8e0c8'); r(g, 57, 46, 3, 4, '#e8e0c8'); }
     if (e.accesorio === 'plumas') { r(g, 44, 44, 4, 6, '#2fa860'); r(g, 50, 43, 4, 7, '#d03030'); }
     return;
@@ -461,7 +531,7 @@ function humanoide(g, tipo, pose) {
   if (e.manchas) {
     g.fillStyle = '#4a2c0c';
     for (const [x, y] of [[22, 24], [30, 28], [38, 23], [26, 34], [35, 36], [15, 30], [46, 32], [24, 46], [37, 50]]) g.fillRect(x, y + dy, 3, 2);
-  } else if (momia) {
+  } else if (momia && !e.liso) {
     g.fillStyle = sombra;
     for (let y = 8; y < 60; y += 5) g.fillRect(14, y + dy + (y % 2), 36, 1);
   }
@@ -477,6 +547,17 @@ function humanoide(g, tipo, pose) {
     const colores = ['#2fa860', '#d03030', '#2f6ad0', '#2fa860', '#e8c020'];
     colores.forEach((c, i) => r(g, 22 + i * 4, -6 + dy + Math.abs(2 - i) * 2, 3, 10, c));
     r(g, 26, 9 + dy, 12, 2, '#4a2c0c');
+  }
+  if (e.accesorio === 'mascara') {
+    r(g, 22, 4 + dy, 20, 6, '#4e0f0a'); r(g, 22, 4 + dy, 3, 18, '#4e0f0a'); r(g, 39, 4 + dy, 3, 18, '#4e0f0a'); // capucha
+    r(g, 26, 9 + dy, 12, 11, '#e8e0c8'); r(g, 27, 12 + dy, 3, 3, '#111'); r(g, 34, 12 + dy, 3, 3, '#111'); r(g, 29, 17 + dy, 6, 2, '#111');
+    r(g, 27, 12 + dy, 1, 1, '#ffcc33'); r(g, 34, 12 + dy, 1, 1, '#ffcc33');
+    r(g, 26, 24 + dy, 12, 2, '#e8b83a'); // collar
+  }
+  if (e.accesorio === 'yelmo') {
+    r(g, 24, 4 + dy, 16, 17, '#8a9098'); r(g, 25, 4 + dy, 14, 2, '#c8ccd2'); r(g, 26, 12 + dy, 12, 2, '#111'); r(g, 31, 14 + dy, 2, 5, '#111');
+    r(g, 22, 22 + dy, 20, 19, '#eeeae0'); r(g, 30, 24 + dy, 4, 14, '#b02020'); r(g, 25, 28 + dy, 14, 4, '#b02020'); // sobreveste
+    r(g, 50, 4 + dy + alza, 2, 26, '#d8dde4'); r(g, 46, 28 + dy + alza, 10, 2, '#8a6a2a'); // espada
   }
   if (pose === 3) { r(g, 26, 26, 6, 4, '#7a1010'); }
 }
@@ -495,6 +576,13 @@ registrar('balas', sprite(g => {
   r(g, 16, 40, 32, 20, '#6b4a22'); r(g, 16, 40, 32, 4, '#8a6230');
   for (let i = 0; i < 5; i++) { r(g, 19 + i * 6, 30, 4, 10, '#c89a3a'); r(g, 19 + i * 6, 28, 4, 3, '#9a6a2a'); }
   r(g, 22, 48, 20, 6, '#d8c08a');
+}));
+registrar('pinchos', sprite(g => {
+  for (let i = 0; i < 6; i++) {
+    const x = 6 + i * 10;
+    g.fillStyle = '#c8ccd2'; g.beginPath(); g.moveTo(x, 64); g.lineTo(x + 4, 6 + (i % 2) * 8); g.lineTo(x + 8, 64); g.fill();
+    g.fillStyle = '#7a8088'; g.fillRect(x + 4, 20 + (i % 2) * 8, 3, 44);
+  }
 }));
 registrar('vendas', sprite(g => {
   r(g, 20, 40, 24, 20, '#efe8d8'); r(g, 20, 40, 24, 3, '#ffffff');
@@ -523,6 +611,9 @@ const FORMAS = {
   cuerno(g, c, o) { g.strokeStyle = o; g.lineWidth = 9; g.beginPath(); g.arc(30, 30, 18, 0.2, 2.6); g.stroke(); g.strokeStyle = c; g.lineWidth = 6; g.beginPath(); g.arc(30, 30, 18, 0.2, 2.6); g.stroke(); r(g, 44, 34, 8, 6, o); },
   hacha(g, c, o) { r(g, 30, 16, 4, 44, '#6b3e1f'); g.fillStyle = c; g.beginPath(); g.moveTo(34, 18); g.lineTo(50, 12); g.lineTo(50, 40); g.lineTo(34, 32); g.fill(); r(g, 34, 22, 6, 6, o); r(g, 29, 56, 6, 4, o); },
   disco(g, c, o) { g.fillStyle = o; g.beginPath(); g.arc(32, 38, 20, 0, Math.PI * 2); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(32, 38, 17, 0, Math.PI * 2); g.fill(); g.fillStyle = o; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.fillRect(32 + Math.cos(a) * 12 - 1, 38 + Math.sin(a) * 12 - 1, 3, 3); } g.beginPath(); g.arc(32, 38, 6, 0, Math.PI * 2); g.fill(); },
+  piedra(g, c, o) { g.fillStyle = o; g.beginPath(); g.ellipse(32, 42, 14, 17, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = c; g.beginPath(); g.ellipse(31, 41, 11, 14, 0, 0, Math.PI * 2); g.fill(); r(g, 22, 36, 20, 2, o); r(g, 22, 44, 20, 2, o); r(g, 24, 40, 16, 2, o); },
+  libro(g, c, o) { r(g, 16, 26, 32, 30, o); r(g, 18, 26, 28, 28, c); r(g, 46, 28, 3, 26, '#efe6cc'); r(g, 24, 32, 16, 2, o); r(g, 24, 37, 12, 2, o); r(g, 30, 42, 4, 8, '#b02020'); r(g, 27, 45, 10, 2, '#b02020'); },
+  escudo(g, c, o) { g.fillStyle = o; g.beginPath(); g.moveTo(16, 20); g.lineTo(48, 20); g.lineTo(46, 42); g.lineTo(32, 58); g.lineTo(18, 42); g.closePath(); g.fill(); g.fillStyle = c; g.beginPath(); g.moveTo(19, 23); g.lineTo(45, 23); g.lineTo(43, 41); g.lineTo(32, 54); g.lineTo(21, 41); g.closePath(); g.fill(); r(g, 30, 25, 4, 26, '#b02020'); r(g, 22, 32, 20, 4, '#b02020'); },
   escarabajo(g, c, o) { r(g, 22, 28, 20, 26, o); r(g, 24, 30, 16, 22, c); r(g, 31, 30, 2, 22, o); r(g, 26, 22, 12, 7, o); r(g, 18, 34, 4, 2, o); r(g, 42, 34, 4, 2, o); r(g, 18, 44, 4, 2, o); r(g, 42, 44, 4, 2, o); },
 };
 
