@@ -457,7 +457,8 @@ function sprite(fn, opciones = {}) {
     fn(g);
     const d = g.getImageData(0, 0, T, T).data;
     for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) d[i + 3] = 0; else d[i + 3] = 255; }
-    if (opciones.relieve !== false) relieve(d);
+    if (opciones.pulir) pulir(d, opciones.pulir);
+    else if (opciones.relieve !== false) relieve(d);
     b.d.set(d);
   };
 }
@@ -484,11 +485,48 @@ function relieve(d) {
   for (const i of borde) { d[i] = 18; d[i + 1] = 12; d[i + 2] = 8; d[i + 3] = 255; }
 }
 
+// Acabado de los tesoros: volumen según la distancia al borde, luz arriba a la izquierda,
+// una veta de brillo diagonal (dos en los legendarios) y un contorno del tono oscuro del metal.
+function hexRGB(c) { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
+function pulir(d, { oscuro, rareza }) {
+  const a = (x, y) => x >= 0 && y >= 0 && x < T && y < T && d[(y * T + x) * 4 + 3] > 0;
+  const orig = new Uint8ClampedArray(d);
+  const borde = [];
+  const vetas = rareza === 'legendario' ? [[50, 53], [62, 63]] : rareza === 'comun' ? [] : [[50, 52]];
+  const linea = hexRGB(oscuro).map(v => v * 0.3);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = (y * T + x) * 4;
+    if (!orig[i + 3]) {
+      if (a(x - 1, y) || a(x + 1, y) || a(x, y - 1) || a(x, y + 1)) borde.push(i);
+      continue;
+    }
+    let k = 1;
+    while (k < 4 && a(x - k, y) && a(x + k, y) && a(x, y - k) && a(x, y + k)) k++;
+    let f = 0.8 + k * 0.07;
+    if (!a(x - 1, y) || !a(x, y - 1)) f *= 1.32;
+    if (!a(x + 1, y) || !a(x, y + 1)) f *= 0.58;
+    let c = [orig[i] * f, orig[i + 1] * f, orig[i + 2] * f];
+    if (k >= 2 && vetas.some(([v0, v1]) => x + y >= v0 && x + y <= v1)) c = c.map(v => v + (255 - v) * 0.6);
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
+  }
+  for (const i of borde) { d[i] = linea[0]; d[i + 1] = linea[1]; d[i + 2] = linea[2]; d[i + 3] = 255; }
+}
+
+// Trama ordenada 4x4 para degradados con píxeles enteros (los sprites no tienen transparencia parcial).
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+function tramado(g, color, intensidad, desfase = 0) {
+  g.fillStyle = color;
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const v = intensidad(x, y);
+    if (v > 0 && v * 16 > BAYER[((y + desfase) % 4) * 4 + ((x + desfase) % 4)]) g.fillRect(x, y, 1, 1);
+  }
+}
+
 function r(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
 // Humanoide genérico. estilo: cuerpo 'momia' (vendado, macizo) o 'huesos' (esqueleto),
 // colores y un accesorio opcional. pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto,
-// 5 y 6 cayendo (animación de muerte), 7 lanzar (brazos al frente).
+// 5 y 6 cayendo (animación de muerte), 7 lanzar (brazos al frente), 8 paso intermedio.
 const ESTILOS = {
   momia: { cuerpo: 'momia', piel: '#c9b98f', sombra: '#8f7f5b', ojo: '#ff5a1f' },
   esqueleto: { cuerpo: 'huesos', piel: '#e4ddc8', sombra: '#a8a08a', ojo: '#2a1a10' },
@@ -520,7 +558,8 @@ function humanoide(g, tipo, pose) {
     return;
   }
   const paso = pose === 1 ? 1 : 0;
-  const dy = pose === 3 ? 2 : 0;
+  const dy = pose === 3 ? 2 : pose === 8 ? -1 : 0;
+  const vaiven = pose === 0 ? 2 : pose === 1 ? -2 : 0; // los brazos se balancean al caminar
   // piernas
   if (momia) {
     r(g, 22, 40 + dy, 8, 22 - dy - paso * 2, sombra); r(g, 34, 40 + dy, 8, 22 - dy - (1 - paso) * 2, sombra);
@@ -539,10 +578,10 @@ function humanoide(g, tipo, pose) {
   // brazos
   const alza = pose === 2 ? -10 : pose === 7 ? -6 : 0;
   if (momia) {
-    r(g, 13, 22 + dy + alza, 7, 18, sombra); r(g, 44, 22 + dy + alza, 7, 18, sombra);
-    r(g, 14, 22 + dy + alza, 5, 17, piel); r(g, 45, 22 + dy + alza, 5, 17, piel);
+    r(g, 13, 22 + dy + alza + vaiven, 7, 18, sombra); r(g, 44, 22 + dy + alza - vaiven, 7, 18, sombra);
+    r(g, 14, 22 + dy + alza + vaiven, 5, 17, piel); r(g, 45, 22 + dy + alza - vaiven, 5, 17, piel);
   } else {
-    r(g, 17, 22 + dy + alza, 3, 17, piel); r(g, 44, 22 + dy + alza, 3, 17, piel);
+    r(g, 17, 22 + dy + alza + vaiven, 3, 17, piel); r(g, 44, 22 + dy + alza - vaiven, 3, 17, piel);
   }
   if (e.accesorio === 'pañuelo') {
     // sable en la mano derecha
@@ -619,7 +658,7 @@ function caer(g, e, momia, pose) {
 }
 
 for (const tipo of Object.keys(ESTILOS)) {
-  for (let pose = 0; pose < 8; pose++) registrar(`${tipo}_${pose}`, sprite(g => humanoide(g, tipo, pose)));
+  for (let pose = 0; pose < 9; pose++) registrar(`${tipo}_${pose}`, sprite(g => humanoide(g, tipo, pose)));
 }
 
 // Partículas de impacto y proyectiles (sin relieve: son manchas pequeñas de luz o polvo).
@@ -666,6 +705,74 @@ registrar('vendas', sprite(g => {
   r(g, 29, 44, 6, 14, '#b02020'); r(g, 25, 48, 14, 6, '#b02020');
 }));
 
+// ---------- Ambiente ----------
+
+// Llama de antorcha de muro (3 cuadros) y brasa que sube.
+for (let k = 0; k < 3; k++) registrar('llama_' + k, sprite(g => {
+  const rnd = rng(71 + k);
+  const capas = [['#b8320a', 1], ['#ff7a1a', 0.78], ['#ffc83a', 0.52], ['#fff4c0', 0.26]];
+  for (const [color, e] of capas) {
+    g.fillStyle = color;
+    for (let y = 4; y < 60; y++) {
+      const t = (y - 4) / 56;                      // 0 arriba, 1 abajo
+      const ancho = Math.sin(Math.min(1, t * 1.15) * Math.PI * 0.62) * 22 * e;
+      const ondula = Math.sin(y * 0.35 + k * 2.1) * (1 - t) * 4;
+      if (t < 1 - e * 0.95) continue;
+      const w = Math.max(0, ancho + (rnd() - 0.5) * 2);
+      g.fillRect(32 + ondula - w / 2, y, w, 1);
+    }
+  }
+}, { relieve: false }));
+registrar('brasa', sprite(g => { r(g, 28, 28, 8, 8, '#ff9a2a'); r(g, 30, 30, 4, 4, '#fff0b0'); }, { relieve: false }));
+registrar('mota', sprite(g => { r(g, 26, 26, 12, 12, '#d8cbb0'); }, { relieve: false }));
+
+// Halos según rareza y destellos que giran alrededor de los tesoros.
+for (const [rareza, color] of [['raro', '#4f90e0'], ['epico', '#b066f0'], ['legendario', '#ffc040']]) {
+  for (let k = 0; k < 2; k++) registrar(`halo_${rareza}_${k}`, sprite(g => tramado(g, color, (x, y) => {
+    const d = Math.hypot(x - 32, y - 32);
+    return d > 30 ? 0 : (1 - d / 30) * (rareza === 'legendario' ? 0.42 : 0.3);
+  }, k * 2), { relieve: false }));
+}
+for (let k = 0; k < 4; k++) registrar('destello_' + k, sprite(g => {
+  const l = [4, 10, 16, 10][k];
+  r(g, 31, 32 - l, 2, l * 2, '#fff6d8'); r(g, 32 - l, 31, l * 2, 2, '#fff6d8');
+  r(g, 29, 29, 6, 6, '#ffe58a'); r(g, 31, 31, 2, 2, '#ffffff');
+}, { relieve: false }));
+
+// Decorado del suelo: huesos, cráneo, vasija, escombros, velas (2 cuadros) y telaraña.
+registrar('deco_huesos', sprite(g => {
+  r(g, 10, 54, 30, 4, '#d8cfb4'); r(g, 8, 52, 5, 8, '#d8cfb4'); r(g, 37, 52, 5, 8, '#d8cfb4');
+  g.save(); g.translate(40, 52); g.rotate(-0.5); r(g, -2, -14, 4, 22, '#c8bea2'); r(g, -4, -16, 8, 4, '#c8bea2'); g.restore();
+  r(g, 20, 58, 26, 3, '#b0a688');
+}));
+registrar('deco_craneo', sprite(g => {
+  r(g, 20, 40, 24, 16, '#e0d8c0'); r(g, 23, 56, 18, 6, '#e0d8c0');
+  r(g, 24, 46, 6, 6, '#1a120a'); r(g, 34, 46, 6, 6, '#1a120a'); r(g, 30, 53, 4, 3, '#1a120a');
+  r(g, 25, 59, 2, 3, '#1a120a'); r(g, 31, 59, 2, 3, '#1a120a'); r(g, 37, 59, 2, 3, '#1a120a');
+}));
+registrar('deco_vasija', sprite(g => {
+  r(g, 26, 22, 12, 4, '#7a4a26'); r(g, 28, 26, 8, 4, '#9a6034');
+  g.fillStyle = '#a8683a'; g.beginPath(); g.ellipse(32, 44, 15, 17, 0, 0, Math.PI * 2); g.fill();
+  r(g, 18, 40, 28, 3, '#5a3418'); r(g, 20, 48, 24, 2, '#5a3418'); r(g, 25, 58, 14, 4, '#7a4a26');
+}));
+registrar('deco_escombros', sprite(g => {
+  const rnd = rng(81);
+  for (let i = 0; i < 9; i++) { const w = 6 + rnd() * 10, h = 4 + rnd() * 6; r(g, 6 + rnd() * 46, 62 - h - rnd() * 6, w, h, ['#6e665a', '#8a8070', '#5a5248'][i % 3]); }
+}));
+for (let k = 0; k < 2; k++) registrar('deco_velas_' + k, sprite(g => {
+  for (const [x, h] of [[18, 16], [28, 24], [40, 12], [47, 19]]) {
+    r(g, x, 62 - h, 5, h, '#e8dcb8'); r(g, x, 62 - h, 5, 2, '#fff4d8'); r(g, x + 2, 59 - h, 1, 3, '#2a1a10');
+    const f = (x + k * 3) % 2;
+    r(g, x + 1 - f, 52 - h, 3, 6, '#ff9a2a'); r(g, x + 1, 54 - h + f, 2, 3, '#fff0a0');
+  }
+  r(g, 14, 60, 40, 3, '#d8c8a0');
+}, { relieve: false }));
+registrar('deco_telarana', sprite(g => {
+  g.strokeStyle = '#cfcfc8'; g.lineWidth = 1;
+  for (let i = 0; i <= 6; i++) { const a = i / 6 * Math.PI / 2; g.beginPath(); g.moveTo(2, 2); g.lineTo(2 + Math.cos(a) * 60, 2 + Math.sin(a) * 60); g.stroke(); }
+  for (let rr = 12; rr < 60; rr += 11) { g.beginPath(); g.arc(2, 2, rr, 0, Math.PI / 2); g.stroke(); }
+}, { relieve: false }));
+
 // ---------- Tesoros ----------
 
 function brillo(g, x, y) { r(g, x, y - 3, 1, 7, '#fff'); r(g, x - 3, y, 7, 1, '#fff'); }
@@ -702,14 +809,18 @@ export function registrarTesoros(catalogo) {
     if (casillas['tesoro_' + t.id]) continue;
     registrar('tesoro_' + t.id, sprite(g => {
       FORMAS[t.forma](g, t.color, t.oscuro);
-      brillo(g, 40, 26); brillo(g, 24, 46);
-    }));
+      brillo(g, 40, 26);
+      if (t.rareza !== 'comun') brillo(g, 24, 46);
+    }, { pulir: { oscuro: t.oscuro, rareza: t.rareza } }));
   }
 }
 
 // ---------- Atlas ----------
 
+export const casillasUsadas = () => dibujos.length;
+
 export function crearAtlas() {
+  if (dibujos.length > COLS * FILAS) throw new Error(`El atlas no alcanza: ${dibujos.length} dibujos`);
   const c = document.createElement('canvas');
   c.width = COLS * T; c.height = FILAS * T;
   const g = c.getContext('2d');

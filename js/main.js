@@ -102,28 +102,56 @@ function pintarMazmorras() {
   }
 }
 
+// Colección: una vitrina por rareza, más cuidada y adornada cuanto más raro es lo que guarda.
+const VITRINAS = [
+  ['legendario', 'Legendarios', 'Tras cristal tallado, sobre terciopelo carmesí.'],
+  ['epico', 'Épicos', 'En ébano y plata, a la luz de las velas.'],
+  ['raro', 'Raros', 'Caoba pulida con remaches de bronce.'],
+  ['comun', 'Comunes', 'Estanterías de madera del campamento.'],
+];
+function mazmorraDe(id) {
+  return MAZMORRAS.find(m => Object.values(m.tesoros || {}).includes(id) || m.laberinto?.tesoros?.includes(id));
+}
 function pintarColeccion() {
-  const g = $('#rejilla-tesoros');
-  g.innerHTML = '';
+  const cont = $('#vitrinas');
+  cont.innerHTML = '';
   const tengo = new Set(progreso.tesoros);
   let valor = 0;
-  for (const t of TESOROS) {
-    const r = RAREZAS[t.rareza];
-    const d = document.createElement('div');
-    d.className = 'tesoro' + (tengo.has(t.id) ? '' : ' oculto');
-    d.style.setProperty('--rareza', r.color);
-    const img = miniatura(atlas, 'tesoro_' + t.id, 1);
-    d.appendChild(img);
-    const txt = document.createElement('div');
-    txt.innerHTML = tengo.has(t.id)
-      ? `<strong>${t.nombre}</strong><em>${r.nombre}</em><span>${t.descripcion}</span>`
-      : `<strong>???</strong><em>${r.nombre}</em><span>Aún no lo encuentras.</span>`;
-    d.appendChild(txt);
-    g.appendChild(d);
-    if (tengo.has(t.id)) valor += r.valor;
+  for (const [rareza, titulo, lema] of VITRINAS) {
+    const lista = TESOROS.filter(t => t.rareza === rareza);
+    const hallados = lista.filter(t => tengo.has(t.id)).length;
+    const v = document.createElement('section');
+    v.className = 'vitrina v-' + rareza;
+    v.innerHTML = `<header class="cornisa"><h3>${titulo}</h3><small>${hallados} de ${lista.length}</small></header><p class="lema-vitrina">${lema}</p><div class="cristal"><div class="repisa"></div></div><div class="zocalo"></div>`;
+    const repisa = v.querySelector('.repisa');
+    lista.forEach((t, i) => {
+      const lo = tengo.has(t.id);
+      if (lo) valor += RAREZAS[rareza].valor;
+      const b = document.createElement('button');
+      b.className = 'pieza' + (lo ? '' : ' oculta');
+      b.style.setProperty('--retraso', (i % 5) * -0.7 + 's');
+      b.setAttribute('aria-label', lo ? t.nombre : 'Tesoro sin descubrir');
+      b.appendChild(miniatura(atlas, 'tesoro_' + t.id, 1));
+      b.onclick = () => abrirFicha(t, lo);
+      repisa.appendChild(b);
+    });
+    cont.appendChild(v);
   }
   $('#resumen-coleccion').textContent = `${tengo.size} de ${TESOROS.length} tesoros · valor ${valor}`;
 }
+function abrirFicha(t, lo) {
+  const f = $('#ficha'), r = RAREZAS[t.rareza], m = mazmorraDe(t.id);
+  f.className = 'f-' + t.rareza;
+  const pieza = f.querySelector('.ficha-pieza');
+  pieza.innerHTML = ''; pieza.classList.toggle('oculta', !lo);
+  pieza.appendChild(miniatura(atlas, 'tesoro_' + t.id, 3));
+  f.querySelector('h3').textContent = lo ? t.nombre : '???';
+  f.querySelector('em').textContent = r.nombre;
+  f.querySelector('p').textContent = lo ? t.descripcion : 'Aún no lo encuentras.';
+  f.querySelector('small').textContent = m ? (lo ? 'Hallado en ' : 'Se esconde en ') + m.nombre : '';
+  f.hidden = false;
+}
+$('#ficha').onclick = e => { if (e.target.id === 'ficha' || e.target.closest('.cerrar')) $('#ficha').hidden = true; };
 
 function pintarOpciones() {
   for (const b of document.querySelectorAll('[data-calidad]')) b.classList.toggle('activo', b.dataset.calidad === calidad);
@@ -298,7 +326,7 @@ let fpsT = 0, fpsN = 0;
 function cuadro(t) {
   requestAnimationFrame(cuadro);
   if (!juego) return;
-  const dt = Math.min(0.05, (t - ultimo) / 1000);
+  const dt = Math.max(0, Math.min(0.05, (t - ultimo) / 1000));
   ultimo = t;
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
