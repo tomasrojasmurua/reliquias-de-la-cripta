@@ -1,11 +1,11 @@
 // Guarda los archivos del juego para jugar sin conexión.
 // Pide primero la versión nueva a la red y, si no hay conexión, usa la copia guardada.
 // Si agregas un archivo que el juego necesita, añádelo a ARCHIVOS y sube el número de CACHE.
-const CACHE = 'reliquias-v4';
+const CACHE = 'reliquias-v5';
 const ARCHIVOS = [
   './', 'index.html', 'css/estilo.css', 'manifest.webmanifest',
   'js/main.js', 'js/render.js', 'js/texturas.js', 'js/mapa.js', 'js/juego.js', 'js/entrada.js',
-  'js/arma.js', 'js/audio.js', 'js/acertijos.js', 'js/automapa.js',
+  'js/arma.js', 'js/audio.js', 'js/acertijos.js', 'js/automapa.js', 'js/laberinto.js',
   'datos/mazmorras.js', 'datos/tesoros.js', 'datos/pistas.js',
   'iconos/icono-192.png', 'iconos/icono-512.png',
 ];

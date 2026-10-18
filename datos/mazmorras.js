@@ -20,6 +20,9 @@
 //   'a'..'e' bajan 0.3 m por letra (fosos y salas hundidas).
 // `zonas`: rectángulos [x0, y0, x1, y1, {suelo, techo, muro, cielo, desnivel}] con otras texturas;
 //   `cielo` es la altura del techo y `desnivel` la textura de escalones y paredes entre alturas.
+// `laberinto`: túneles que se generan de nuevo en cada partida (js/laberinto.js), pegados `abajo` o a la
+//   `derecha` del plano; `puerta` es la casilla del borde del plano que se vuelve puerta hacia ellos,
+//   y `tesoros` los que se esconden en los callejones más hondos.
 // `ambiente`: sonido de fondo (cripta, desierto, nieve, mar, selva, lava o catacumba).
 // `texTablilla`, `texSello`: texturas de tablillas y sellos. `tinte`: color de la luz [r, g, b].
 // `avisos`: { carácter: 'texto' } pone inscripciones en el muro que se leen con «Usar».
@@ -27,6 +30,7 @@
 export const MAZMORRAS = [
   {
     id: 'cripta-escarabajo',
+    laberinto: { lado: 'abajo', puerta: [9, 15], ancho: 43, alto: 17, tesoros: ['ushebti', 'paleta_escriba'] },
     ambiente: 'cripta',
     nombre: 'La Cripta del Escarabajo',
     descripcion: 'Una tumba menor bajo las arenas. Buen lugar para empezar.',
@@ -79,6 +83,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-arenas',
+    laberinto: { lado: 'abajo', puerta: [14, 16], ancho: 43, alto: 17, tesoros: ['espejo_bronce', 'collar_cornalina'] },
     ambiente: 'desierto',
     nombre: 'El Templo de las Arenas',
     descripcion: 'Dos inscripciones custodian las cámaras del templo. La más difícil guarda algo legendario.',
@@ -137,6 +142,7 @@ export const MAZMORRAS = [
 
   {
     id: 'glaciar-jarl',
+    laberinto: { lado: 'abajo', puerta: [7, 18], ancho: 43, alto: 17, tesoros: ['broche_plata', 'cuerno_guerra'] },
     ambiente: 'nieve',
     nombre: 'La Fortaleza del Glaciar',
     descripcion: 'Un salón vikingo sepultado bajo el hielo del norte. Sus guerreros nunca dejaron de hacer guardia.',
@@ -200,6 +206,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'cueva-drake',
+    laberinto: { lado: 'abajo', puerta: [4, 18], ancho: 45, alto: 17, tesoros: ['catalejo_grumete', 'collar_perlas'] },
     ambiente: 'mar',
     nombre: 'La Cueva de Drake',
     descripcion: 'Una cueva marina donde encalló un galeón del corsario Francis Drake. Su tripulación sigue a bordo.',
@@ -266,6 +273,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-jaguar',
+    laberinto: { lado: 'derecha', puerta: [26, 29], ancho: 23, alto: 33, tesoros: ['figurilla_maiz', 'cuchillo_obsidiana'] },
     ambiente: 'selva',
     nombre: 'El Templo del Jaguar',
     descripcion: 'Una pirámide maya tragada por la selva. Sus guerreros jaguar defienden el ídolo del dios.',
@@ -372,6 +380,7 @@ export const MAZMORRAS = [
 
   {
     id: 'templo-maldito',
+    laberinto: { lado: 'derecha', puerta: [26, 20], ancho: 23, alto: 33, tesoros: ['cuenta_rudraksha', 'monedas_maharaja'] },
     ambiente: 'lava',
     nombre: 'El Templo Maldito',
     descripcion: 'Bajo un palacio en las montañas, una secta esconde las tres piedras sagradas robadas a una aldea. Cuidado con la lava.',
@@ -477,6 +486,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'tumba-cruzado',
+    laberinto: { lado: 'derecha', puerta: [26, 20], ancho: 23, alto: 33, tesoros: ['pagina_diario', 'moneda_templaria'] },
     ambiente: 'catacumba',
     nombre: 'La Tumba del Cruzado',
     descripcion: 'Bajo una vieja biblioteca, unas catacumbas llevan a las tres pruebas que protegen el cáliz. Elige con sabiduría.',

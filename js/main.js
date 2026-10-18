@@ -75,7 +75,7 @@ function pintarMazmorras() {
   const lista = $('#lista-mazmorras');
   lista.innerHTML = '';
   for (const m of MAZMORRAS) {
-    const ids = Object.values(m.tesoros);
+    const ids = [...Object.values(m.tesoros), ...(m.laberinto?.tesoros || [])];
     const tengo = ids.filter(id => progreso.tesoros.includes(id)).length;
     const est = progreso.mazmorras[m.id] || {};
     const b = document.createElement('button');
