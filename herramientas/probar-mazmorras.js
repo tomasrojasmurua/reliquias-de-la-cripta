@@ -50,6 +50,8 @@ for (const prueba of pruebas) {
   pagina.on('console', msg => { if (msg.type() === 'error') errores.push(msg.text()); });
   // sin conexión a las fuentes de Google no pasa nada: se usan las del sistema
   await pagina.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  // el ranking en línea responde vacío: la prueba no lee ni escribe en la base de verdad
+  await pagina.route(/\.supabase\.co\//, r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 201, body: '' }));
   try {
     await pagina.goto(url);
     await prueba.entrar(pagina);
