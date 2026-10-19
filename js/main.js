@@ -2,7 +2,7 @@ import { crearAtlas, registrarTesoros, miniatura } from './texturas.js';
 import { Render } from './render.js';
 import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
-import { Juego } from './juego.js';
+import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
@@ -648,7 +648,7 @@ function cuadro(t) {
   const linterna = (juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025)
     * (juego.mods.has('oscuridad') ? 0.5 : 1);
   const cam = juego.camara();
-  render.dibujar(cam, juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra() });
+  render.dibujar(cam, juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra(), pinchosArriba: x => pinchosArriba(x, juego.tiempo) });
   etiquetas.actualizar(juego, cam);
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
