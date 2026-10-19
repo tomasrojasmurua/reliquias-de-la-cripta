@@ -240,7 +240,6 @@ const SONIDOS = {
   menu_atras() { tono(200, 0.1, 0.12, 'triangle', 0, 130); ruido(0.03, 1000, 2, 0.08, 'bandpass'); },
   menu_alternar() { tono(700, 0.03, 0.08, 'triangle'); tono(950, 0.04, 0.08, 'triangle', 0.06); },
   menu_entrar() {
-    ruido(1.4, 200, 1, 0.3, 'lowpass', 0, salida, 80);
     INSTRUMENTOS.campana(c(), ctx.currentTime, 147, 3, 0.12, salida);
     PERCUSION.timbal(c(), ctx.currentTime, 0.6, salida);
   },
