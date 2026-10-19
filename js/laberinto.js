@@ -231,7 +231,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
 const tiposDe = def => [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
 
 // Caracteres libres para tablillas y sellos nuevos (los que no usa ya el plano ni sus acertijos).
-const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N'], ['A', 'B'], ['C', 'O'], ['M', 'R']];
+const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N'], ['A', 'B'], ['C', 'O'], ['M', 'R'], ['α', 'β'], ['γ', 'δ'], ['ε', 'ζ'], ['η', 'θ']];
 function paresLibres(def) {
   const usados = new Set([...def.plano.join(''), ...Object.keys(def.acertijos || {}), ...Object.values(def.acertijos || {}).map(a => a.sello), ...Object.keys(def.leyenda || {}), 'R']);
   return CARACTERES_ACERTIJO.filter(([a, b]) => !usados.has(a) && !usados.has(b));

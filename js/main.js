@@ -325,8 +325,8 @@ function actualizarHUD() {
   hz.hidden = !z;
   if (z) {
     const txt = `${z.halladas} de ${z.total} reliquia${z.total === 1 ? '' : 's'}`;
-    if (hz.dataset.clave !== z.numero + txt) {
-      hz.dataset.clave = z.numero + txt;
+    if (hz.dataset.clave !== z.numero + z.nombre + txt) {
+      hz.dataset.clave = z.numero + z.nombre + txt;
       hz.children[0].textContent = `Zona ${z.numero}`;
       hz.children[1].textContent = `· ${z.nombre}:`;
       hz.children[2].textContent = txt;
