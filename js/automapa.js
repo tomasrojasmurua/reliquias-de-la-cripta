@@ -127,10 +127,25 @@ export function dibujarAutomapa(ctx, w, h, juego) {
       ctx.fillText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
     }
   }
-  // los otros cazadores de la sala, con el color de su sombrero
+  // los otros cazadores de la sala, con el color de su sombrero: solo donde ya exploraste,
+  // o unos segundos tras llevarse un tesoro (entonces, en zona desconocida, sobre un círculo de niebla)
   for (const o of juego.otros || []) {
-    ctx.fillStyle = COLOR_CAZADOR[o.color] || '#fff'; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(ox + o.x * t, oy + o.z * t, Math.max(4, t * 0.45), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    const conocido = visto(Math.floor(o.x), Math.floor(o.z));
+    if (!conocido && !o.aviso) continue;
+    const px = ox + o.x * t, py = oy + o.z * t, col = COLOR_CAZADOR[o.color] || '#fff';
+    if (o.aviso) {
+      const fase = (performance.now() % 1200) / 1200;
+      if (!conocido) {
+        const g = ctx.createRadialGradient(px, py, 0, px, py, t * 3.2);
+        g.addColorStop(0, 'rgba(241, 228, 200, .35)'); g.addColorStop(1, 'rgba(241, 228, 200, 0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, t * 3.2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.globalAlpha = 1 - fase;
+      ctx.beginPath(); ctx.arc(px, py, Math.max(6, t * 0.5) + fase * t * 2.5, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = col; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(px, py, Math.max(4, t * 0.45), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
   // jugador
   const px = ox + j.x * t, py = oy + j.z * t, r = Math.max(5, t * 0.55);

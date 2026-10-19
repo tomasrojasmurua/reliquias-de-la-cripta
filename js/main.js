@@ -603,12 +603,16 @@ function reclamarTesoro(o) {
   sala.tomar(o.n);
   setTimeout(() => { o.pendiente = false; }, 2500);   // por si la respuesta se pierde, se puede volver a pedir
 }
+// Quien se lleva un tesoro queda a la vista en el automapa unos segundos, aunque esté en una zona que no has explorado.
+const AVISO_MS = 8000;
+const avisos = new Map();   // puesto -> hasta cuándo se le ve
 function tesoroDeSala(i, id) {
   const o = actual?.sala && !actual.sala.fin && juego?.objetos[i];
   if (!o || o.tipo !== 'tesoro' || o.cogido) return;
   if (id === sala.yo) { juego.tomar(o); return; }
   const j = sala.jugadores.find(q => q.id === id);
   juego.ceder(o, { nombre: j?.nombre || 'Otro cazador', color: j?.color || 'rojo' });
+  avisos.set(id, performance.now() + AVISO_MS);
   mensaje(`${j?.nombre || 'Otro cazador'} se llevó ${TESORO[o.tesoro].nombre}`, 3);
 }
 
@@ -670,7 +674,7 @@ function cuadroDeSala(t, dt, sprites) {
     c.rx += (c.x - c.rx) * k; c.rz += (c.z - c.rz) * k; c.ry += (c.y - c.ry) * k;
     const camina = antes / Math.max(dt, 0.001) > 0.8;
     const color = sala?.jugadores.find(j => j.id === id)?.color || COLORES[id % COLORES.length];
-    juego.otros.push({ x: c.rx, z: c.rz, color });
+    juego.otros.push({ x: c.rx, z: c.rz, color, aviso: (avisos.get(id) || 0) > t });
     sprites.push({ x: c.rx, z: c.rz, y: c.ry, ancho: 0.95, alto: 0.95, tex: `cazador_${color}_${camina ? Math.floor(t / 180) % 2 : 8}`, luz: Math.max(0.6, m.celda(Math.floor(c.rx), Math.floor(c.rz))?.luz ?? 0.5) });
   }
   if (t - hudSalaT > 400) { hudSalaT = t; pintarHudSala(); }
