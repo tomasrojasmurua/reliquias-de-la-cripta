@@ -70,7 +70,7 @@ const ARMAS = {
   // la escopeta: siete perdigones que se abren con la distancia; de cerca es lo más fuerte que hay
   escopeta: { nombre: 'Escopeta', espera: 0.85, alcance: 16, daño: [6, 9], perdigones: 7 },
   // la Tommy gun: ráfaga mientras se mantiene el disparo; cada bala pega poco y se dispersa un poco
-  tommy: { nombre: 'Tommy gun', espera: 0.08, alcance: 28, daño: [5, 8], dispersion: 0.045 },
+  tommy: { nombre: 'Tommy gun', espera: 0.08, alcance: 28, daño: [4, 7], dispersion: 0.045 },
 };
 const ORDEN_ARMAS = ['latigo', 'revolver', 'escopeta', 'tommy'];
 const TUBO = 2, MAX_CARTUCHOS = 24;
@@ -93,7 +93,7 @@ const SALPICA = {
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
 // al empezar la partida y al reaparecer, para que nadie espere a otro en la entrada.
 // (la Tommy gun, que dispara una ráfaga, pega menos aún para que una sola ráfaga no decida el duelo)
-const DAÑO_CAZADOR = 0.6, DAÑO_CAZADOR_TOMMY = 0.35, TREGUA_INICIAL = 10, TREGUA_REAPARECER = 4;
+const DAÑO_CAZADOR = 0.6, DAÑO_CAZADOR_TOMMY = 0.45, TREGUA_INICIAL = 10, TREGUA_REAPARECER = 4;
 const VEL_FUEGO = 5.5, VEL_FLECHA = 9;
 
 export class Juego {
@@ -854,8 +854,9 @@ export class Juego {
       const tercio = Math.floor((1 - e.vida / e.vidaMax) * 3);
       if (tercio > e.invocaciones) { e.invocaciones = tercio; this.invocar(e); }
     } else {
-      // no todos los golpes los frenan: así no se les gana solo a latigazos seguidos
-      if (Math.random() < 0.6 || e.estado === 'dormido' || e.estado === 'oculto') { e.estado = 'dolor'; e.t = 0.25; }
+      // no todos los golpes los frenan: así no se les gana solo a latigazos seguidos; y tras frenarse aguantan un rato
+      // sin frenarse otra vez, para que una ráfaga no los deje paralizados mientras la vida se les acaba
+      if ((Math.random() < 0.6 && !(e.sinFreno > 0)) || e.estado === 'dormido' || e.estado === 'oculto') { e.estado = 'dolor'; e.t = 0.25; e.sinFreno = 0.6; }
       else if (e.estado !== 'caza' && e.estado !== 'dolor') e.estado = 'caza';
       this.voz(e, 'dolor');
     }
@@ -1142,6 +1143,7 @@ export class Juego {
   actualizarEnemigos(dt) {
     for (const e of this.enemigos) {
       e.golpe = Math.max(0, (e.golpe || 0) - dt);
+      e.sinFreno = Math.max(0, (e.sinFreno || 0) - dt);
       if (e.estado === 'muerto') { e.tMuerte += dt; continue; }
       e.anim += dt;
       e.espera = Math.max(0, e.espera - dt);

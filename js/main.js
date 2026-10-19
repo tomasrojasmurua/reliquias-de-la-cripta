@@ -43,10 +43,10 @@ const TAMANOS = {
 // En una sala se pierde tiempo coordinando y descifrando entre varios, así que los relojes son más largos.
 const MINUTOS_SALA = { pequena: [4, 6, 8], mediana: [8, 12, 16], grande: [14, 20, 26] };
 const minutosDe = (tam, i) => prep.modo === 'sala' ? MINUTOS_SALA[tam][i] : TAMANOS[tam].minutos[i];
-// El combate entre cazadores se elige al crear la sala; si no se eligió, va con los tesoros exclusivos (con compartidos no hay nada que robar).
-const combateDe = () => (prep.combate ?? (prep.tesoros === 'exclusivos' ? 'si' : 'no')) === 'si';
+// Con tesoros exclusivos los cazadores pueden herirse (el que cae suelta su último tesoro y otro se lo lleva); con compartidos no hay nada que robar.
+const combateDe = () => prep.tesoros === 'exclusivos';
 const RITMOS = ['Corto', 'Normal', 'Largo'];
-const prep = { tesoros: progreso.opciones.tesoros || 'exclusivos', modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1, combate: progreso.opciones.combate };
+const prep = { tesoros: progreso.opciones.tesoros || 'exclusivos', modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
 let elegida = null;   // la mazmorra de la pantalla de preparación
 let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
 const recordDe = (def, tamano, seg) => (progreso.records || {})[`${def.id}:${tamano}:${seg}`] || 0;
@@ -139,7 +139,7 @@ for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventLi
 
 // Sonidos de los menús: al pasar el ratón y al elegir.
 const enMenu = b => b?.closest('.menu, #pausa');
-const ALTERNAR = '[data-sens], [data-calidad], [data-modo], [data-tamano], [data-ritmo], [data-tesoros], [data-combate], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
+const ALTERNAR = '[data-sens], [data-calidad], [data-modo], [data-tamano], [data-ritmo], [data-tesoros], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
 document.addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!enMenu(b)) return;
@@ -184,13 +184,8 @@ function pintarPreparar() {
   $('#prep-tesoros').hidden = !enSala;
   for (const b of document.querySelectorAll('[data-tesoros]')) b.classList.toggle('activo', b.dataset.tesoros === prep.tesoros);
   $('#nota-tesoros').textContent = prep.tesoros === 'exclusivos'
-    ? 'Cada tesoro es del primero que lo toma; los demás encuentran una nota «¡Llegaste tarde!».'
-    : 'Todos pueden recoger cada tesoro. Gana quien más reúna, y al final se ve cómo lo logró cada uno.';
-  $('#prep-combate').hidden = !enSala;
-  for (const b of document.querySelectorAll('[data-combate]')) b.classList.toggle('activo', (b.dataset.combate === 'si') === combateDe());
-  $('#nota-combate').textContent = combateDe()
-    ? `Los cazadores pueden herirse. Quien cae suelta su último tesoro${prep.tesoros === 'exclusivos' ? ' y otro puede llevárselo' : ''}, y el automapa solo muestra a los demás un momento cuando toman un tesoro.`
-    : 'Los cazadores no pueden herirse y el automapa muestra a los demás donde ya exploraste.';
+    ? 'Cada tesoro es del primero que lo toma; los demás encuentran una nota «¡Llegaste tarde!». Los cazadores pueden herirse: quien cae suelta su último tesoro, y el automapa solo muestra a los demás un momento cuando alguien toma uno.'
+    : 'Todos pueden recoger cada tesoro y no hay combate entre cazadores. Gana quien más reúna, y al final se ve cómo lo logró cada uno.';
   document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
     b.innerHTML = `${RITMOS[i]}<small>${minutosDe(tam, i)} min</small>`;
     b.classList.toggle('activo', i === prep.ritmo);
@@ -206,7 +201,6 @@ function pintarPreparar() {
 const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave] = valor; guardar(); pintarPreparar(); };
 for (const b of document.querySelectorAll('[data-modo]')) b.onclick = () => elegir('modo', b.dataset.modo);
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
-for (const b of document.querySelectorAll('[data-combate]')) b.onclick = () => elegir('combate', b.dataset.combate);
 for (const b of document.querySelectorAll('[data-tesoros]')) b.onclick = () => elegir('tesoros', b.dataset.tesoros);
 for (const b of document.querySelectorAll('[data-ritmo]')) b.onclick = () => elegir('ritmo', +b.dataset.ritmo);
 $('#btn-entrar').onclick = () => prep.modo === 'sala' ? crearSala() : empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
@@ -712,8 +706,6 @@ function posicionDeCazador(id, p) {
     c = { nombre: sala.jugadores.find(j => j.id === id)?.nombre || 'Un cazador', rx: p.x, rz: p.z, ry: p.y };
     cazadores.set(id, c);
   }
-  // con tesoros compartidos no hay aviso de quién toma cada uno: se nota porque le sube el puntaje
-  if (juego?.combate && actual?.sala?.tesoros === 'compartidos' && c.pt !== undefined && p.pt > c.pt) avisos.set(id, performance.now() + AVISO_MS);
   Object.assign(c, { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pt: p.pt, m: p.m });
 }
 
