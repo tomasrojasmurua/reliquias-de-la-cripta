@@ -45,9 +45,9 @@ export const MAZMORRAS = [
       pasos: [[0, 1, 42, 25], [1, 2, 52, 32], [2, 3, 62, 47]],
       salida: [1, 2],
       zonas: [
-        { nombre: 'La antecámara', tesoros: ['ushebti', 'paleta_escriba'], acertijo: { dificultad: [1, 2], titulo: 'La estela de las galerías' } },
-        { nombre: 'Las galerías del embalsamador', tesoros: ['cuchillo_embalsamador', 'jarra_natron', 'amuleto_tyet', 'escarabajo_corazon'], acertijo: { dificultad: [2, 3], titulo: 'El papiro del embalsamador' } },
-        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo'], acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
+        { nombre: 'La antecámara', tesoros: ['ushebti', 'paleta_escriba'], camaras: 1, acertijo: { dificultad: [1, 2], titulo: 'La estela de las galerías' } },
+        { nombre: 'Las galerías del embalsamador', tesoros: ['cuchillo_embalsamador', 'jarra_natron', 'amuleto_tyet', 'escarabajo_corazon'], camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El papiro del embalsamador' } },
+        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
         { nombre: 'La cámara de Jepri', tesoros: ['escarabajo_jepri'] },
       ],
     },

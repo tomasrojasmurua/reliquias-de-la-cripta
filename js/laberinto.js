@@ -139,9 +139,11 @@ function fondo(t, [x, y]) {
 }
 
 // Pone una tablilla en el muro de la sala más honda (o al fondo del callejón más hondo).
-function ponerTablilla(t, car) {
+function ponerTablilla(t, car, alAzar = false) {
   const { g, salas, d, dentro } = t;
   const porHondura = salas.slice().sort((a, b) => d(b.x0, b.y0) - d(a.x0, a.y0));
+  // las tablillas de las cámaras van en cualquier sala, empezando por una al azar
+  if (alAzar) herramientas(t.azar).mezclar(porHondura);
   for (const s of porHondura) {
     const muros = [];
     for (let x = s.x0; x <= s.x1; x++) { muros.push([x, s.y0 - 1]); muros.push([x, s.y1 + 1]); }
@@ -156,9 +158,11 @@ function ponerTablilla(t, car) {
   return null;
 }
 
-// Tesoros al fondo de los callejones (a veces tras un muro agrietado), y en el resto balas, vendas,
-// emboscadas o nada. Después, hordas en las salas, antorchas y trampas de pinchos.
-function poblar(t, ids, nuevoCaracter, tiposEnemigo) {
+// Tesoros al fondo de los callejones, y en el resto balas, vendas, emboscadas o nada. Los primeros
+// `camaras.length` tesoros quedan en cámaras selladas: el sello se abre con el acertijo de una tablilla
+// que está en alguna sala del mismo bloque. Los demás, la mitad de las veces tras un muro agrietado.
+// Después, algunos enemigos en las salas, antorchas y trampas de pinchos.
+function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
   const { g, W, H, salas, dentro, d, enSala, azar } = t;
   const { elegir, mezclar } = herramientas(azar);
   const enemigo = () => elegir(tiposEnemigo.length ? tiposEnemigo : ['k']);
@@ -166,10 +170,15 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo) {
   const tesoros = {};
   const hondos = finales.slice(0, Math.max(ids.length + 1, Math.ceil(finales.length * 0.4)));
   mezclar(hondos);
-  for (const id of ids) {
+  ids.forEach((id, n) => {
     const c = nuevoCaracter();
     tesoros[c] = id;
-    let pos = hondos.shift() || finales.pop();
+    const camara = camaras[n];
+    // una cámara sellada necesita un callejón cuyo pasillo no dé a una sala
+    const libre = ([x, y]) => { const [dx, dy] = V.find(([dx, dy]) => g[y + dy][x + dx] === '.') || [0, 0]; return (dx || dy) && !enSala(x + dx, y + dy); };
+    let pos = camara ? (hondos.find(libre) || finales.find(libre)) : null;
+    if (pos && hondos.includes(pos)) hondos.splice(hondos.indexOf(pos), 1);
+    pos = pos || hondos.shift() || finales.pop();
     if (!pos) { // casi sin callejones: la casilla de pasillo más lejana
       let mejor = null;
       for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (g[y][x] === '.' && !enSala(x, y) && (!mejor || d(x, y) > d(...mejor))) mejor = [x, y];
@@ -180,13 +189,17 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo) {
     // la mitad de las veces el callejón se tapia con un muro agrietado: un nicho secreto
     g[y][x] = c;
     const [dx, dy] = V.find(([dx, dy]) => g[y + dy][x + dx] === '.') || [0, 0];
-    if (azar() < 0.5 && (dx || dy) && !enSala(x + dx, y + dy)) g[y + dy][x + dx] = 'S';
-  }
+    if (camara && (dx || dy) && !enSala(x + dx, y + dy)) {
+      g[y + dy][x + dx] = camara.sello;
+      if (!ponerTablilla(t, camara.tablilla, true)) g[y + dy][x + dx] = '.';
+      else camara.puesta = true;
+    } else if (azar() < 0.5 && (dx || dy) && !enSala(x + dx, y + dy)) g[y + dy][x + dx] = 'S';
+  });
   for (const [x, y] of finales) {
     const r = azar();
     if (r < 0.2) g[y][x] = 'b';
     else if (r < 0.3) g[y][x] = 'v';
-    else if (r < 0.5) g[y][x] = enemigo(); // algo espera al fondo del callejón
+    else if (r < 0.4) g[y][x] = enemigo(); // algo espera al fondo del callejón
   }
 
   for (const s of salas) {
@@ -194,7 +207,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo) {
     for (let y = s.y0; y <= s.y1; y++) for (let x = s.x0; x <= s.x1; x++) if (g[y][x] === '.') casillas.push([x, y]);
     mezclar(casillas);
     const r = azar();
-    const n = r < 0.55 ? 2 + Math.floor(azar() * 3) : r < 0.75 ? 1 : 0;
+    const n = r < 0.4 ? 1 + Math.floor(azar() * 3) : r < 0.65 ? 1 : 0;
     for (let i = 0; i < n && casillas.length; i++) { const [x, y] = casillas.pop(); g[y][x] = enemigo(); }
     if (azar() < 0.35 && casillas.length) { const [x, y] = casillas.pop(); g[y][x] = azar() < 0.6 ? 'b' : 'v'; }
     // antorcha en una pared de la sala
@@ -217,6 +230,27 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo) {
 
 const tiposDe = def => [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
 
+// Caracteres libres para tablillas y sellos nuevos (los que no usa ya el plano ni sus acertijos).
+const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N'], ['A', 'B'], ['C', 'O'], ['M', 'R']];
+function paresLibres(def) {
+  const usados = new Set([...def.plano.join(''), ...Object.keys(def.acertijos || {}), ...Object.values(def.acertijos || {}).map(a => a.sello), ...Object.keys(def.leyenda || {}), 'R']);
+  return CARACTERES_ACERTIJO.filter(([a, b]) => !usados.has(a) && !usados.has(b));
+}
+const TITULOS_CAMARA = ['La inscripción del nicho', 'La placa del guardián', 'El grabado del relicario', 'Las palabras del constructor', 'La marca del saqueador', 'El acertijo de la cámara', 'La plegaria del sepulturero', 'El verso del umbral'];
+
+// Prepara `n` cámaras selladas con sus acertijos; después de poblar, `cerrar` quita las que no cupieron.
+function camarasNuevas(n, pares, acertijos, def) {
+  const camaras = [];
+  for (let k = 0; k < n && pares.length; k++) {
+    const [tablilla, sello] = pares.shift();
+    const num = Object.values(acertijos).filter(a => a.camara).length;
+    acertijos[tablilla] = { id: `${def.id}-camara${num + 1}`, tipo: 'pista', dificultad: [2, 3], sello, titulo: TITULOS_CAMARA[num % TITULOS_CAMARA.length], camara: true };
+    camaras.push({ tablilla, sello });
+  }
+  camaras.cerrar = () => { for (const c of camaras) if (!c.puesta) delete acertijos[c.tablilla]; };
+  return camaras;
+}
+
 // Devuelve una copia de la definición con el laberinto añadido al plano.
 export function conLaberinto(def, azar = Math.random) {
   const L = def.laberinto;
@@ -227,7 +261,10 @@ export function conLaberinto(def, azar = Math.random) {
   const [px, py] = L.puerta;
   const t = tallar(W, H, [abajo ? [px, 0] : [0, py]], { salas: L.salas, azar });
   const libres = '0123456789'.split('').filter(c => !(c in def.tesoros));
-  const tesoros = { ...def.tesoros, ...poblar(t, L.tesoros, () => libres.shift(), tiposDe(def)) };
+  const acertijos = { ...def.acertijos };
+  const camaras = camarasNuevas(L.camaras ?? Math.min(2, L.tesoros.length), paresLibres(def), acertijos, def);
+  const tesoros = { ...def.tesoros, ...poblar(t, L.tesoros, () => libres.shift(), tiposDe(def), camaras) };
+  camaras.cerrar();
 
   // Pegar el laberinto al plano fijo.
   const filas = t.g.map(r => r.join('')), filasAlt = t.alt.map(r => r.join(''));
@@ -248,7 +285,7 @@ export function conLaberinto(def, azar = Math.random) {
   }
   const luz = L.luz ?? def.luz * 0.75;
   return {
-    ...def, plano, alturas, tesoros,
+    ...def, plano, alturas, tesoros, acertijos,
     luces: [[...rect, luz], ...(def.luces || [])],
     zonas: [...(def.zonas || []), ...(L.zona ? [[...rect, L.zona]] : [])],
     regionLaberinto: rect,
@@ -260,7 +297,8 @@ export function conLaberinto(def, azar = Math.random) {
 // def.sectores: {
 //   bloques: [{ x, y, ancho, alto, zona }]  bloques de túneles en el plano total (cada uno con su borde);
 //                                          `zona` es el índice en `zonas` (0 = la del plano fijo).
-//   zonas: [{ nombre, tesoros: [ids], acertijo: { dificultad, titulo } }]
+//   zonas: [{ nombre, tesoros: [ids], acertijo: { dificultad, titulo }, camaras }]
+//          `camaras`: cuántas de sus reliquias quedan en cámaras selladas con su propia tablilla.
 //          la zona i (salvo la última) tiene una tablilla que abre el sello hacia la zona i + 1;
 //          la última (la cámara extra) se alcanza por un pasadizo secreto y un sello que abre la tablilla
 //          de la penúltima.
@@ -269,7 +307,6 @@ export function conLaberinto(def, azar = Math.random) {
 //   entrada: [x, y] casilla del borde del primer bloque que da al plano fijo (puerta).
 //   salida: [zonas posibles] la salida se esconde en un ramal hondo de una de ellas, al azar.
 // }
-const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N']];
 const CARACTERES_TESORO = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
 
 export function conZonas(def, azar = Math.random) {
@@ -285,7 +322,7 @@ export function conZonas(def, azar = Math.random) {
   }));
   const tesoros = { ...def.tesoros }, acertijos = { ...def.acertijos };
   const usados = new Set(def.plano.join(''));
-  const pares = CARACTERES_ACERTIJO.filter(([a, b]) => !usados.has(a) && !usados.has(b) && !(a in acertijos));
+  const pares = paresLibres(def);
   const caracteresTesoro = [...CARACTERES_TESORO].filter(c => !usados.has(c));
   const tipos = tiposDe(def);
 
@@ -332,7 +369,10 @@ export function conZonas(def, azar = Math.random) {
         if (f && t.g[f[1]][f[0]] === '#') { t.g[f[1]][f[0]] = 'X'; break; }
       }
     }
-    Object.assign(tesoros, poblar(t, b.tesoros ?? (Z.bloques.findIndex(o => o.zona === b.zona) === k ? z.tesoros : []), () => caracteresTesoro.shift(), tipos));
+    const primero = Z.bloques.findIndex(o => o.zona === b.zona) === k;
+    const camaras = camarasNuevas(primero ? z.camaras ?? 0 : 0, pares, acertijos, def);
+    Object.assign(tesoros, poblar(t, primero ? z.tesoros : [], () => caracteresTesoro.shift(), tipos, camaras));
+    camaras.cerrar();
     // los sellos (y el pasadizo secreto antes del sello de la cámara extra)
     for (const s of sellos[k]) {
       const lx = s.x - b.x, ly = s.y - b.y;
