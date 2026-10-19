@@ -100,7 +100,7 @@ export class Juego {
     this.decorado = [];
     for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
       const c = m.celda(x, z);
-      if (c.tipo !== 'suelo' || c.trampa || c.peligro || ocupada.has(x + ',' + z)) continue;
+      if (c.tipo !== 'suelo' || c.trampa || c.peligro || c.estatua || ocupada.has(x + ',' + z)) continue;
       const muros = DIRS.filter(([dx, dz]) => m.solida(x + dx, z + dz));
       if (!muros.length) continue;
       const [dx, dz] = muros[Math.floor(azarFijo() * muros.length)];
@@ -746,6 +746,10 @@ export class Juego {
     }
     for (const b of this.brasas) s.push({ x: b.x, z: b.z, y: b.y, ancho: 0.035, alto: 0.035, tex: 'brasa', luz: 1.3 });
     for (const q of this.motas) s.push({ x: q.x, z: q.z, y: q.y, ancho: 0.025, alto: 0.025, tex: 'mota', luz: luzEn(q.x, q.z) });
+    for (const h of m.hitos) {
+      if (h.tipo !== 'estatua' || Math.abs(h.x + 0.5 - j.x) > 16 || Math.abs(h.y + 0.5 - j.z) > 16) continue;
+      s.push({ x: h.x + 0.5, z: h.y + 0.5, y: m.piso(h.x, h.y), ancho: 1.2, alto: 1.2, tex: h.tex, luz: luzEn(h.x + 0.5, h.y + 0.5) });
+    }
     for (const d of this.decorado) {
       if (Math.abs(d.x - j.x) > 16 || Math.abs(d.z - j.z) > 16) continue;
       const tex = d.tex === 'deco_velas' ? 'deco_velas_' + (Math.floor(this.tiempo * 5 + d.fase) % 2) : d.tex;
