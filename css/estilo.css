@@ -134,7 +134,7 @@ body.jugando #escena { display: none; }
   .lema { display: none; }
   .losas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(520px, 92vw); margin-bottom: 1vh; }
   .losas button { font-size: 12px; padding: 9px 8px; letter-spacing: .08em; }
-  .losas button.principal { grid-column: 1 / -1; font-size: 16px; padding: 11px 22px; }
+  .losas button.principal { grid-column: span 2; font-size: 16px; padding: 11px 22px; }
 }
 
 .error { color: #ff8a7a; text-align: center; max-width: 480px; }
@@ -248,6 +248,19 @@ body.jugando #escena { display: none; }
 #resumen .datos { list-style: none; margin: 0; width: min(420px, 100%); font-size: 19px; line-height: 1.7; text-align: center; background: rgba(14, 10, 6, .7); border: 1px solid #4a3a26; border-radius: 4px; padding: 10px 28px; }
 #resumen .tesoros { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
 
+/* Expedición del día */
+.losas button.diaria { border-color: #a8761f; color: var(--oro); }
+#diaria .titulo-mazmorra { justify-content: center; padding-right: 0; }
+#diaria-nombre { font-family: Cinzel, Georgia, serif; font-weight: 800; color: var(--oro); font-size: 18px; letter-spacing: .04em; }
+#diaria-mods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#diaria-mods li { text-align: center; color: #e6d6b4; font-style: italic; font-size: 14px; }
+#diaria-ranking .campo-nombre { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 14px; color: #d8c49a; }
+#diaria-jugador { font: inherit; color: var(--texto); background: rgba(0, 0, 0, .4); border: 1px solid #5a4630; border-radius: 4px; padding: 6px 8px; width: 12em; }
+#diaria-tabla { margin: 0; padding: 0 0 0 26px; font-size: 15px; line-height: 1.6; }
+#diaria-tabla li.yo { color: var(--oro); font-weight: bold; }
+#diaria-tabla small { color: var(--suave); }
+#diaria-mods b { display: block; font: 700 14px Cinzel, Georgia, serif; font-style: normal; letter-spacing: .08em; color: #ff9a6a; }
+
 /* ---------- Juego ---------- */
 
 #juego { position: fixed; inset: 0; }
@@ -269,6 +282,11 @@ body.retro #vista { image-rendering: pixelated; }
 #hud-zona em { font-style: normal; color: #f1e4c8; }
 #hud-zona.completa em { color: #7fe0a0; }
 @media (max-width: 620px) { #hud-zona span { display: none; } }
+/* barra de vida del guardián, arriba al centro mientras pelea */
+#hud-jefe { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 52px); left: 50%; transform: translateX(-50%); width: min(420px, 70vw); text-align: center; pointer-events: none; z-index: 2; }
+#hud-jefe b { display: block; font: 700 14px Cinzel, Georgia, serif; letter-spacing: .08em; color: #ff9a6a; text-shadow: 0 1px 3px #000; margin-bottom: 4px; }
+#hud-jefe .barra { height: 8px; border: 1px solid #5a1a10; }
+#hud-jefe .barra i { background: linear-gradient(90deg, #7a1010, #e0304a); transition: width .2s; }
 
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }
@@ -376,3 +394,15 @@ body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-i
   .ficha-pieza { grid-row: 1 / span 6; }
   .ficha .cerrar { justify-self: start; }
 }
+
+/* Acertijo de palancas */
+.palancas .nota-palancas { text-align: center; color: var(--suave); font-style: italic; margin: 6px 0; }
+.pistas-palancas { margin: 8px 0 12px; padding: 0 0 0 20px; font-size: clamp(16px, 3vw, 19px); line-height: 1.5; font-style: italic; }
+.secuencia { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
+.secuencia .hueco { display: grid; place-items: center; width: 42px; height: 42px; border: 2px dashed #8a7048; border-radius: 6px; color: var(--suave); font-size: 15px; }
+.secuencia .hueco.lleno { border-style: solid; border-color: var(--oro); font-size: 24px; background: rgba(232, 184, 58, .12); }
+.mecanismo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.menu .mecanismo .palanca, .mecanismo .palanca { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; text-transform: none; letter-spacing: normal; }
+.palanca b { font-size: 28px; line-height: 1; font-weight: normal; }
+.palanca span { font-size: 12px; }
+.palanca.bajada { opacity: .45; transform: translateY(4px); }

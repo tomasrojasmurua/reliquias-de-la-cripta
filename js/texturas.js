@@ -3,7 +3,7 @@
 
 export const T = 64;
 export const COLS = 16;
-export const FILAS = 20;
+export const FILAS = 28;
 
 const casillas = {};   // nombre -> [col, fila]
 const dibujos = [];
@@ -779,6 +779,14 @@ const ESTILOS = {
   sectario: { cuerpo: 'momia', piel: '#8a2418', sombra: '#4e0f0a', ojo: '#ffcc33', accesorio: 'mascara', liso: true },
   // caballero cruzado guardián: armadura y sobreveste blanca con cruz roja
   caballero: { cuerpo: 'momia', piel: '#a4aab2', sombra: '#5c626a', ojo: '#111111', accesorio: 'yelmo', liso: true },
+  // Guardianes: uno por mazmorra, más grandes (el juego los dibuja a 1.2 m) y con su propio tocado.
+  faraon: { cuerpo: 'momia', piel: '#d9c890', sombra: '#9a8656', ojo: '#4fd0ff', accesorio: 'nemes', franjas: ['#2f5ad0', '#e8b83a'] },
+  anubis: { cuerpo: 'momia', piel: '#3a3028', sombra: '#1c1610', ojo: '#ffcc33', accesorio: 'nemes', franjas: ['#111111', '#e8b83a'], liso: true },
+  jarl: { cuerpo: 'momia', piel: '#7e98a8', sombra: '#3e5464', ojo: '#bff6ff', accesorio: 'cuernos', corona: true },
+  capitan: { cuerpo: 'huesos', piel: '#d6c8a4', sombra: '#8e8264', ojo: '#ff3a1a', accesorio: 'tricornio' },
+  rey_jaguar: { cuerpo: 'momia', piel: '#b8801c', sombra: '#6a420c', ojo: '#ff4a1a', accesorio: 'plumas', manchas: true, corona: true },
+  gran_sectario: { cuerpo: 'momia', piel: '#5a0e08', sombra: '#2a0604', ojo: '#ff3a1a', accesorio: 'mascara', liso: true, corona: true },
+  gran_caballero: { cuerpo: 'momia', piel: '#5e636c', sombra: '#2e3238', ojo: '#ff3a1a', accesorio: 'yelmo', liso: true, corona: true },
 };
 
 // Segmento de un miembro: cónico, con los extremos redondeados (hombro-codo, codo-mano...).
@@ -910,6 +918,26 @@ function humanoide(g, tipo, pose) {
     r(g, 24, 4 + dy, 16, 17, '#8a9098'); r(g, 25, 4 + dy, 14, 2, '#c8ccd2'); r(g, 26, 12 + dy, 12, 2, '#111'); r(g, 31, 14 + dy, 2, 5, '#111');
     r(g, 22, 22 + dy, 20, 19, '#eeeae0'); r(g, 30, 24 + dy, 4, 14, '#b02020'); r(g, 25, 28 + dy, 14, 4, '#b02020'); // sobreveste
     r(g, 50, 4 + dy + alza, 2, 26, '#d8dde4'); r(g, 46, 28 + dy + alza, 10, 2, '#8a6a2a'); // espada
+  }
+  if (e.accesorio === 'nemes') {
+    // tocado de faraón a franjas, que cae sobre los hombros, con la cobra en la frente
+    const [a, b] = e.franjas;
+    r(g, 22, 3 + dy, 20, 7, a); r(g, 20, 8 + dy, 5, 16, a); r(g, 39, 8 + dy, 5, 16, a);
+    for (let y = 4; y < 24; y += 3) { r(g, y < 10 ? 22 : 20, y + dy, y < 10 ? 20 : 5, 1, b); if (y >= 10) r(g, 39, y + dy, 5, 1, b); }
+    r(g, 31, 1 + dy, 2, 4, '#e8b83a'); r(g, 30, 1 + dy, 4, 1, '#e8b83a');
+    r(g, 29, 20 + dy, 6, 5, '#2f5ad0'); r(g, 30, 21 + dy, 4, 1, '#e8b83a'); // barba postiza
+  }
+  if (e.accesorio === 'tricornio') {
+    r(g, 18, 3 + dy, 28, 4, '#1a1410'); r(g, 22, -1 + dy, 20, 5, '#1a1410'); r(g, 18, 3 + dy, 28, 1, '#c8a040');
+    r(g, 29, 0 + dy, 6, 3, '#e8e0c8'); r(g, 30, 1 + dy, 1, 1, '#1a1410'); r(g, 33, 1 + dy, 1, 1, '#1a1410'); // calavera del sombrero
+    r(g, 47, 6 + dy + alza, 2, 18, '#d8dde4'); r(g, 48, 6 + dy + alza, 1, 18, '#ffffff'); r(g, 44, 23 + dy + alza, 8, 3, '#e8b83a'); // sable
+  }
+  if (e.corona) {
+    // corona de oro con gemas: se reconoce de lejos que es el guardián
+    const y0 = e.accesorio === 'plumas' ? -8 : e.accesorio === 'cuernos' ? 0 : 1;
+    r(g, 25, y0 + 3 + dy, 14, 3, '#e8b83a'); r(g, 25, y0 + 3 + dy, 14, 1, '#ffe58a');
+    for (const x of [25, 30, 35]) r(g, x, y0 + dy, 4, 3, '#e8b83a');
+    r(g, 27, y0 + 4 + dy, 2, 1, '#e0304a'); r(g, 31, y0 + 4 + dy, 2, 1, '#3a6ee8'); r(g, 35, y0 + 4 + dy, 2, 1, '#e0304a');
   }
   if (pose === 3) { ovalo(g, 29, 28 + dy, 3, 2, '#7a1010'); r(g, 29, 30 + dy, 1, 3, '#7a1010'); }
   if (pose === 7) { // conjuro: fuego entre las manos

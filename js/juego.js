@@ -24,6 +24,16 @@ const ENEMIGOS = {
   caballero: { vida: 95, vel: 1.1, daño: [12, 18], alcance: 1.1, espera: 1.3, vista: 12 },
 };
 
+// Guardianes: uno por mazmorra (`guardian` en datos/mazmorras.js), junto a su reliquia más valiosa.
+// Son más grandes (lo que deja el techo), aguantan mucho, embisten desde lejos y al perder un tercio de vida llaman a sus siervos.
+const GUARDIAN = { vida: 380, vel: 1.15, daño: [14, 22], alcance: 1.35, espera: 1.1, vista: 8, jefe: true, escala: 1.2, radio: 0.4 };
+const GUARDIANES = {
+  faraon: { invoca: 'momia' }, anubis: { invoca: 'momia' }, jarl: { invoca: 'draugr' }, capitan: { invoca: 'pirata' },
+  rey_jaguar: { invoca: 'jaguar', vel: 1.5 }, gran_sectario: { invoca: 'sectario', fuego: [12, 18] }, gran_caballero: { invoca: 'caballero', vida: 460 },
+};
+for (const [tipo, g] of Object.entries(GUARDIANES)) ENEMIGOS[tipo] = { ...GUARDIAN, ...g };
+const EMBESTIDA = { vel: 4.6, duracion: 0.9, daño: [18, 26] };
+
 // Pinchos: suben durante ARRIBA segundos de cada CICLO, desfasados por columna.
 const PINCHOS = { ciclo: 2.4, arriba: 0.9, daño: 15 };
 export function pinchosArriba(x, t) {
@@ -38,25 +48,33 @@ const ARMAS = {
 const azar = ([a, b]) => a + Math.random() * (b - a);
 
 // Qué salpica cada enemigo al recibir un golpe.
-const SALPICA = { momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: 'hueso', jaguar: 'sangre', sectario: 'sangre', caballero: 'chispa' };
+const SALPICA = {
+  momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: 'hueso', jaguar: 'sangre', sectario: 'sangre', caballero: 'chispa',
+  faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
+};
 const VEL_FUEGO = 5.5;
 
 export class Juego {
   // `opciones.limite`: segundos del contrarreloj (0 = exploración libre, sin reloj).
+  // `opciones.modificadores`: los de la expedición del día (js/diaria.js).
   constructor(def, eventos, semilla, opciones = {}) {
     this.def = def;
     this.limite = opciones.limite || 0;
+    this.mods = new Set(opciones.modificadores || []);
+    this.vidaInicial = this.mods.has('herido') ? 60 : 100;
     this.reloj = 0;
     this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
     const m = this.mapa;
     this.j = {
       x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
-      vida: 100, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
+      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
     this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
+    this.guardian = this.colocarGuardian();
+    if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
     this.tesoros = [];
     this.secretos = 0;
     this.abatidos = 0;
@@ -73,6 +91,59 @@ export class Juego {
     this.temblor = 0;
     this.salidaVista = false;
     this.prepararAmbiente();
+  }
+
+  // El guardián espera a dos pasos de la reliquia más valiosa de la mazmorra (en la última zona, si empatan).
+  // Si esa reliquia está en un nicho sin espacio (como la de tras el pasadizo secreto), cuida la siguiente.
+  colocarGuardian() {
+    const g = this.def.guardian, m = this.mapa;
+    if (!g) return null;
+    const valor = o => RAREZAS[TESORO[o.tesoro].rareza].valor * 100 + (o.zona || 0);
+    const ocupada = new Set([...this.objetos, ...this.enemigos].map(o => Math.floor(o.x) + ',' + Math.floor(o.z)));
+    const libre = (x, z) => {
+      const c = m.celda(x, z);
+      return c && c.tipo === 'suelo' && !c.peligro && !c.trampa && !c.estatua && !ocupada.has(x + ',' + z);
+    };
+    // la casilla libre más cercana a dos pasos o más, a la que se llega desde la reliquia sin cruzar muros ni puertas
+    const junto = (mx, mz) => {
+      const dist = new Map([[mx + ',' + mz, 0]]), cola = [[mx, mz]];
+      while (cola.length) {
+        const [x, z] = cola.shift(), d = dist.get(x + ',' + z);
+        if (d >= 2 && libre(x, z)) return [x, z];
+        if (d >= 5) continue;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const k = (x + dx) + ',' + (z + dz);
+          if (dist.has(k) || m.solida(x + dx, z + dz)) continue;
+          dist.set(k, d + 1); cola.push([x + dx, z + dz]);
+        }
+      }
+      return null;
+    };
+    for (const meta of this.objetos.filter(o => o.tipo === 'tesoro').sort((a, b) => valor(b) - valor(a))) {
+      const sitio = junto(Math.floor(meta.x), Math.floor(meta.z));
+      if (!sitio) continue;
+      const [x, z] = sitio, base = ENEMIGOS[g.tipo];
+      const e = { tipo: g.tipo, nombre: g.nombre, x: x + 0.5, z: z + 0.5, y: m.piso(x, z), ...base, vidaMax: base.vida, estado: 'dormido', t: 0, espera: 0, anim: 0, invocaciones: 0 };
+      this.enemigos.push(e);
+      return e;
+    }
+    return null;
+  }
+
+  // Siervos que el guardián llama al perder vida: aparecen en casillas libres a su alrededor.
+  invocar(g) {
+    const m = this.mapa;
+    let n = 0;
+    for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+      if (n === 2) break;
+      const x = Math.floor(g.x) + dx, z = Math.floor(g.z) + dz, c = m.celda(x, z);
+      if (!c || m.solida(x, z) || c.peligro || !this.seVe(g, { x: x + 0.5, z: z + 0.5, y: c.piso })) continue;
+      const base = ENEMIGOS[g.invoca];
+      this.enemigos.push({ tipo: g.invoca, x: x + 0.5, z: z + 0.5, y: c.piso, ...base, vidaMax: base.vida, estado: 'caza', t: 0, espera: 0.8, anim: Math.random() * 2 });
+      this.salpicar(x + 0.5, c.piso + 0.3, z + 0.5, 'polvo', 10);
+      n++;
+    }
+    if (n) { sonar('gruñido'); this.ev.mensaje(`¡${g.nombre} llama a sus siervos!`, 3); }
   }
 
   // ---------- Ambiente: llamas de las antorchas, decorado, polvo en el aire ----------
@@ -481,6 +552,18 @@ export class Juego {
     this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
     if (e.vida <= 0) {
       e.estado = 'muerto'; e.tMuerte = 0; this.abatidos++; sonar('muerteEnemigo');
+      if (e.jefe) {
+        this.ev.mensaje(`¡Derrotaste a ${e.nombre}!`, 4);
+        this.temblor = 0.6;
+        this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
+      }
+    } else if (e.jefe) {
+      // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
+      if (e.estado === 'dormido') e.estado = 'caza';
+      if (Math.random() < 0.25 && e.estado !== 'embiste') { e.estado = 'dolor'; e.t = 0.2; }
+      sonar('dolorEnemigo');
+      const tercio = Math.floor((1 - e.vida / e.vidaMax) * 3);
+      if (tercio > e.invocaciones) { e.invocaciones = tercio; this.invocar(e); }
     } else {
       e.estado = 'dolor'; e.t = 0.25; sonar('dolorEnemigo');
     }
@@ -561,7 +644,7 @@ export class Juego {
 
   revivir() {
     const j = this.j, m = this.mapa;
-    Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: 100, muerto: false, quemadura: 0 });
+    Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: this.vidaInicial, muerto: false, quemadura: 0 });
     delete j.cayendo;
   }
 
@@ -587,12 +670,14 @@ export class Juego {
     for (const o of this.objetos) {
       if (o.cogido || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
       if (o.tipo === 'revolver') {
-        o.cogido = true; j.tieneRevolver = true; j.tambor = 6; j.arma = 'revolver'; j.espera = 0.4;
-        sonar('recoger'); this.ev.mensaje('¡Encontraste tu revólver! Cargado con 6 balas.');
+        const n = this.mods.has('escasez') ? 3 : 6;
+        o.cogido = true; j.tieneRevolver = true; j.tambor = n; j.arma = 'revolver'; j.espera = 0.4;
+        sonar('recoger'); this.ev.mensaje(`¡Encontraste tu revólver! Cargado con ${n} balas.`);
       } else if (o.tipo === 'balas') {
         if (j.reserva >= 60) continue;
-        o.cogido = true; j.reserva = Math.min(60, j.reserva + 12);
-        sonar('recoger'); this.ev.mensaje('Una caja de balas (+12).');
+        const n = this.mods.has('escasez') ? 6 : 12;
+        o.cogido = true; j.reserva = Math.min(60, j.reserva + n);
+        sonar('recoger'); this.ev.mensaje(`Una caja de balas (+${n}).`);
       } else if (o.tipo === 'vendas') {
         if (j.vida >= 100) continue;
         o.cogido = true; j.vida = Math.min(100, j.vida + 25);
@@ -627,6 +712,17 @@ export class Juego {
         continue;
       }
       if (e.estado === 'dolor') { e.t -= dt; if (e.t <= 0) e.estado = 'caza'; continue; }
+      if (e.estado === 'embiste') {
+        // carga en línea recta hacia donde estabas; golpea una sola vez
+        e.t -= dt;
+        const antes = { x: e.x, z: e.z };
+        this.mover(e, e.carga.x * EMBESTIDA.vel * dt, e.carga.z * EMBESTIDA.vel * dt, e.radio, true);
+        this.apoyar(e, e.radio, dt);
+        if (!e.golpeo && d < e.alcance && Math.abs(e.y - j.y) < 0.7) { e.golpeo = true; this.dañarJugador(azar(EMBESTIDA.daño), `${e.nombre} te arrolló.`); this.temblor = 0.35; }
+        const atascado = Math.hypot(e.x - antes.x, e.z - antes.z) < EMBESTIDA.vel * dt * 0.3;
+        if (e.t <= 0 || atascado) { e.estado = 'caza'; e.espera = 1.4; if (atascado) { this.temblor = 0.2; sonar('golpe'); } }
+        continue;
+      }
       if (e.estado === 'lanza') {
         e.t -= dt;
         if (e.t <= 0) { if (this.seVe(e, j)) this.lanzarFuego(e); e.estado = 'caza'; }
@@ -647,6 +743,11 @@ export class Juego {
       }
       const loVe = this.seVe(e, j);
       if (loVe) e.visto = { x: j.x, z: j.z };
+      if (e.jefe && loVe && d > 2.5 && d < 8 && e.espera <= 0 && Math.random() < dt * 0.7) {
+        e.estado = 'embiste'; e.t = EMBESTIDA.duracion; e.golpeo = false; e.carga = { x: dx / d, z: dz / d };
+        sonar('gruñido'); this.ev.mensaje(`¡${e.nombre} embiste!`, 1.5);
+        continue;
+      }
       if (e.fuego && loVe && d > 2.2 && d < 11 && e.espera <= 0 && Math.random() < dt * 0.9) {
         e.estado = 'lanza'; e.t = 0.5; e.espera = 2.2 + Math.random() * 1.5;
         continue;
@@ -655,15 +756,15 @@ export class Juego {
       const mx = meta.x - e.x, mz = meta.z - e.z, ml = Math.hypot(mx, mz);
       if (ml > 0.6) {
         const v = e.vel * dt;
-        this.mover(e, mx / ml * v, mz / ml * v, 0.28, true);
+        this.mover(e, mx / ml * v, mz / ml * v, e.radio || 0.28, true);
       } else e.visto = null;
       // separación entre enemigos
       for (const o of this.enemigos) {
         if (o === e || o.estado === 'muerto') continue;
         const sx = e.x - o.x, sz = e.z - o.z, sd = Math.hypot(sx, sz);
-        if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, 0.28, true);
+        if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, e.radio || 0.28, true);
       }
-      this.apoyar(e, 0.28, dt);
+      this.apoyar(e, e.radio || 0.28, dt);
       if (Math.random() < dt * 0.08) sonar('gruñido');
     }
   }
@@ -731,10 +832,11 @@ export class Juego {
       if (e.estado === 'muerto') pose = e.tMuerte < 0.14 ? 5 : e.tMuerte < 0.3 ? 6 : 4;
       else if (e.estado === 'lanza') pose = 7;
       else if (e.estado === 'dolor') pose = 3;
-      else if (e.estado === 'ataca') pose = 2;
+      else if (e.estado === 'ataca' || e.estado === 'embiste') pose = 2;
       else if (e.estado === 'dormido') pose = 0;
       else pose = [0, 8, 1, 8][Math.floor(e.anim * (e.vel * 6)) % 4];
-      s.push({ x: e.x, z: e.z, y: e.y, ancho: 1.0, alto: 1.0, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
+      const k = e.escala || 1;
+      s.push({ x: e.x, z: e.z, y: e.y, ancho: k, alto: k, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
     for (const f of this.proyectiles) s.push({ x: f.x, z: f.z, y: f.y - 0.15, ancho: 0.3, alto: 0.3, tex: 'fuego_' + (Math.floor(this.tiempo * 12) % 2), luz: 1.3 });
     const parpadeo = this.tiempo * 9;

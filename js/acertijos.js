@@ -35,12 +35,13 @@ export function normalizar(s) {
     .replace(/[^A-ZÑ]/g, '');
 }
 
-export function elegirPista(dificultad, resueltas, excluir = new Set()) {
+// `azar`: en la expedición del día, uno con semilla para que todos vean las mismas pistas.
+export function elegirPista(dificultad, resueltas, excluir = new Set(), azar = Math.random) {
   const [min, max] = dificultad;
   const todas = pistasDisponibles().filter(p => p.dificultad >= min && p.dificultad <= max && !excluir.has(p.id));
   const nuevas = todas.filter(p => !resueltas.has(p.id));
   const pool = nuevas.length ? nuevas : todas;
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[Math.floor(azar() * pool.length)];
 }
 
 const TIPOS = {

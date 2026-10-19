@@ -28,8 +28,18 @@ Cada mazmorra tiene además un **ala nueva con alturas**, con su propia tablilla
 
 En las últimas mazmorras, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
 
+Una de cada dos cámaras selladas no se abre con una pista críptica sino con un **mecanismo de palancas** (`js/palancas.js`): cuatro palancas con símbolos (el sol, la luna, la serpiente, el escarabajo…) y unas pistas de lógica sobre el orden en que se bajan, como «La del sol va justo antes que la de la luna» o «La palanca de la serpiente no va al final». Las pistas se eligen al azar hasta que solo un orden las cumple. Si te equivocas, las palancas vuelven a subir; «Pedir ayuda» revela la primera, luego la segunda.
+
+## Guardianes
+Cada mazmorra tiene un guardián que vigila su reliquia más valiosa (la que no está escondida en un nicho): Jepri, el faraón escarabajo; el sacerdote de Anubis; el Jarl de hielo; el capitán del galeón; el Rey Jaguar; el sumo sacerdote del culto y el Caballero Negro. Son más grandes que los demás enemigos, llevan corona o tocado, aguantan unos diez balazos y no se frenan con cada golpe. Cuando te ven a media distancia **embisten** en línea recta (hay que hacerse a un lado), y al perder cada tercio de vida **llaman a dos siervos**. Mientras pelean se ve su barra de vida arriba, y al caer dejan vendas. Se declaran con `guardian: { tipo, nombre }` en `datos/mazmorras.js`; sus valores están en `GUARDIANES` (`js/juego.js`) y su dibujo en `ESTILOS` (`js/texturas.js`).
+
 ## Contrarreloj
 Al elegir una mazmorra se prepara la expedición: el modo, **Explorar** (sin reloj) o **Contrarreloj**; el tamaño, **Pequeña** (solo la primera zona), **Mediana** (las dos primeras) o **Grande** (todas, con la cámara secreta); y en el contrarreloj el tiempo, que depende del tamaño (pequeña 3, 4 o 6 minutos; mediana 5, 8 u 11; grande 8, 12 o 16). La mazmorra se recorta con `recortarZonas` en `js/laberinto.js`; solo escapar de la grande la marca como completada. Cada tesoro da puntos según su rareza (común 1, raro 3, épico 8, legendario 20). Si escapas antes de que se acabe el tiempo te llevas todos los puntos y los tesoros pasan a tu colección; si se apaga la última antorcha estando adentro, pierdes la mitad de los puntos y ningún tesoro va a la colección. En el último minuto las antorchas de los muros se van apagando. Morir no termina la partida: sueltas tu último tesoro donde caíste y reapareces en el inicio. El reloj sigue corriendo mientras lees una tablilla. Se guarda el récord de cada mazmorra, tamaño y duración, y «Revancha» genera un laberinto nuevo. Es la base del futuro modo multijugador.
+
+## Expedición del día
+Desde la portada, **Expedición del día** lleva a una cripta que es la misma para todos ese día: la mazmorra, los túneles, la salida y las pistas de las tablillas salen de la fecha (`js/diaria.js`), así que no hace falta servidor. Es un contrarreloj de 8 minutos en tamaño mediano, con dos modificadores del día: **Antorcha mojada** (la antorcha alumbra la mitad), **Munición escasa** (3 balas en el revólver y cajas de 6), **La cripta despierta** (los enemigos ven más lejos y corren más), **Herido** (60 de vida) o **Escritura antigua** (pistas un punto más difíciles). Las mazmorras se turnan sin repetirse dos días seguidos. Solo cuenta el primer intento de cada día: queda guardado, suma a la racha de días seguidos y se puede **compartir** como texto (puntos, tiempo y un cuadrito por tesoro según su rareza, sin nombres para no dar pistas). Los intentos siguientes son práctica y no cuentan para los récords del contrarreloj.
+
+**Ranking en línea.** Si `datos/ranking.js` tiene un proyecto de Supabase (gratis), la pantalla de la expedición muestra los 10 mejores del día y un campo para tu nombre. El primer intento de cada día se sube solo; si no hay conexión, se sube la próxima vez que abras la expedición. Para activarlo: crea el proyecto, corre `herramientas/ranking.sql` en su SQL Editor y copia la URL y la clave «anon public» a `datos/ranking.js`. La clave pública solo deja leer el ranking y agregar resultados del día; no deja borrar ni cambiar nada. Sin configurar, el ranking no aparece y el juego funciona igual.
 
 ## Controles
 - **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Tab o M para el mapa, Esc para pausar.
@@ -56,10 +66,13 @@ La **colección** muestra los tesoros en vitrinas, una por rareza: estanterías 
 - `js/entrada.js`: teclado, ratón y pantalla táctil.
 - `js/arma.js`: revólver y látigo en primera persona.
 - `js/acertijos.js`: tablillas con pistas crípticas y ayudas progresivas.
+- `js/palancas.js`: el acertijo de palancas de las cámaras selladas.
 - `js/audio.js`: efectos, ambiente, música y eco sintetizados.
 - `js/automapa.js`: mapa de lo explorado.
 - `js/laberinto.js`: genera los túneles de cada partida.
 - `js/hitos.js`: murales y estatuas que hacen reconocible cada sala.
+- `js/diaria.js`: la expedición del día (mazmorra, semilla y modificadores según la fecha) y el texto para compartir.
+- `js/ranking.js`, `datos/ranking.js`: el ranking en línea de la expedición (Supabase); `herramientas/ranking.sql` crea su tabla.
 - `datos/mazmorras.js`: las mazmorras (planos de texto, ver abajo).
 - `datos/tesoros.js`: catálogo de tesoros y rarezas.
 - `datos/emblemas.js`: el emblema en pixel art de cada mazmorra (16 × 16, una letra por píxel) que se ve al lado de su nombre al elegirla. Una mazmorra nueva necesita el suyo con la misma `id`.
@@ -95,7 +108,7 @@ Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [mi
 ## Revisar los cambios
 Cada cambio que llega a GitHub pasa por una revisión automática (`.github/workflows/revisar.yml`). Para correrla en tu equipo hace falta Node 22: `npm install` una vez y luego `npm run revisar`, que hace tres cosas:
 
-- `npm run validar` carga cada mazmorra con 25 semillas en los tres tamaños y avisa si falta el inicio o la salida, si el borde del plano queda abierto, si un acertijo no tiene tablilla o sello, si un tesoro no existe o está en dos mazmorras, o si no se puede llegar a pie a la salida, a una tablilla o a un tesoro.
+- `npm run validar` carga cada mazmorra con 25 semillas en los tres tamaños y avisa si falta el inicio, la salida o el guardián, si el borde del plano queda abierto, si un acertijo no tiene tablilla o sello, si un tesoro no existe o está en dos mazmorras, o si no se puede llegar a pie a la salida, a una tablilla o a un tesoro.
 - `node herramientas/cache.js --revisar` comprueba que `sw.js` esté al día. Después de cambiar cualquier archivo del juego, `npm run cache` reescribe la lista de archivos y la versión del caché sin conexión.
 - `npm run probar` abre el juego en Chromium, entra a cada mazmorra por el menú y falla si aparece un error.
 

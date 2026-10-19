@@ -29,6 +29,7 @@
   </header>
   <nav class="losas">
     <button data-ir="mazmorras" class="principal">Entrar</button>
+    <button data-ir="diaria" class="diaria">Expedición del día</button>
     <button data-ir="coleccion">Tesoros</button>
     <button data-ir="ayuda">Cómo jugar</button>
     <button data-ir="opciones">Opciones</button>
@@ -81,6 +82,39 @@
   </div>
   <div class="accion-fija">
     <button id="btn-entrar" class="principal">Entrar</button>
+  </div>
+</section>
+
+<section id="diaria" class="pantalla menu con-accion" hidden>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Expedición del día</h2>
+  </header>
+  <p class="sub" id="diaria-sub"></p>
+  <div class="ajustes">
+    <div class="grupo">
+      <p class="rotulo">La cripta de hoy</p>
+      <div class="titulo-mazmorra"><i class="marco-emblema" id="diaria-emblema"></i><strong id="diaria-nombre"></strong></div>
+      <p class="nota" id="diaria-desc"></p>
+    </div>
+    <div class="grupo">
+      <p class="rotulo">Modificadores</p>
+      <ul id="diaria-mods"></ul>
+    </div>
+    <div class="grupo">
+      <p class="rotulo">Tu expedición</p>
+      <p class="nota" id="diaria-estado"></p>
+    </div>
+    <div class="grupo" id="diaria-ranking" hidden>
+      <p class="rotulo">Ranking de hoy</p>
+      <label class="campo-nombre">Tu nombre <input id="diaria-jugador" maxlength="20" autocomplete="nickname" placeholder="Cazador sin nombre"></label>
+      <ol id="diaria-tabla"></ol>
+      <p class="nota" id="diaria-ranking-nota"></p>
+    </div>
+  </div>
+  <div class="accion-fija">
+    <button id="btn-diaria-compartir" hidden>Compartir</button>
+    <button id="btn-diaria" class="principal">Partir</button>
   </div>
 </section>
 
@@ -169,6 +203,7 @@
   <div id="fps"></div>
   <button id="btn-pausa" aria-label="Pausa">II</button>
   <div id="hud-zona" hidden><b></b> <span></span> <em></em></div>
+  <div id="hud-jefe" hidden><b></b><div class="barra"><i></i></div></div>
   <div id="hud-reloj" hidden></div>
   <div id="hud">
     <div class="caja"><small>Vida</small><b id="hud-vida">100</b></div>
@@ -203,6 +238,7 @@
   <div class="tesoros"></div>
   <div class="accion-fija">
     <button class="atras-texto" data-ir="mazmorras">Otra mazmorra</button>
+    <button id="btn-compartir" hidden>Compartir</button>
     <button id="btn-reintentar" class="principal">Jugar de nuevo</button>
   </div>
 </section>

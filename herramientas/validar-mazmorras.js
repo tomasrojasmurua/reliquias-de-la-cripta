@@ -8,6 +8,9 @@ import { EMBLEMAS } from '../datos/emblemas.js';
 import { PISTAS } from '../datos/pistas.js';
 import { cargarMazmorra } from '../js/mapa.js';
 import { recortarZonas } from '../js/laberinto.js';
+import { Juego } from '../js/juego.js';
+import { crearPalancas } from '../js/palancas.js';
+import { azarConSemilla } from '../js/laberinto.js';
 
 const SEMILLAS = Number(process.argv[2]) || 25;
 const PASO = 0.45 + 1e-6;   // el escalón más alto que se sube caminando (PASO en js/juego.js)
@@ -43,7 +46,7 @@ function alcanzables(m) {
 // Una casilla sólida (tablilla, salida, aviso) se usa desde una vecina a la que se llega.
 const junto = (llega, x, y) => V.some(([dx, dy]) => llega(x + dx, y + dy));
 
-function revisarMapa(def, m, donde) {
+function revisarMapa(def, m, donde, juego) {
   // inicio único
   const inicios = def.plano.join('').split('P').length - 1;
   if (inicios !== 1) error(donde, `tiene ${inicios} casillas de inicio «P» (debe haber una)`);
@@ -76,6 +79,13 @@ function revisarMapa(def, m, donde) {
   // sellos sin acertijo que los abra
   for (const id of Object.keys(sellos)) if (!m.acertijos[id]) error(donde, `hay sellos del acertijo «${id}», que no existe`);
 
+  // el guardián está en su puesto y se llega a él
+  if (def.guardian) {
+    const g = juego.guardian;
+    if (!g) error(donde, `no hay lugar para el guardián «${def.guardian.nombre}»`);
+    else if (!llega(Math.floor(g.x), Math.floor(g.z))) error(donde, `no se puede llegar al guardián en (${Math.floor(g.x)}, ${Math.floor(g.z)})`);
+  } else error(donde, 'no tiene guardián');
+
   // tesoros: existen en el catálogo y se puede llegar a ellos
   for (const o of m.objetos) {
     if (o.tipo !== 'tesoro') continue;
@@ -88,6 +98,9 @@ function revisarMapa(def, m, donde) {
 function firma(m) {
   return m.celdas.map(c => c.tipo[0]).join('') + JSON.stringify(m.objetos);
 }
+
+// el juego avisa de lo que pasa con estos eventos; aquí no hace falta escucharlos
+const SIN_EVENTOS = new Proxy({}, { get: () => () => {} });
 
 const ids = new Set();
 const dueño = {};
@@ -117,12 +130,19 @@ for (const def of MAZMORRAS) {
     const variante = recortarZonas(def, n);
     for (let s = 1; s <= SEMILLAS; s++) {
       const donde = `${id} (zonas: ${n === Infinity ? 'todas' : n}, semilla ${s})`;
-      let m;
-      try { m = cargarMazmorra(variante, s); } catch (e) { error(donde, `no carga: ${e.message}`); continue; }
-      revisarMapa(def, m, donde);
+      let juego;
+      try { juego = new Juego(variante, SIN_EVENTOS, s); } catch (e) { error(donde, `no carga: ${e.message}`); continue; }
+      const m = juego.mapa;
+      revisarMapa(def, m, donde, juego);
       if (s === 1 && firma(cargarMazmorra(variante, s)) !== firma(m)) error(donde, 'la misma semilla da mazmorras distintas');
     }
   }
+}
+
+// Los acertijos de palancas tienen una sola solución: se prueban todos los órdenes contra las pistas.
+for (let s = 1; s <= 300; s++) {
+  const p = crearPalancas(azarConSemilla(s));
+  if (!p.unica) error('palancas', `con la semilla ${s} las pistas no dejan un solo orden`);
 }
 
 // El mismo error suele repetirse en muchas semillas: se muestra una vez con el número de veces.

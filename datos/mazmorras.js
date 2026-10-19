@@ -28,10 +28,12 @@
 // `ambiente`: sonido de fondo (cripta, desierto, nieve, mar, selva, lava o catacumba).
 // `texTablilla`, `texSello`: texturas de tablillas y sellos. `tinte`: color de la luz [r, g, b].
 // `avisos`: { carácter: 'texto' } pone inscripciones en el muro que se leen con «Usar».
+// `guardian`: { tipo, nombre } el jefe que vigila la reliquia más valiosa (tipos en GUARDIANES, js/juego.js).
 
 export const MAZMORRAS = [
   {
     id: 'cripta-escarabajo',
+    guardian: { tipo: 'faraon', nombre: 'Jepri, el faraón escarabajo' },
     // Cuatro zonas: el plano fijo con los túneles de abajo, las galerías a la derecha, el hipogeo abajo
     // y, tras un pasadizo secreto y un sello, la cámara de Jepri con la reliquia más valiosa.
     sectores: {
@@ -104,6 +106,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-arenas',
+    guardian: { tipo: 'anubis', nombre: 'El sacerdote de Anubis' },
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El obelisco del patio' } },
       { nombre: 'Los almacenes del templo', tesoros: ['daga_bronce', 'anfora_aceite', 'monedas_plata', 'cetro_bronce'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El inventario del escriba real' } },
@@ -169,6 +172,7 @@ export const MAZMORRAS = [
 
   {
     id: 'glaciar-jarl',
+    guardian: { tipo: 'jarl', nombre: 'El Jarl de hielo' },
     ampliacion: [
       { nombre: 'La fortaleza', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La piedra rúnica del puente' } },
       { nombre: 'Las criptas de hielo', tesoros: ['fibula_bronce', 'runas_hueso', 'brazalete_plata', 'cuerno_heimdall'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El conjuro de la völva' } },
@@ -239,6 +243,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'cueva-drake',
+    guardian: { tipo: 'capitan', nombre: 'El capitán del galeón' },
     ampliacion: [
       { nombre: 'La cueva', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El diario del contramaestre' } },
       { nombre: 'La bodega del galeón', tesoros: ['reales_plata', 'sable_abordaje', 'brujula_laton', 'cofrecillo_perlas'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El manifiesto de carga' } },
@@ -312,6 +317,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-jaguar',
+    guardian: { tipo: 'rey_jaguar', nombre: 'El Rey Jaguar' },
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La estela del juego de pelota' } },
       { nombre: 'El juego de pelota', tesoros: ['amuleto_jade', 'semillas_cacao', 'orejeras_jade', 'vasija_pelota'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El marcador de piedra' } },
@@ -425,6 +431,7 @@ export const MAZMORRAS = [
 
   {
     id: 'templo-maldito',
+    guardian: { tipo: 'gran_sectario', nombre: 'El sumo sacerdote del culto' },
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El relieve de la puerta' } },
       { nombre: 'El patio de las campanas', tesoros: ['campana_templo', 'brazalete_marfil', 'katar_guardian', 'gema_rubi'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El canto de las campanas' } },
@@ -537,6 +544,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'tumba-cruzado',
+    guardian: { tipo: 'gran_caballero', nombre: 'El Caballero Negro' },
     ampliacion: [
       { nombre: 'La abadía', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La lápida del claustro' } },
       { nombre: 'El claustro de los peregrinos', tesoros: ['cruz_peregrino', 'concha_peregrino', 'sello_templario', 'espuelas_caballero'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El libro de horas' } },
