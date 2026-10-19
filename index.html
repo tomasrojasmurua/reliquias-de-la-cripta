@@ -30,6 +30,7 @@
   <nav class="losas">
     <button data-ir="mazmorras" class="principal">Entrar</button>
     <button data-ir="diaria" class="diaria">Expedición del día</button>
+    <button data-ir="unirse">Unirse a una sala</button>
     <button data-ir="coleccion">Tesoros</button>
     <button data-ir="ayuda">Cómo jugar</button>
     <button data-ir="opciones">Opciones</button>
@@ -59,6 +60,7 @@
       <div class="fila segmento">
         <button data-modo="explorar">Explorar</button>
         <button data-modo="contrarreloj">Contrarreloj</button>
+        <button data-modo="sala">Con amigos</button>
       </div>
       <p class="nota" id="nota-modo"></p>
     </div>
@@ -82,6 +84,52 @@
   </div>
   <div class="accion-fija">
     <button id="btn-entrar" class="principal">Entrar</button>
+  </div>
+</section>
+
+<section id="unirse" class="pantalla menu con-accion" hidden>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Unirse a una sala</h2>
+  </header>
+  <p class="sub" id="unirse-sub">Escribe el código que te mandó tu amigo.</p>
+  <div class="ajustes">
+    <div class="grupo">
+      <label class="campo">Tu nombre <input id="sala-nombre" maxlength="16" autocomplete="nickname" placeholder="Cazador sin nombre"></label>
+      <label class="campo">Código de la sala <input id="sala-codigo" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCD"></label>
+      <p class="nota aviso-error" id="unirse-error"></p>
+    </div>
+  </div>
+  <div class="accion-fija">
+    <button id="btn-unirse" class="principal">Unirme</button>
+  </div>
+</section>
+
+<section id="sala" class="pantalla menu con-accion" hidden>
+  <header class="cabecera">
+    <button class="atras" id="btn-salir-sala" aria-label="Salir de la sala"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Sala <span id="sala-codigo-vista"></span></h2>
+  </header>
+  <p class="sub" id="sala-sub"></p>
+  <div class="ajustes">
+    <div class="grupo" id="sala-invitar">
+      <p class="rotulo">Invita a tus amigos</p>
+      <button id="btn-whatsapp" class="whatsapp">Enviar por WhatsApp</button>
+      <button id="btn-copiar-enlace">Copiar enlace</button>
+      <p class="nota">Quien abra el enlace entra directo a esta sala. Pueden ser hasta 4 cazadores.</p>
+    </div>
+    <div class="grupo">
+      <p class="rotulo">Cazadores</p>
+      <ul id="sala-jugadores"></ul>
+      <p class="nota" id="sala-config"></p>
+    </div>
+  </div>
+  <div class="accion-fija">
+    <button id="btn-empezar-sala" class="principal">Empezar</button>
+  </div>
+  <div id="cuenta" class="capa" hidden>
+    <p id="cuenta-num"></p>
+    <p class="nota">Todos entran a la misma cripta. ¡A buscar reliquias!</p>
   </div>
 </section>
 
@@ -204,6 +252,7 @@
   <div id="fps"></div>
   <button id="btn-pausa" aria-label="Pausa">II</button>
   <div id="hud-zona" hidden><b></b> <span></span> <em></em></div>
+  <ul id="hud-sala" hidden></ul>
   <div id="hud-jefe" hidden><b></b><div class="barra"><i></i></div></div>
   <div id="hud-reloj" hidden></div>
   <div id="hud">
@@ -222,6 +271,7 @@
   </div>
   <div id="pausa" class="capa" hidden>
     <h2>Pausa</h2>
+    <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen.</p>
     <button id="btn-continuar" class="principal">Continuar</button>
     <button id="btn-menu-pausa">Salir al menú</button>
   </div>
@@ -234,9 +284,14 @@
     <h2></h2>
   </header>
   <ul class="datos"></ul>
+  <div class="grupo" id="resumen-sala" hidden>
+    <p class="rotulo">Marcador de la sala</p>
+    <ol id="resumen-marcador"></ol>
+  </div>
   <div class="tesoros"></div>
   <div class="accion-fija">
     <button class="atras-texto" data-ir="mazmorras">Otra mazmorra</button>
+    <button id="btn-volver-sala" hidden>Volver a la sala</button>
     <button id="btn-compartir" hidden>Compartir</button>
     <button id="btn-reintentar" class="principal">Jugar de nuevo</button>
   </div>

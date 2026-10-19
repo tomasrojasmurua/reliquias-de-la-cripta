@@ -1341,6 +1341,32 @@ for (const tipo of TIPOS_ENEMIGO) {
   const dibujar = tipoArte(tipo);
   for (let pose = 0; pose < 9; pose++) registrar(`${tipo}_${pose}`, sprite(g => dibujar(g, pose)));
 }
+// Los otros cazadores de una sala: un explorador con sombrero y pañuelo del color de su puesto y una antorcha en la mano.
+// pose: 0/1 caminar (cada pie por turno), 8 quieto.
+const COLORES_CAZADOR = { rojo: ['#d23a2e', '#8a1f18'], azul: ['#2f66d8', '#1c3f8a'], verde: ['#33a852', '#1d6a32'], amarillo: ['#e6b91f', '#9a7a0c'] };
+function cazador(g, [claro, oscuro], pose) {
+  const paso = pose === 0 ? 2 : pose === 1 ? -2 : 0;   // brazos y pies se alternan al caminar
+  const abrigo = '#8a6a42', abrigoSombra = '#5e4528', pantalon = '#4a3a2a', piel = '#e0b48a';
+  // piernas y botas
+  r(g, 24, 46 + Math.max(0, -paso), 7, 11 - Math.max(0, -paso), pantalon); r(g, 33, 46 + Math.max(0, paso), 7, 11 - Math.max(0, paso), pantalon);
+  r(g, 22, 56 - Math.max(0, paso) + (paso > 0 ? -2 : 0), 10, 5, '#2a2018'); r(g, 32, 56 - Math.max(0, -paso) + (paso < 0 ? -2 : 0), 10, 5, '#2a2018');
+  // abrigo con cinturón y mochila al hombro
+  r(g, 20, 26, 24, 22, abrigo); r(g, 20, 42, 24, 3, abrigoSombra); r(g, 30, 42, 4, 3, '#d8b04a');
+  r(g, 16, 28, 5, 14, '#6e4f2c');
+  // brazos: el derecho sostiene la antorcha
+  r(g, 14, 27 + paso, 7, 16, abrigo); r(g, 14, 41 + paso, 7, 4, piel);
+  r(g, 43, 27 - paso, 7, 16, abrigo); r(g, 43, 41 - paso, 7, 4, piel);
+  r(g, 45, 30 - paso, 3, 13, '#6b4a22');
+  r(g, 44, 24 - paso, 5, 6, '#ff8a1a'); r(g, 45, 22 - paso, 3, 4, '#ffd24a'); r(g, 46, 20 - paso, 1, 3, '#fff3b8');
+  // pañuelo, cabeza y sombrero
+  r(g, 25, 23, 14, 4, claro); r(g, 29, 26, 6, 3, oscuro);
+  r(g, 25, 11, 14, 13, piel); r(g, 28, 17, 2, 2, '#241a12'); r(g, 34, 17, 2, 2, '#241a12'); r(g, 29, 21, 6, 1, '#8a4a3a');
+  r(g, 14, 9, 36, 4, oscuro); r(g, 16, 8, 32, 2, claro);
+  r(g, 23, 0, 18, 10, claro); r(g, 23, 6, 18, 3, oscuro);
+}
+for (const [color, tonos] of Object.entries(COLORES_CAZADOR)) {
+  for (const pose of [0, 1, 8]) registrar(`cazador_${color}_${pose}`, sprite(g => cazador(g, tonos, pose)));
+}
 // hilo de seda del que cuelga la araña cuando baja del techo
 registrar('hilo', sprite(g => r(g, 31, 0, 2, 64, '#d8d4e0'), { relieve: false }));
 registrar('icor', sprite(g => mancha(g, ['#7ac63a', '#4a8a1a', '#b8f070'], 11), { relieve: false }));
