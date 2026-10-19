@@ -92,7 +92,8 @@ const SALPICA = {
 };
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
 // al empezar la partida y al reaparecer, para que nadie espere a otro en la entrada.
-const DAÑO_CAZADOR = 0.6, TREGUA_INICIAL = 10, TREGUA_REAPARECER = 4;
+// (la Tommy gun, que dispara una ráfaga, pega menos aún para que una sola ráfaga no decida el duelo)
+const DAÑO_CAZADOR = 0.6, DAÑO_CAZADOR_TOMMY = 0.35, TREGUA_INICIAL = 10, TREGUA_REAPARECER = 4;
 const VEL_FUEGO = 5.5, VEL_FLECHA = 9;
 
 export class Juego {
@@ -712,7 +713,7 @@ export class Juego {
       if (a > 0 && a < Math.min(muro, arma.alcance) && lat < cono && a < mejorD) { mejor = e; mejorD = a; }
     }
     const rival = this.rivalEnMira(fx, fz, Math.min(muro, arma.alcance), 0.32, 0.02, mejorD);
-    if (rival) this.herirCazador(rival, azar(arma.daño));
+    if (rival) this.herirCazador(rival, azar(arma.daño), j.arma === 'tommy' ? DAÑO_CAZADOR_TOMMY : DAÑO_CAZADOR);
     else if (mejor) this.herir(mejor, azar(arma.daño));
     else if (muro < arma.alcance) {
       // impacto en el muro: polvo (y chispas si es una bala)
@@ -743,8 +744,8 @@ export class Juego {
   }
 
   // Le pego a otro cazador: él mismo se resta la vida (si no está protegido) y yo veo el golpe.
-  herirCazador(r, daño) {
-    this.ev.pegarA?.(r.id, Math.max(1, Math.round(daño * DAÑO_CAZADOR)));
+  herirCazador(r, daño, factor = DAÑO_CAZADOR) {
+    this.ev.pegarA?.(r.id, Math.max(1, Math.round(daño * factor)));
     this.salpicar(r.x, r.y + 0.5, r.z, 'sangre', 5, 1.2);
     sonar('golpe');
   }
