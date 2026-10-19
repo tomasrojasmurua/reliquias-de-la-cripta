@@ -466,3 +466,13 @@ body.tactil #hud .caja.pulsado { border-color: var(--oro); background: rgba(232,
 .entrada-cuaderno .sin-ayuda { color: #8fdc9a; }
 .entrada-cuaderno p { margin: 8px 0 0; font-size: 15px; line-height: 1.4; }
 .entrada-cuaderno .pista-cuaderno { font-style: italic; }
+
+/* Cómo jugar: guía plegable de acertijos */
+.guia-acertijos { margin: 12px 0; border: 1px solid #4a3a26; border-radius: 4px; background: rgba(40, 28, 14, .55); }
+.guia-acertijos summary { cursor: pointer; padding: 12px 14px; min-height: 44px; box-sizing: border-box; font-family: Cinzel, Georgia, serif; letter-spacing: .06em; color: var(--oro); }
+.guia-acertijos[open] summary { border-bottom: 1px solid #4a3a26; }
+.guia-acertijos > :not(summary) { margin-left: 14px; margin-right: 14px; }
+.guia-acertijos ul { padding-left: 20px; margin-top: 4px; }
+.guia-acertijos li { margin: 4px 0; }
+.guia-acertijos .ejemplo { background: rgba(0, 0, 0, .3); border-left: 3px solid var(--oro); padding: 8px 10px; font-size: .95em; }
+.guia-acertijos > :last-child { margin-bottom: 14px; }
