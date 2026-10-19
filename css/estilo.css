@@ -31,20 +31,63 @@ body.jugando #escena { display: none; }
 .menu {
   position: fixed; inset: 0; overflow-y: auto; touch-action: pan-y;
   display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: max(24px, env(safe-area-inset-top)) 16px 32px;
+  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
   font-family: 'IM Fell English', Georgia, serif;
   animation: aparecer .6s ease-out;
 }
+/* un respiro al final de lo que se desplaza, salvo donde la barra de acciones ya cierra la pantalla */
+.menu::after { content: ''; flex: 0 0 max(12px, env(safe-area-inset-bottom)); }
+.menu.con-accion::after { display: none; }
 @keyframes aparecer { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .menu h2 {
   font-family: Cinzel, Georgia, serif; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--oro); margin: 10px 0 0; text-align: center; font-size: clamp(22px, 4.5vw, 34px);
+  color: var(--oro); margin: 10px 0 0; text-align: center; font-size: clamp(20px, 4.5vw, 34px); line-height: 1.15;
   text-shadow: 0 2px 0 #3a2408, 0 0 18px rgba(255, 160, 50, .35);
   display: flex; align-items: center; gap: 14px;
 }
 .menu h2::before, .menu h2::after { content: ''; width: clamp(24px, 8vw, 80px); height: 2px; background: linear-gradient(90deg, transparent, var(--oro)); }
 .menu h2::after { transform: scaleX(-1); }
 .menu .sub { color: var(--suave); font-style: italic; text-align: center; margin: 0 0 6px; max-width: 520px; }
+
+/* Cabecera fija de cada menú: volver a la izquierda, título al centro */
+.cabecera {
+  position: sticky; top: 0; z-index: 5; flex-shrink: 0; align-self: stretch;
+  margin: 0 calc(-1 * max(16px, env(safe-area-inset-right))) 0 calc(-1 * max(16px, env(safe-area-inset-left)));
+  padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 14px max(12px, env(safe-area-inset-left));
+  display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 8px;
+  background: linear-gradient(rgba(18, 13, 8, .97), rgba(18, 13, 8, .9) 75%, rgba(18, 13, 8, 0));
+}
+.cabecera h2 { grid-column: 2; margin: 0; justify-content: center; }
+.menu .cabecera .atras {
+  width: 46px; height: 46px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; letter-spacing: 0;
+}
+.atras svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 600px) {
+  .menu h2 { letter-spacing: .08em; }
+  .cabecera h2::before, .cabecera h2::after { display: none; }
+}
+
+/* Barra de acciones al pie, siempre a la vista */
+.accion-fija {
+  position: sticky; bottom: 0; z-index: 5; margin-top: auto; flex-shrink: 0; align-self: stretch;
+  margin-left: calc(-1 * max(16px, env(safe-area-inset-left))); margin-right: calc(-1 * max(16px, env(safe-area-inset-right)));
+  padding: 22px max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  display: flex; justify-content: center; gap: 10px;
+  background: linear-gradient(rgba(18, 13, 8, 0), rgba(18, 13, 8, .92) 30%, rgba(18, 13, 8, .97));
+}
+.accion-fija button { flex: 1; max-width: 300px; }
+.accion-fija button.principal { font-size: 18px; padding: 15px 22px; }
+.menu .accion-fija button:not(:only-child) { font-size: 14px; letter-spacing: .05em; padding-left: 8px; padding-right: 8px; }
+
+/* Ajustes agrupados en paneles, con opciones de ancho parejo */
+.ajustes { width: min(760px, 100%); display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); align-items: start; }
+.grupo { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(14, 10, 6, .72); border: 1px solid #4a3a26; border-radius: 4px; box-shadow: 0 8px 22px rgba(0, 0, 0, .45); }
+.grupo .nota { margin: 0; max-width: none; font-size: 14px; }
+.grupo .nota:empty { display: none; }
+.rotulo { margin: 0; text-align: center; font-family: Cinzel, Georgia, serif; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: #d8c49a; }
+.fila.segmento { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.menu .segmento button { padding: 12px 4px; font-size: 13px; letter-spacing: .06em; min-height: 48px; line-height: 1.15; }
+.segmento button small { display: block; font-size: 11px; letter-spacing: .04em; margin-top: 3px; opacity: .85; }
 
 /* Botones como losas de piedra talladas */
 .menu button, .capa button {
@@ -70,7 +113,8 @@ body.jugando #escena { display: none; }
 .menu button.activo { color: #2a1606; background: linear-gradient(#d8a844, #9a6c1c); }
 
 /* Portada */
-#portada { justify-content: space-between; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+#portada { justify-content: space-between; padding-top: max(18px, env(safe-area-inset-top)); padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+#portada::after { display: none; }
 .cartel { text-align: center; margin-top: 2vh; }
 .cartel h1 {
   font-family: Cinzel, Georgia, serif; font-weight: 900; margin: 0; line-height: .95;
@@ -98,7 +142,6 @@ body.jugando #escena { display: none; }
 .fila { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .texto { max-width: 640px; line-height: 1.55; font-size: 17px; background: rgba(14, 10, 6, .72); border: 1px solid #4a3a26; border-radius: 4px; padding: 6px 22px 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); }
 .texto h3 { font-family: Cinzel, Georgia, serif; letter-spacing: .1em; color: var(--oro); margin-bottom: 0; }
-#opciones > p:not(.nota) { font-family: Cinzel, Georgia, serif; letter-spacing: .1em; color: #d8c49a; margin: 8px 0 0; }
 
 /* Mazmorras como tablillas de piedra */
 #lista-mazmorras { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; width: min(980px, 100%); }
@@ -185,14 +228,15 @@ body.jugando #escena { display: none; }
 #ficha[hidden] { display: none; }
 .ficha { --c: #c9c2b0; width: min(380px, 100%); text-align: center; padding: 18px 20px; border-radius: 6px; background: linear-gradient(#2e2318, #1a130c); border: 2px solid var(--c); box-shadow: 0 0 40px rgba(0, 0, 0, .7), 0 0 24px color-mix(in srgb, var(--c) 35%, transparent); }
 .f-raro .ficha { --c: #5fa8ff; } .f-epico .ficha { --c: #c77dff; } .f-legendario .ficha { --c: #ffb627; }
-.ficha-pieza canvas { width: 192px; height: 192px; image-rendering: pixelated; filter: drop-shadow(0 6px 4px rgba(0, 0, 0, .6)); }
+.ficha { max-height: 100%; overflow-y: auto; }
+.ficha-pieza canvas { width: min(192px, 34vh); height: min(192px, 34vh); image-rendering: pixelated; filter: drop-shadow(0 6px 4px rgba(0, 0, 0, .6)); }
 .ficha-pieza.oculta canvas { filter: brightness(0) opacity(.5); }
 .ficha h3 { margin: 4px 0 2px; font: 800 20px Cinzel, Georgia, serif; color: #f0d491; }
 .ficha em { display: block; color: var(--c); font: 700 13px Cinzel, Georgia, serif; letter-spacing: .14em; text-transform: uppercase; font-style: normal; }
 .ficha p { font-style: italic; color: #e6d6b4; margin: 10px 0 6px; }
 .ficha small { display: block; color: var(--suave); margin-bottom: 12px; }
 
-#resumen .datos { list-style: none; padding: 0; font-size: 19px; line-height: 1.7; text-align: center; background: rgba(14, 10, 6, .7); border: 1px solid #4a3a26; border-radius: 4px; padding: 10px 28px; }
+#resumen .datos { list-style: none; margin: 0; width: min(420px, 100%); font-size: 19px; line-height: 1.7; text-align: center; background: rgba(14, 10, 6, .7); border: 1px solid #4a3a26; border-radius: 4px; padding: 10px 28px; }
 #resumen .tesoros { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
 
 /* ---------- Juego ---------- */
@@ -217,7 +261,6 @@ body.retro #vista { image-rendering: pixelated; }
 #hud-zona.completa em { color: #7fe0a0; }
 @media (max-width: 620px) { #hud-zona span { display: none; } }
 
-#prep-tiempo { display: flex; flex-direction: column; align-items: center; }
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }
 #hud-reloj.urgente { color: #ff5a4a; border-color: #8a2a1a; animation: latido 1s infinite; }
@@ -283,6 +326,7 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 body.contrarreloj #t-mapa { top: calc(58px + env(safe-area-inset-top)); }
 .solo-tactil { display: none; }
 body.tactil .solo-tactil { display: flex; }
+body.tactil .fila.solo-tactil { display: grid; }
 body.tactil p.solo-tactil { display: block; }
 body.tactil.zurdo #hud { left: auto; right: 12px; }
 body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-inset-bottom)); }
@@ -291,4 +335,32 @@ body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-i
   .menu .pieza, .menu .pieza:hover { width: 70px; height: 82px; }
   .pieza canvas { width: 56px; height: 56px; }
   .vitrina { padding: 0 8px; } .zocalo { margin: 0 -8px; } .cristal { padding: 12px 4px 0; }
+}
+
+/* ---------- Menús en el celular ---------- */
+
+@media (max-width: 520px) {
+  .texto { font-size: 16px; padding: 4px 16px 12px; }
+  .menu .mazmorra { padding: 13px 14px 12px; }
+  .mazmorra strong { font-size: 17px; }
+  .mazmorra span { font-size: 14px; }
+  #vitrinas { gap: 18px; }
+}
+/* Horizontal: poca altura, así que todo se aprieta y los ajustes van lado a lado */
+@media (max-height: 520px) {
+  .cabecera { padding-top: max(6px, env(safe-area-inset-top)); padding-bottom: 8px; }
+  .menu h2 { font-size: clamp(18px, 5vh, 26px); }
+  .menu .cabecera .atras { width: 40px; height: 40px; }
+  .menu .sub { font-size: 14px; margin: 0; }
+  .menu { gap: 8px; }
+  .ajustes { gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+  .grupo { padding: 8px 10px; gap: 6px; }
+  .menu .segmento button { min-height: 42px; padding: 8px 4px; }
+  .accion-fija { padding-top: 14px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .accion-fija button.principal { font-size: 16px; padding: 11px 22px; }
+  .menu .accion-fija button { padding-top: 11px; padding-bottom: 11px; }
+  #resumen .datos { font-size: 16px; line-height: 1.5; padding: 6px 20px; }
+  .ficha { display: grid; grid-template-columns: auto 1fr; column-gap: 16px; align-items: center; text-align: left; width: min(560px, 100%); }
+  .ficha-pieza { grid-row: 1 / span 6; }
+  .ficha .cerrar { justify-self: start; }
 }

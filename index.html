@@ -38,45 +38,59 @@
 </section>
 
 <section id="mazmorras" class="pantalla menu" hidden>
-  <h2>Elige una mazmorra</h2>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Elige una mazmorra</h2>
+  </header>
   <p class="sub">Cada puerta lleva a una cripta distinta. Los túneles cambian cada vez que entras.</p>
   <div id="lista-mazmorras"></div>
-  <button data-ir="portada">Volver</button>
 </section>
 
-<section id="preparar" class="pantalla menu" hidden>
-  <h2></h2>
+<section id="preparar" class="pantalla menu con-accion" hidden>
+  <header class="cabecera">
+    <button class="atras" data-ir="mazmorras" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2></h2>
+  </header>
   <p class="sub" id="prep-desc"></p>
-  <p>Modo</p>
-  <div class="fila">
-    <button data-modo="explorar">Explorar</button>
-    <button data-modo="contrarreloj">Contrarreloj</button>
-  </div>
-  <p id="prep-titulo-tamano">Tamaño</p>
-  <div class="fila" id="prep-tamanos">
-    <button data-tamano="pequena">Pequeña</button>
-    <button data-tamano="mediana">Mediana</button>
-    <button data-tamano="grande">Grande</button>
-  </div>
-  <p class="nota" id="nota-tamano"></p>
-  <div id="prep-tiempo">
-    <p>Tiempo</p>
-    <div class="fila">
-      <button data-ritmo="0"></button>
-      <button data-ritmo="1"></button>
-      <button data-ritmo="2"></button>
+  <div class="ajustes">
+    <div class="grupo">
+      <p class="rotulo">Modo</p>
+      <div class="fila segmento">
+        <button data-modo="explorar">Explorar</button>
+        <button data-modo="contrarreloj">Contrarreloj</button>
+      </div>
+      <p class="nota" id="nota-modo"></p>
+    </div>
+    <div class="grupo" id="prep-grupo-tamano">
+      <p class="rotulo">Tamaño</p>
+      <div class="fila segmento">
+        <button data-tamano="pequena">Pequeña</button>
+        <button data-tamano="mediana">Mediana</button>
+        <button data-tamano="grande">Grande</button>
+      </div>
+      <p class="nota" id="nota-tamano"></p>
+    </div>
+    <div class="grupo" id="prep-tiempo">
+      <p class="rotulo">Tiempo</p>
+      <div class="fila segmento">
+        <button data-ritmo="0"></button>
+        <button data-ritmo="1"></button>
+        <button data-ritmo="2"></button>
+      </div>
     </div>
   </div>
-  <p class="nota" id="nota-modo"></p>
-  <button id="btn-entrar" class="principal">Entrar</button>
-  <button data-ir="mazmorras">Volver</button>
+  <div class="accion-fija">
+    <button id="btn-entrar" class="principal">Entrar</button>
+  </div>
 </section>
 
 <section id="coleccion" class="pantalla menu" hidden>
-  <h2>Colección de tesoros</h2>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Colección</h2>
+  </header>
   <p id="resumen-coleccion"></p>
   <div id="vitrinas"></div>
-  <button data-ir="portada">Volver</button>
   <div id="ficha" hidden>
     <div class="ficha">
       <div class="ficha-pieza"></div>
@@ -90,7 +104,10 @@
 </section>
 
 <section id="ayuda" class="pantalla menu" hidden>
-  <h2>Cómo jugar</h2>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Cómo jugar</h2>
+  </header>
   <div class="texto">
     <p>Las mazmorras están a oscuras: tu <b>antorcha</b> ilumina solo lo que tienes cerca. Explora cada mazmorra y reúne sus tesoros. Empiezas solo con tu látigo: busca el <b>revólver</b> y sus <b>balas</b>.</p>
     <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro.</p>
@@ -102,34 +119,44 @@
     <h3>Celular</h3>
     <p>Arrastra en la mitad izquierda para moverte. Arrastra en la derecha para mirar y toca ahí para disparar; toca dos veces y mantén el dedo para disparar sin parar mientras giras. La puntería te ayuda a encontrar al enemigo. La mano se ilumina cuando hay algo que usar enfrente. En Opciones puedes cambiar la sensibilidad, activar el modo zurdo y la vibración. Se juega mejor en horizontal.</p>
   </div>
-  <button data-ir="portada">Volver</button>
 </section>
 
 <section id="opciones" class="pantalla menu" hidden>
-  <h2>Opciones</h2>
-  <p>Calidad de imagen</p>
-  <div class="fila">
-    <button data-calidad="alta">Alta</button>
-    <button data-calidad="media">Media</button>
-    <button data-calidad="retro">Retro</button>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Opciones</h2>
+  </header>
+  <div class="ajustes">
+    <div class="grupo">
+      <p class="rotulo">Calidad de imagen</p>
+      <div class="fila segmento">
+        <button data-calidad="alta">Alta</button>
+        <button data-calidad="media">Media</button>
+        <button data-calidad="retro">Retro</button>
+      </div>
+      <p class="nota">Retro dibuja a baja resolución, como el Doom original, y es la más liviana.</p>
+    </div>
+    <div class="grupo">
+      <p class="rotulo">Sonido</p>
+      <div class="fila segmento">
+        <button id="btn-sonido">Sonido: sí</button>
+        <button id="btn-musica">Música: sí</button>
+      </div>
+    </div>
+    <div class="grupo solo-tactil">
+      <p class="rotulo">Controles táctiles</p>
+      <div class="fila segmento">
+        <button data-sens="baja">Lenta</button>
+        <button data-sens="media">Normal</button>
+        <button data-sens="alta">Rápida</button>
+      </div>
+      <p class="nota">Sensibilidad al girar la vista con el dedo.</p>
+      <div class="fila segmento">
+        <button id="btn-zurdo">Zurdo: no</button>
+        <button id="btn-vibrar">Vibración: sí</button>
+      </div>
+    </div>
   </div>
-  <p class="nota">Retro dibuja a baja resolución, como el Doom original, y es la más liviana.</p>
-  <div class="fila">
-    <button id="btn-sonido">Sonido: sí</button>
-    <button id="btn-musica">Música: sí</button>
-  </div>
-  <p class="solo-tactil">Controles táctiles</p>
-  <div class="fila solo-tactil">
-    <button data-sens="baja">Lenta</button>
-    <button data-sens="media">Normal</button>
-    <button data-sens="alta">Rápida</button>
-  </div>
-  <p class="nota solo-tactil">Sensibilidad al girar la vista con el dedo.</p>
-  <div class="fila solo-tactil">
-    <button id="btn-zurdo">Zurdo: no</button>
-    <button id="btn-vibrar">Vibración: sí</button>
-  </div>
-  <button data-ir="portada">Volver</button>
 </section>
 
 <section id="juego" class="pantalla" hidden>
@@ -167,12 +194,17 @@
   <div id="panel" class="capa" hidden></div>
 </section>
 
-<section id="resumen" class="pantalla menu" hidden>
-  <h2></h2>
+<section id="resumen" class="pantalla menu con-accion" hidden>
+  <header class="cabecera">
+    <span></span>
+    <h2></h2>
+  </header>
   <ul class="datos"></ul>
   <div class="tesoros"></div>
-  <button id="btn-reintentar" class="principal">Jugar de nuevo</button>
-  <button data-ir="mazmorras">Otra mazmorra</button>
+  <div class="accion-fija">
+    <button class="atras-texto" data-ir="mazmorras">Otra mazmorra</button>
+    <button id="btn-reintentar" class="principal">Jugar de nuevo</button>
+  </div>
 </section>
 
 <script type="module" src="js/main.js"></script>
