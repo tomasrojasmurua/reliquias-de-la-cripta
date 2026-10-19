@@ -2,6 +2,7 @@
 
 import { conLaberinto, conZonas, azarConSemilla } from './laberinto.js';
 import { colocarHitos } from './hitos.js';
+import { repartirEnemigos } from './fauna.js';
 
 // tipo: muro | vacio | suelo | puerta | secreto | sello | tablilla | aviso | salida
 // Peligros en el suelo: trampa 'pinchos' (suben y bajan), peligro 'lava' (quema) y 'abismo' (caída mortal).
@@ -187,5 +188,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
   // Pinturas, relieves y estatuas en las salas de los laberintos (con su propio azar, para no
   // cambiar la mazmorra que sale de la semilla).
   mapa.hitos = colocarHitos(mapa, def.salas || [], azarConSemilla(semilla ^ 0x5bd1e995));
+  // Qué monstruos salen y dónde (también con su propio azar).
+  repartirEnemigos(mapa, azarConSemilla(semilla ^ 0x2f6b1c3d));
   return mapa;
 }
