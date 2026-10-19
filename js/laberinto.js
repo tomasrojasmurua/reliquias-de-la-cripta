@@ -231,7 +231,9 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
 const tiposDe = def => [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
 
 // Caracteres libres para tablillas y sellos nuevos (los que no usa ya el plano ni sus acertijos).
-const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N'], ['A', 'B'], ['C', 'O'], ['M', 'R'], ['α', 'β'], ['γ', 'δ'], ['ε', 'ζ'], ['η', 'θ']];
+const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N'], ['A', 'B'], ['C', 'O'], ['M', 'R'], ['α', 'β'], ['γ', 'δ'], ['ε', 'ζ'], ['η', 'θ'],
+  ['ι', 'κ'], ['λ', 'μ'], ['ν', 'ξ'], ['ο', 'π'], ['ρ', 'σ'], ['τ', 'υ'], ['φ', 'χ'], ['ψ', 'ω'],
+  ['Б', 'Г'], ['Д', 'Ж'], ['З', 'И'], ['Л', 'П'], ['Ф', 'Ц'], ['Ч', 'Ш'], ['Э', 'Ю'], ['Я', 'Щ']];
 function paresLibres(def) {
   const usados = new Set([...def.plano.join(''), ...Object.keys(def.acertijos || {}), ...Object.values(def.acertijos || {}).map(a => a.sello), ...Object.keys(def.leyenda || {}), 'R']);
   return CARACTERES_ACERTIJO.filter(([a, b]) => !usados.has(a) && !usados.has(b));
@@ -255,6 +257,241 @@ function camarasNuevas(n, pares, acertijos, def) {
   }
   camaras.cerrar = () => { for (const c of camaras) if (!c.puesta) delete acertijos[c.tablilla]; };
   return camaras;
+}
+
+const TITULOS_VIA = ['El grabado del atajo', 'La losa de la puerta lateral', 'El códice de la galería oculta', 'La advertencia del arquitecto', 'El sello del almacén', 'La clave del pasadizo', 'El relieve del dintel', 'La cifra del portal', 'El epitafio del vigía', 'La leyenda del cerrojo', 'La estrofa del centinela', 'El mensaje del cantero'];
+
+// Un acertijo de más: una tablilla que abre una puerta de un camino opcional (atajo o sala lateral).
+// Devuelve { tablilla, sello } o null si ya no quedan caracteres libres.
+function nuevaVia(pares, acertijos, def, dificultad) {
+  if (!pares.length) return null;
+  const [tablilla, sello] = pares.shift();
+  const num = Object.values(acertijos).filter(a => a.via).length;
+  const palancas = num % 3 === 2;
+  acertijos[tablilla] = {
+    id: `${def.id}-via${num + 1}`, tipo: palancas ? 'palancas' : 'pista', dificultad, sello, via: true,
+    titulo: palancas ? TITULOS_PALANCAS[(num + 1) % TITULOS_PALANCAS.length] + (num >= 8 ? ' II' : '') : TITULOS_VIA[num % TITULOS_VIA.length] + (num >= TITULOS_VIA.length ? ' II' : ''),
+  };
+  return { tablilla, sello };
+}
+const quitarVia = (acertijos, v) => { delete acertijos[v.tablilla]; };
+
+// Atajos tras una puerta con acertijo: un muro entre dos pasillos que quedan lejos uno de otro por el
+// camino normal. Sin resolver la tablilla, todo sigue igual; resuelta, la puerta ahorra un buen rodeo.
+function ponerAtajos(t, n, pares, acertijos, def, dificultad) {
+  const { g, dentro, d, enSala, alt } = t;
+  const nivel = c => c === 'a' ? -1 : c === '1' ? 1 : 0;
+  const hechos = [];
+  for (let k = 0; k < n; k++) {
+    const candidatos = [];
+    for (let y = 2; y < t.H - 2; y++) for (let x = 2; x < t.W - 2; x++) {
+      if (g[y][x] !== '#' || enSala(x, y)) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const ax = x - dx, ay = y - dy, bx = x + dx, by = y + dy;
+        if (g[ay]?.[ax] !== '.' || g[by]?.[bx] !== '.') continue;
+        if (g[y + dx]?.[x + dy] !== '#' || g[y - dx]?.[x - dy] !== '#') continue;
+        if (Math.abs(nivel(alt[ay][ax]) - nivel(alt[by][bx])) > 1) continue;
+        const salto = Math.abs(d(ax, ay) - d(bx, by));
+        if (salto >= 18 && !hechos.some(([hx, hy]) => Math.abs(hx - x) + Math.abs(hy - y) < 8)) candidatos.push([x, y, salto]);
+      }
+    }
+    if (!candidatos.length) break;
+    candidatos.sort((a, b) => b[2] - a[2]);
+    const [x, y] = herramientas(t.azar).elegir(candidatos.slice(0, Math.max(1, Math.ceil(candidatos.length / 3))));
+    const via = nuevaVia(pares, acertijos, def, dificultad);
+    if (!via) break;
+    g[y][x] = via.sello;
+    if (!ponerTablilla(t, via.tablilla, true)) { g[y][x] = '#'; quitarVia(acertijos, via); continue; }
+    hechos.push([x, y]);
+  }
+  return hechos.length;
+}
+
+// ---------- El plano fijo cambia en cada partida ----------
+//
+// El plano de datos/mazmorras.js es solo un punto de partida. En cada partida se le suman, siempre sin
+// quitarle caminos (así nunca queda un tramo imposible):
+//  - pasos nuevos entre pasillos lejanos (a veces con una puerta, a veces un pasadizo secreto),
+//  - pilares en las salas grandes,
+//  - salas escondidas en la roca maciza: tras un pasadizo secreto, tras una puerta que abre una tablilla
+//    o tras una puerta común. Una de ellas guarda el revólver, que ya no está en un sitio fijo.
+const VECINOS8 = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+
+function variarPlano(def, azar, pares, acertijos, tipos) {
+  const { elegir, mezclar } = herramientas(azar);
+  const H = def.plano.length, W = Math.max(...def.plano.map(f => f.length));
+  const g = def.plano.map(f => f.padEnd(W, '#').split(''));
+  const nivel = (x, y) => { const h = def.alturas?.[y]?.[x]; return !h || h === ' ' ? '.' : h; };
+  for (const f of g) for (let x = 0; x < W; x++) if (f[x] === 'R') f[x] = '.';
+
+  // paredes y demás casillas por donde no se camina
+  const macizas = new Set(['#', '!', '%', 'X', '_', '~', ...Object.keys(def.acertijos || {}), ...Object.keys(def.avisos || {})]);
+  for (const [c, l] of Object.entries(def.leyenda || {})) if (['muro', 'vacio', 'aviso'].includes(l.tipo)) macizas.add(c);
+  const selladas = new Set(Object.values(def.acertijos || {}).map(a => a.sello));
+  const inicio = (() => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'P') return [x, y]; return [1, 1]; })();
+  // distancias desde el inicio; `cerradas`: sellos por los que no se pasa
+  const distancias = cerradas => {
+    const dist = new Map([[inicio.join(), 0]]), q = [inicio];
+    while (q.length) {
+      const [x, y] = q.shift();
+      for (const [dx, dy] of V) {
+        const nx = x + dx, ny = y + dy, k = nx + ',' + ny, c = g[ny]?.[nx];
+        if (c === undefined || macizas.has(c) || cerradas.has(c) || dist.has(k)) continue;
+        dist.set(k, dist.get(x + ',' + y) + 1); q.push([nx, ny]);
+      }
+    }
+    return dist;
+  };
+  const suelo = (x, y) => g[y]?.[x] === '.';
+
+  // 1. pasos nuevos entre pasillos que por el camino normal quedan lejos uno del otro
+  const dist0 = distancias(selladas);
+  const pasos = [];
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    if (g[y][x] !== '#') continue;
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      if (!suelo(x - dx, y - dy) || !suelo(x + dx, y + dy) || g[y + dx][x + dy] !== '#' || g[y - dx][x - dy] !== '#') continue;
+      if (nivel(x - dx, y - dy) !== nivel(x + dx, y + dy) || nivel(x, y) !== nivel(x + dx, y + dy)) continue;
+      const a = dist0.get((x - dx) + ',' + (y - dy)), b = dist0.get((x + dx) + ',' + (y + dy));
+      if (a !== undefined && b !== undefined && Math.abs(a - b) >= 10) pasos.push([x, y]);
+    }
+  }
+  mezclar(pasos);
+  const abiertos = [];
+  for (const [x, y] of pasos) {
+    if (abiertos.length >= 2 + Math.floor(azar() * 3)) break;
+    if (abiertos.some(([ax, ay]) => Math.abs(ax - x) + Math.abs(ay - y) < 6)) continue;
+    const r = azar();
+    g[y][x] = r < 0.6 ? '.' : r < 0.8 ? 'D' : 'S';
+    abiertos.push([x, y]);
+  }
+
+  // 2. pilares en las salas grandes (con las ocho casillas de alrededor libres no cortan ningún paso)
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    if (!suelo(x, y) || azar() > 0.12 || Math.abs(x - inicio[0]) + Math.abs(y - inicio[1]) < 5) continue;
+    if (VECINOS8.every(([dx, dy]) => suelo(x + dx, y + dy) && nivel(x + dx, y + dy) === nivel(x, y))) g[y][x] = '#';
+  }
+
+  // 3. salas escondidas
+  const dist = distancias(selladas);
+  const ocupado = new Set();
+  const buscar = (profundo) => {
+    const pisables = [...dist.keys()].map(k => k.split(',').map(Number)).filter(([x, y]) => suelo(x, y));
+    const halladas = [];
+    for (let intento = 0; intento < 3000 && halladas.length < 30; intento++) {
+      const [fx, fy] = elegir(pisables), [dx, dy] = elegir(V);
+      const largo = 1 + Math.floor(azar() * 4);
+      // si los muros son finos, se achican las salas hasta un simple nicho
+      const chico = intento > 1200;
+      const ancho = chico ? 1 : elegir([1, 3, 3, 3, 5]), hondo = chico ? 1 : elegir([1, 3, 3, 5]);
+      const nuevas = new Map();
+      for (let i = 1; i <= largo; i++) nuevas.set((fx + dx * i) + ',' + (fy + dy * i), i === 1 ? 'puerta' : 'pasillo');
+      const cx = fx + dx * (largo + 1 + (hondo >> 1)), cy = fy + dy * (largo + 1 + (hondo >> 1));
+      for (let a = -(ancho >> 1); a <= ancho >> 1; a++) for (let b = -(hondo >> 1); b <= hondo >> 1; b++) nuevas.set((cx - dy * a + dx * b) + ',' + (cy + dx * a + dy * b), 'sala');
+      let ok = true;
+      for (const k of nuevas.keys()) {
+        const [x, y] = k.split(',').map(Number);
+        if (x < 2 || y < 2 || x > W - 3 || y > H - 3 || g[y][x] !== '#' || nivel(x, y) !== nivel(fx, fy) || ocupado.has(k)) { ok = false; break; }
+        for (const [vx, vy] of V) {
+          const nx = x + vx, ny = y + vy;
+          if (nuevas.has(nx + ',' + ny) || (nx === fx && ny === fy)) continue;
+          if (g[ny]?.[nx] !== '#' || ocupado.has(nx + ',' + ny)) { ok = false; break; }
+        }
+        if (!ok) break;
+      }
+      if (!ok) continue;
+      const celdas = [...nuevas].map(([k, tipo]) => [...k.split(',').map(Number), tipo]);
+      halladas.push({ celdas, desde: [fx, fy], lejos: dist.get(fx + ',' + fy), puerta: celdas.find(c => c[2] === 'puerta') });
+    }
+    if (!halladas.length) return null;
+    halladas.sort((a, b) => b.lejos - a.lejos);
+    const pool = profundo ? halladas.slice(0, Math.max(1, Math.ceil(halladas.length / 3))) : halladas;
+    return elegir(pool);
+  };
+  const excavar = (h, puerta) => {
+    for (const [x, y, tipo] of h.celdas) {
+      g[y][x] = tipo === 'puerta' ? puerta : '.';
+      ocupado.add(x + ',' + y);
+      for (const [dx, dy] of VECINOS8) ocupado.add((x + dx) + ',' + (y + dy));
+    }
+    h.sala = h.celdas.filter(c => c[2] === 'sala');
+    h.interior = h.celdas.filter(c => c[2] !== 'puerta');
+  };
+
+  const revolverTrasTablilla = azar() < 0.4;
+  const plan = [{ uso: 'revolver', puerta: revolverTrasTablilla ? 'via' : 'S', profundo: true }];
+  if (azar() < 0.85) plan.push({ uso: 'botin', puerta: 'via' });
+  if (azar() < 0.9) plan.push({ uso: 'botin', puerta: 'S' });
+  if (azar() < 0.75) plan.push({ uso: 'trampa', puerta: 'S' });
+  if (azar() < 0.8) plan.push({ uso: 'emboscada', puerta: 'D' });
+  const nuevasVias = [];
+  let revolverPuesto = false;
+  for (const p of plan) {
+    const h = buscar(p.profundo);
+    if (!h) {
+      // sin sitio en la roca, el revólver queda a la vista en uno de los rincones más lejanos
+      if (p.uso === 'revolver') {
+        // en un plano de salas abiertas se emparedan una o dos casillas junto a una pared: un nicho tras un pasadizo secreto
+        const antes = distancias(new Set()).size;
+        const candidatas = mezclar([...dist.keys()].map(k => k.split(',').map(Number)).filter(([x, y]) => suelo(x, y) && x > 2 && y > 2 && x < W - 3 && y < H - 3 && dist.get(x + ',' + y) >= 8));
+        candidatas.sort((a, b) => V.filter(([dx, dy]) => g[b[1] + dy][b[0] + dx] === '#').length - V.filter(([dx, dy]) => g[a[1] + dy][a[0] + dx] === '#').length);
+        for (const [x, y] of candidatas.slice(0, 60)) {
+          const [dx, dy] = elegir(V);
+          const [px, py] = [x + dx, y + dy], [zx, zy] = [x + dx * 2, y + dy * 2];
+          if (g[py][px] !== '.' || g[zy]?.[zx] !== '.' || nivel(x, y) !== nivel(px, py) || nivel(px, py) !== nivel(zx, zy)) continue;
+          const cambios = [[x, y, 'R'], [px, py, 'S'], ...V.filter(([vx, vy]) => (vx !== dx || vy !== dy) && g[y + vy][x + vx] === '.').map(([vx, vy]) => [x + vx, y + vy, '#'])];
+          if (cambios.some(([cx, cy]) => nivel(cx, cy) !== nivel(x, y))) continue;
+          const previo = cambios.map(([cx, cy]) => g[cy][cx]);
+          cambios.forEach(([cx, cy, c]) => { g[cy][cx] = c; });
+          // nada que se alcanzaba antes debe quedar aislado (salvo las casillas emparedadas)
+          if (distancias(new Set()).size === antes - (cambios.length - 2)) { revolverPuesto = true; break; }
+          cambios.forEach(([cx, cy], i) => { g[cy][cx] = previo[i]; });
+        }
+        if (revolverPuesto) continue;
+        const lejanas = [...dist].filter(([k]) => { const [x, y] = k.split(',').map(Number); return suelo(x, y); }).sort((a, b) => b[1] - a[1]);
+        const [x, y] = elegir(lejanas.slice(0, Math.max(1, Math.ceil(lejanas.length / 4))))[0].split(',').map(Number);
+        g[y][x] = 'R';
+      }
+      continue;
+    }
+    let puerta = p.puerta;
+    let via = null;
+    if (puerta === 'via') {
+      via = nuevaVia(pares, acertijos, def, p.uso === 'revolver' ? [2, 3] : [1, 3]);
+      puerta = via ? via.sello : 'S';
+    }
+    excavar(h, puerta);
+    h.uso = p.uso; h.via = via;
+    const libres = mezclar(h.sala.length ? h.sala.map(c => c.slice()) : h.interior.map(c => c.slice()));
+    const poner = c => { const k = libres.pop(); if (k) g[k[1]][k[0]] = c; };
+    if (p.uso === 'revolver') { poner('R'); poner('b'); }
+    else if (p.uso === 'botin') { poner('b'); poner('v'); if (azar() < 0.5) poner('b'); }
+    else if (p.uso === 'trampa') { for (const [x, y] of libres.slice(0, 3)) g[y][x] = '^'; if (azar() < 0.5) poner(elegir(tipos.length ? tipos : ['k'])); }
+    else { for (let i = 0; i < 2 + Math.floor(azar() * 2); i++) poner(elegir(tipos.length ? tipos : ['k'])); poner('b'); }
+    if (via) nuevasVias.push(h);
+  }
+
+  // 4. las tablillas de esas puertas, en paredes a las que se llega sin abrir ninguna de ellas
+  const cerradas = new Set([...selladas, ...nuevasVias.map(h => h.via.sello)]);
+  for (const h of nuevasVias) {
+    const alcance = distancias(cerradas);
+    const sitios = [];
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      if (g[y][x] !== '#') continue;
+      const libres = V.filter(([dx, dy]) => g[y + dy][x + dx] === '.');
+      const otros = V.filter(([dx, dy]) => g[y + dy][x + dx] !== '#');
+      if (libres.length !== 1 || otros.length !== 1) continue;
+      const [dx, dy] = libres[0];
+      if ((alcance.get((x + dx) + ',' + (y + dy)) ?? -1) >= 6) sitios.push([x, y]);
+    }
+    if (sitios.length) { const [x, y] = elegir(sitios); g[y][x] = h.via.tablilla; }
+    else {
+      // sin sitio para la tablilla: la puerta pasa a ser un pasadizo secreto
+      for (const [x, y] of h.celdas) if (g[y][x] === h.via.sello) g[y][x] = 'S';
+      quitarVia(acertijos, h.via);
+    }
+  }
+  return g.map(f => f.join(''));
 }
 
 // Las salas de un bloque tallado, en coordenadas del plano total (para los hitos de js/hitos.js).
@@ -378,6 +615,10 @@ export function conZonas(def, azar = Math.random) {
     z.caracterTablilla = car;
   });
 
+  // el plano fijo de arriba cambia en cada partida (y esconde el revólver)
+  const fijo = variarPlano(def, azar, pares, acertijos, tipos);
+  fijo.forEach((f, y) => { for (let x = 0; x < f.length; x++) plano[y][x] = f[x]; });
+
   // la salida va a una de las zonas posibles
   const zonaSalida = elegir(Z.salida);
   const talladas = Z.bloques.map((b, k) => {
@@ -401,6 +642,8 @@ export function conZonas(def, azar = Math.random) {
     const camaras = camarasNuevas(primero ? z.camaras ?? 0 : 0, pares, acertijos, def);
     Object.assign(tesoros, poblar(t, primero ? z.tesoros : [], () => caracteresTesoro.shift(), tipos, camaras));
     camaras.cerrar();
+    // atajos tras puertas con acertijo (la cámara extra no los tiene)
+    if (b.zona !== ultima) ponerAtajos(t, Math.max(1, Math.round(b.ancho * b.alto / 900)), pares, acertijos, def, z.acertijo?.dificultad ?? [2, 3]);
     // los sellos (y el pasadizo secreto antes del sello de la cámara extra)
     for (const s of sellos[k]) {
       const lx = s.x - b.x, ly = s.y - b.y;
