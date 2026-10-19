@@ -343,12 +343,11 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 #botones-tactiles svg { width: 46%; height: 46%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #botones-tactiles svg .lleno { fill: currentColor; }
 #botones-tactiles button.pulsado { background: rgba(232, 184, 58, .5); color: #fff3d0; }
-#t-disparar { width: 96px; height: 96px; right: calc(22px + env(safe-area-inset-right)); bottom: calc(70px + env(safe-area-inset-bottom)); border-width: 3px; }
-#t-usar { width: 64px; height: 64px; right: calc(143px + env(safe-area-inset-right)); bottom: calc(86px + env(safe-area-inset-bottom)); opacity: .7; }
-#t-usar.listo { opacity: 1; color: #ffe8a8; border-color: #f0c050; box-shadow: 0 0 18px rgba(255, 180, 60, .7); animation: latido 1.1s ease-in-out infinite; }
+/* Pulgar libre: atacar (mantener y arrastrar para apuntar) y la mano solo cuando hay algo que usar */
+#t-disparar { width: 104px; height: 104px; right: calc(26px + env(safe-area-inset-right)); bottom: calc(56px + env(safe-area-inset-bottom)); border-width: 3px; }
+#t-usar { width: 66px; height: 66px; right: calc(136px + env(safe-area-inset-right)); bottom: calc(150px + env(safe-area-inset-bottom)); opacity: 0; transform: scale(.6); pointer-events: none; transition: opacity .2s, transform .2s; }
+#t-usar.listo { opacity: 1; transform: none; pointer-events: auto; color: #ffe8a8; border-color: #f0c050; box-shadow: 0 0 18px rgba(255, 180, 60, .7); animation: latido 1.1s ease-in-out infinite; }
 @keyframes latido { 50% { box-shadow: 0 0 6px rgba(255, 180, 60, .35); } }
-#t-recargar { width: 56px; height: 56px; right: calc(116px + env(safe-area-inset-right)); bottom: calc(164px + env(safe-area-inset-bottom)); }
-#t-arma { width: 56px; height: 56px; right: calc(42px + env(safe-area-inset-right)); bottom: calc(195px + env(safe-area-inset-bottom)); }
 #t-mapa { width: 50px; height: 50px; right: calc(12px + env(safe-area-inset-right)); top: calc(40px + env(safe-area-inset-top)); }
 body.contrarreloj #t-mapa { top: calc(58px + env(safe-area-inset-top)); }
 .solo-tactil { display: none; }
@@ -357,6 +356,10 @@ body.tactil .fila.solo-tactil { display: grid; }
 body.tactil p.solo-tactil { display: block; }
 body.tactil.zurdo #hud { left: auto; right: 12px; }
 body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-inset-bottom)); }
+/* en táctil el recuadro del arma es el botón para cambiarla */
+body.tactil #hud .caja[data-tactil] { pointer-events: auto; position: relative; }
+body.tactil #hud .caja[data-tactil]::after { content: '⇄'; position: absolute; top: -9px; right: -9px; width: 20px; height: 20px; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); font-size: 12px; line-height: 18px; text-align: center; color: var(--oro); }
+body.tactil #hud .caja.pulsado { border-color: var(--oro); background: rgba(232, 184, 58, .3); }
 @media (max-width: 520px) { #hud .caja { min-width: 62px; padding: 2px 6px; } #hud b { font-size: 17px; } }
 @media (max-width: 420px) {
   .menu .pieza, .menu .pieza:hover { width: 70px; height: 82px; }
