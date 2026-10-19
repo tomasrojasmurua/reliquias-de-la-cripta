@@ -86,30 +86,32 @@ function manga(g, x, y, w, giro = 0) {
   g.restore();
 }
 
-// Puño cerrado visto desde atrás y un poco de lado: dorso, cuatro dedos con nudillos y pulgar.
-// (x, y) es la esquina del dorso; espejo invierte para la mano izquierda.
-function puno(g, x, y, espejo = false) {
-  g.save();
-  if (espejo) { g.translate(x + 22, 0); g.scale(-1, 1); g.translate(-x - 22, 0); }
-  // dorso de la mano
-  g.fillStyle = radial(g, x + 22, y + 22, 2, 30, [[0, PIEL[2]], [0.55, PIEL[1]], [1, PIEL[0]]], -8, -8);
-  g.beginPath(); g.roundRect(x, y + 4, 44, 36, 12); g.fill();
-  // tendones
-  g.strokeStyle = 'rgba(255,220,180,.25)'; g.lineWidth = 1.5;
-  for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(x + 14 + i * 8, y + 36); g.lineTo(x + 10 + i * 9, y + 14); g.stroke(); }
-  // dedos doblados: cuatro falanges en fila con nudillos brillantes y pliegues
+// Mano empuñando un mango: el eje del mango pasa por (x, y) y gira `ang`; los cuatro dedos cruzan por delante
+// del mango y el pulgar lo abraza desde arriba, así mano y objeto se leen como una sola pieza.
+// `espejo` da la mano izquierda. El antebrazo sale hacia abajo y gira con `brazo` respecto del mango.
+// Se llama después de dibujar el mango y antes de pixelar.
+function empunar(g, x, y, ang, espejo = false, brazo = 0) {
+  g.save(); g.translate(x, y); g.rotate(ang);
+  if (espejo) g.scale(-1, 1);
+  g.save(); g.rotate(brazo); manga(g, -24, 20, 52, 0); g.restore();
+  // dorso de la mano, detrás de los dedos
+  g.fillStyle = radial(g, 12, 0, 2, 30, [[0, PIEL[2]], [0.55, PIEL[1]], [1, PIEL[0]]], -6, -6);
+  g.beginPath(); g.roundRect(0, -20, 30, 42, 11); g.fill();
+  // el mango asoma entre los dedos: sombra de contacto bajo cada nudillo
+  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(-12, -19, 6, 40);
+  // cuatro dedos en fila cruzando el mango, cada uno un cilindro con su nudillo
   for (let i = 0; i < 4; i++) {
-    const fx = x - 4 + i * 2, fy = y + 2 + i * 9;
-    g.fillStyle = radial(g, fx + 6, fy + 5, 1, 9, [[0, PIEL[2]], [0.6, PIEL[1]], [1, PIEL[0]]], -2, -2);
-    g.beginPath(); g.roundRect(fx - 8, fy, 18, 10, 5); g.fill();
-    g.fillStyle = PIEL_PLIEGUE; g.fillRect(fx - 6, fy + 9, 14, 1);
-    g.fillStyle = 'rgba(255,235,210,.5)'; g.fillRect(fx + 3, fy + 2, 3, 2); // nudillo
-    g.fillStyle = '#e8c0a0'; g.fillRect(fx - 7, fy + 3, 3, 4);           // uña
+    const fy = -19 + i * 9.5, fx = -11 + (i % 2) * 1.5, largo = 36 - i * 1.5;
+    g.fillStyle = lineal(g, 0, fy, 0, fy + 9.5, [[0, PIEL[2]], [0.4, PIEL[1]], [1, PIEL[0]]]);
+    g.beginPath(); g.roundRect(fx, fy, largo, 9.5, 4.7); g.fill();
+    g.fillStyle = 'rgba(60,25,8,.55)'; g.fillRect(fx + 6, fy + 1, 1, 8);      // pliegue de la falange
+    g.fillStyle = PIEL_PLIEGUE; g.fillRect(fx + 3, fy + 9, largo - 7, 1);     // hueco entre dedos
+    g.fillStyle = 'rgba(255,235,210,.5)'; g.fillRect(fx + largo - 11, fy + 2, 3, 2); // nudillo
   }
-  // pulgar cruzando por delante
-  g.fillStyle = lineal(g, x + 10, y, x + 36, y + 14, [[0, PIEL[0]], [0.4, PIEL[1]], [0.75, PIEL[2]], [1, PIEL[1]]]);
-  g.beginPath(); g.moveTo(x + 6, y + 10); g.quadraticCurveTo(x + 22, y - 6, x + 40, y + 4); g.lineTo(x + 38, y + 14); g.quadraticCurveTo(x + 22, y + 8, x + 10, y + 20); g.closePath(); g.fill();
-  g.fillStyle = '#e8c0a0'; g.beginPath(); g.ellipse(x + 37, y + 8, 3, 4, 0.4, 0, Math.PI * 2); g.fill();
+  // pulgar por encima del índice, apuntando hacia la yema de los dedos
+  g.fillStyle = lineal(g, 0, -29, 0, -17, [[0, PIEL[2]], [0.5, PIEL[1]], [1, PIEL[0]]]);
+  g.beginPath(); g.roundRect(-10, -29, 30, 11, 5.5); g.fill();
+  g.fillStyle = '#e8c0a0'; g.fillRect(-8, -27, 5, 4);
   g.restore();
 }
 
@@ -141,8 +143,7 @@ function revolver(fuego) {
   g.restore();
   g.fillStyle = radial(g, cx, 88, 0, 4, [[0, '#ffe6a0'], [1, '#8a6a20']], -1, -1); g.beginPath(); g.arc(cx, 88, 3.5, 0, Math.PI * 2); g.fill();
   // mano derecha empuñando: dorso a la derecha, pulgar sobre el armazón
-  puno(g, cx - 6, 78);
-  manga(g, cx - 18, 106, 64, -0.15);
+  empunar(g, cx, 94, -0.06, false, -0.1);
   if (fuego) {
     // fogonazo: estrella de puntas largas con núcleo blanco
     g.fillStyle = radial(g, cx, 16, 0, 24, [[0, 'rgba(255,255,230,1)'], [0.25, 'rgba(255,230,120,1)'], [0.6, 'rgba(255,140,30,.95)'], [1, 'rgba(255,90,10,0)']]);
@@ -216,8 +217,8 @@ function latigo(golpe) {
   // pomo
   g.fillStyle = radial(g, 0, 20, 1, 10, [[0, TRENZA[2]], [0.6, TRENZA[1]], [1, TRENZA[0]]], -3, -3); g.beginPath(); g.ellipse(0, 20, 9, 7, 0, 0, Math.PI * 2); g.fill();
   g.restore();
-  puno(g, x - 26, y - 12);
-  manga(g, x - 22, y + 26, 62, -0.25);
+  const k = giro, ox = -(-12) * Math.sin(k), oy = -12 * Math.cos(k);
+  empunar(g, x + ox, y + oy, k, false, -0.25);
   return pixelar(c);
 }
 
@@ -237,8 +238,7 @@ function antorcha() {
   g.fillStyle = lineal(g, 0, -8, 0, 2, [[0, '#0a0604'], [1, 'rgba(10,6,4,0)']]); g.fillRect(-11, -8, 22, 10);
   g.fillStyle = 'rgba(255,140,40,.55)'; g.fillRect(-9, -6, 18, 2); // brasa en el borde
   g.restore();
-  puno(g, 62, 74, true);
-  manga(g, 44, 108, 64, 0.2);
+  empunar(g, 76, 80, 0.12, true, 0.1);
   return pixelar(c);
 }
 
