@@ -577,9 +577,7 @@ function comenzarCuenta(p) {
     if (--n > 0) { num.textContent = n; sonar('menu_alternar'); return; }
     clearInterval(cuentaAtras);
     $('#cuenta').hidden = true;
-    // la mazmorra es la misma, pero cada cazador recibe sus propias pistas: lo que uno resuelve no le sirve a otro
-    const azarPistas = azarConSemilla((p.semilla ^ 0x9e3779b9) ^ Math.imul(sala.yo + 1, 0x85ebca6b));
-    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas });
+    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9) });
   }, 1000);
 }
 
@@ -746,6 +744,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
   etiquetas.construir(juego.mapa);
   capaMapa.hidden = true;
   iniciarPartidaEnSala();
+  if (enSala) repartirPistas();
   iniciarAmbiente(def.ambiente);
   sonar('entrada');
   document.body.classList.add('jugando');
@@ -773,6 +772,21 @@ function pausar() {
   entrada.soltarTodo();
   atenuarAmbiente(true);
   if (document.pointerLockElement) document.exitPointerLock();
+}
+
+// En una sala todos ven el mismo acertijo en cada tablilla, sin importar en qué orden las abran:
+// se reparten de una vez, en orden, con el azar de la semilla.
+function repartirPistas() {
+  const azar = actual.sala.azarPistas, usadas = new Set();
+  const lista = Object.values(juego.mapa.acertijos).sort((x, y) => String(x.id).localeCompare(String(y.id)));
+  for (const a of lista) {
+    if (a.tipo === 'palancas') a.estadoPalancas = { titulo: a.titulo, acertijo: crearPalancas(azar) };
+    else {
+      const pista = elegirPista(a.dificultad, new Set(), usadas, azar);
+      usadas.add(pista.id);
+      a.estado = { titulo: a.titulo, pista, nivel: 0, vistas: new Set() };
+    }
+  }
 }
 
 function abrirPanelTablilla(a) {
