@@ -15,7 +15,9 @@ const VACIO = 0.22;      // queda vacío (y el monstruo aparece en otra parte)
 const BESTIA = 0.3;      // sale una de las bestias de la partida en vez del enemigo propio
 const COLOSO = 0.07;     // sale el coloso (solo en las partidas que lo tienen, y uno o dos como mucho)
 const ESCONDIDO = { propio: 0.25, bestia: 0.6, coloso: 0.8 };
-const ARQUERO = 0.14;    // sale un arquero en vez del enemigo propio
+// Probabilidad, por zona de la mazmorra (0 = la del plano fijo; las siguientes son más densas), de que salga en vez del enemigo propio.
+const ARQUERO = [0.14, 0.17, 0.22];
+const BRUJO = [0, 0.1, 0.16];      // el brujo (se teletransporta) solo aparece de la segunda zona en adelante
 const EXTRA = 0.12;      // monstruos de más, en casillas cualquiera, por cada sitio del plano
 const LEJOS = 7;         // nada aparece tan cerca del inicio
 
@@ -30,11 +32,13 @@ export function repartirEnemigos(m, azar) {
   const conColoso = m.def.coloso !== false && azar() < 0.55;
   let colosos = conColoso ? 1 + (azar() < 0.4 ? 1 : 0) : 0;
 
-  const tipo = () => {
+  const tipo = (zona = 0) => {
+    const z = Math.min(zona, 2);
     const r = azar();
     if (colosos && r < COLOSO) { colosos--; return ['coloso', 'coloso']; }
     if (bestias.length && r < COLOSO + BESTIA) return [elegir(bestias), 'bestia'];
-    if (azar() < ARQUERO) return ['arquero', 'propio'];
+    if (azar() < ARQUERO[z]) return ['arquero', 'propio'];
+    if (azar() < BRUJO[z]) return ['brujo', 'propio'];
     return [elegir(propios), 'propio'];
   };
   const ocupadas = new Set(m.objetos.map(o => `${Math.floor(o.x)},${Math.floor(o.z)}`));
@@ -48,7 +52,7 @@ export function repartirEnemigos(m, azar) {
 
   const nuevos = [];
   const poner = (x, z) => {
-    const [t, clase] = tipo();
+    const [t, clase] = tipo(m.celda(Math.floor(x), Math.floor(z))?.zona || 0);
     nuevos.push({ tipo: t, x, z, escondido: azar() < ESCONDIDO[clase] });
   };
   let sobran = 0;

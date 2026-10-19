@@ -192,6 +192,40 @@ function escopeta(fuego) {
   return pixelar(c);
 }
 
+// ---------- Tommy gun ----------
+
+function tommy(fuego) {
+  const [c, g] = hoja();
+  const cx = 82;
+  // cañón con aletas de enfriamiento, en perspectiva
+  forma(g, [[cx - 4, 14], [cx + 4, 14], [cx + 7, 60], [cx - 7, 60]], lineal(g, cx - 7, 0, cx + 7, 0, [[0, ACERO[0]], [0.4, ACERO[2]], [1, ACERO[0]]]));
+  g.fillStyle = 'rgba(0,0,0,.45)';
+  for (let y = 22; y < 58; y += 5) g.fillRect(cx - 5 - (y - 14) * 0.05, y, 10 + (y - 14) * 0.1, 1.5);
+  g.fillStyle = '#05060a'; g.beginPath(); g.ellipse(cx, 14, 3.4, 1.7, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e8d8a0'; g.fillRect(cx - 1, 11, 2, 3);
+  // cubierta del cañón y guardamano vertical de nogal
+  forma(g, [[cx - 10, 56], [cx + 10, 56], [cx + 13, 70], [cx - 13, 70]], lineal(g, cx - 13, 0, cx + 13, 0, [[0, ACERO[0]], [0.4, ACERO[1]], [1, ACERO[0]]]));
+  forma(g, [[cx - 8, 68], [cx + 8, 68], [cx + 10, 94], [cx - 10, 94]], lineal(g, cx - 10, 0, cx + 10, 0, [[0, NOGAL[0]], [0.3, NOGAL[1]], [0.45, NOGAL[2]], [0.65, NOGAL[1]], [1, NOGAL[0]]]));
+  // armazón y cargador de tambor
+  cilindro(g, cx - 14, 66, 28, 12, ACERO);
+  g.fillStyle = radial(g, cx + 28, 84, 2, 20, [[0, ACERO[2]], [0.6, ACERO[1]], [1, ACERO[0]]], -4, -4);
+  g.beginPath(); g.ellipse(cx + 28, 86, 17, 17, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.2;
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; g.beginPath(); g.moveTo(cx + 28, 86); g.lineTo(cx + 28 + Math.cos(a) * 15, 86 + Math.sin(a) * 15); g.stroke(); }
+  g.fillStyle = ACERO[0]; g.beginPath(); g.ellipse(cx + 28, 86, 4, 4, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#cfae52'; g.fillRect(cx + 26, 84, 4, 2);
+  // culata y mano
+  forma(g, [[cx - 12, 92], [cx + 12, 92], [cx + 20, 120], [cx - 20, 120]], lineal(g, cx - 20, 0, cx + 20, 0, [[0, NOGAL[0]], [0.3, NOGAL[1]], [0.45, NOGAL[2]], [0.65, NOGAL[1]], [1, NOGAL[0]]]));
+  empunar(g, cx, 104, -0.06, false, -0.1);
+  if (fuego) {
+    g.fillStyle = radial(g, cx, 12, 0, 18, [[0, 'rgba(255,255,230,1)'], [0.3, 'rgba(255,230,120,1)'], [0.65, 'rgba(255,140,30,.9)'], [1, 'rgba(255,90,10,0)']]);
+    g.beginPath();
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, rr = i % 2 ? 6 : 14 + (i % 3) * 3; g.lineTo(cx + Math.cos(a) * rr, 11 + Math.sin(a) * rr * 0.65); }
+    g.fill();
+  }
+  return pixelar(c);
+}
+
 // ---------- Látigo ----------
 
 function latigo(golpe) {
@@ -273,6 +307,7 @@ function cache() {
   if (SPRITES.listo) return;
   SPRITES.rev = [revolver(false), revolver(true)];
   SPRITES.esc = [escopeta(false), escopeta(true)];
+  SPRITES.tom = [tommy(false), tommy(true)];
   SPRITES.lat = [latigo(false), latigo(true)];
   SPRITES.antorcha = antorcha();
   SPRITES.listo = true;
@@ -310,6 +345,11 @@ export function dibujarArma(ctx, w, h, j) {
     const fuego = j.ataque > 0.32;
     const retroceso = j.ataque > 0.2 ? (j.ataque - 0.2) * 40 * escala : 0;
     ctx.drawImage(SPRITES.rev[fuego ? 1 : 0], x, y + retroceso, W * escala, H * escala);
+  } else if (j.arma === 'tommy') {
+    // en ráfaga el arma vibra: un temblor corto y fogonazos alternados
+    const fuego = j.ataque > 0.03 && Math.floor(t * 24) % 2 === 0;
+    const sacudida = j.ataque > 0 ? ((Math.floor(t * 40) % 2) * 2 - 1) * 2 * escala : 0;
+    ctx.drawImage(SPRITES.tom[fuego ? 1 : 0], x + sacudida, y + (j.ataque > 0 ? 3 * escala : 0), W * escala, H * escala);
   } else if (j.arma === 'escopeta') {
     const fuego = j.ataque > 0.68;
     const retroceso = j.ataque > 0.5 ? (j.ataque - 0.5) * 70 * escala : 0;

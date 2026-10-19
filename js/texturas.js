@@ -803,6 +803,8 @@ const ESTILOS = {
   arquero: { cuerpo: 'huesos', piel: '#d8d0b4', sombra: '#9a9278', ojo: '#7ae0ff', sinConjuro: true },
   // sectario del templo maldito: túnica hasta el suelo, capucha, máscara de calavera y fuego en la mano
   sectario: { cuerpo: 'momia', piel: '#7a1e14', sombra: '#420c08', ojo: '#ffcc33', liso: true, tunica: true },
+  // brujo: sombrero de ala ancha, barba y bastón con una gema; se desvanece y reaparece lejos
+  brujo: { cuerpo: 'momia', piel: '#3c2a6e', sombra: '#1e1240', ojo: '#9affd0', liso: true, tunica: true },
   // caballero cruzado: yelmo cerrado con ojos rojos en la mirilla, sobreveste, escudo y espada
   caballero: { cuerpo: 'momia', piel: '#8e949c', sombra: '#545a62', ojo: '#ff3a20', liso: true, malla: true },
   // Guardianes: uno por mazmorra, más grandes (el juego los dibuja a 1.2 m). Llevan lo mismo que el
@@ -1074,6 +1076,25 @@ const ADORNOS = {
       r(g, 45, mn.yD - 22, 4, 26, '#7a4a20'); r(g, 45, mn.yD - 22, 1, 26, '#9a6a3a');
       g.fillStyle = '#16121e';
       for (let k = 0; k < 5; k++) { const y = mn.yD - 21 + k * 4; g.beginPath(); g.moveTo(44, y); g.lineTo(42, y + 1.5); g.lineTo(44, y + 3); g.fill(); g.beginPath(); g.moveTo(49, y); g.lineTo(51, y + 1.5); g.lineTo(49, y + 3); g.fill(); }
+    },
+  },
+  brujo: {
+    delante(g, e, p) {
+      const { dy } = p, mn = manos(e, p);
+      // cinturón con runas y barba blanca
+      r(g, 23, 37 + dy, 18, 2, '#9a7ad8'); r(g, 28, 37 + dy, 2, 2, '#9affd0'); r(g, 34, 37 + dy, 2, 2, '#9affd0');
+      g.fillStyle = '#e8e4f0'; g.beginPath(); g.moveTo(26, 18 + dy); g.lineTo(38, 18 + dy); g.lineTo(34, 32 + dy); g.lineTo(32, 36 + dy); g.lineTo(30, 32 + dy); g.closePath(); g.fill();
+      // cara en sombra bajo el sombrero, con los ojos que brillan
+      ovalo(g, 32, 14 + dy, 6, 6, '#1e1240');
+      r(g, 29, 13 + dy, 2, 1, e.ojo); r(g, 34, 13 + dy, 2, 1, e.ojo);
+      // sombrero de ala ancha y punta doblada
+      g.fillStyle = '#2a1860'; g.beginPath(); g.ellipse(32, 9 + dy, 14, 3.5, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.moveTo(24, 9 + dy); g.lineTo(28, -6 + dy); g.lineTo(34, -12 + dy); g.lineTo(38, -8 + dy); g.lineTo(36, -4 + dy); g.lineTo(40, 9 + dy); g.closePath(); g.fill();
+      r(g, 25, 7 + dy, 14, 2, '#9a7ad8');
+      // manos y bastón con una gema
+      ovalo(g, mn.xI, mn.yI, 3, 3.2, '#c8b898'); ovalo(g, mn.xD, mn.yD, 3, 3.2, '#c8b898');
+      r(g, 47, mn.yD - 26, 2, 36, '#4a3018'); r(g, 47, mn.yD - 26, 1, 36, '#6a4a28');
+      ovalo(g, 48, mn.yD - 29, 4, 4, '#9affd0'); ovalo(g, 47, mn.yD - 30, 1.5, 1.5, '#ffffff');
     },
   },
   sectario: {
@@ -1514,6 +1535,36 @@ registrar('cartuchos', sprite(g => {
   g.fillStyle = gradV(g, 40, 60, ['#8a6a44', '#5a4228', '#3a2a14']); g.fillRect(12, 40, 40, 20);
   g.fillStyle = gradV(g, 38, 42, ['#a88858', '#6a5030']); g.fillRect(12, 38, 40, 4);
   r(g, 18, 46, 28, 8, '#e8d8a8'); r(g, 20, 48, 24, 1, '#b02020'); r(g, 20, 51, 18, 1, '#3a2a1a');
+}));
+
+registrar('tommy', sprite(g => {
+  // Tommy gun tendida: cañón con aletas, armazón, tambor redondo y culata de nogal
+  g.fillStyle = gradV(g, 24, 38, ['#aab2c0', '#4a4e5a', '#14161c']); g.fillRect(4, 28, 26, 7);
+  for (let x = 7; x < 28; x += 4) r(g, x, 28, 1, 7, '#0c0d12');
+  r(g, 2, 29, 3, 5, '#2a2e38');
+  g.fillStyle = gradV(g, 26, 40, ['#8a8e9a', '#3a3e4a', '#14161c']); g.fillRect(30, 26, 14, 11);
+  g.fillStyle = gradV(g, 36, 56, ['#a8683a', '#6a3818', '#2e1608']); g.fillRect(34, 36, 6, 12);
+  ovalo(g, 36, 44, 9, 9, '#3a3e4a'); ovalo(g, 36, 43, 7.5, 7.5, '#6a707e'); ovalo(g, 36, 43, 2.5, 2.5, '#14161c');
+  for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; g.strokeStyle = '#1a1c22'; g.lineWidth = 1; g.beginPath(); g.moveTo(36, 43); g.lineTo(36 + Math.cos(a) * 7, 43 + Math.sin(a) * 7); g.stroke(); }
+  g.fillStyle = gradV(g, 24, 46, ['#a8683a', '#6a3818', '#2e1608']);
+  g.beginPath(); g.moveTo(44, 27); g.lineTo(60, 32); g.lineTo(62, 46); g.lineTo(50, 40); g.lineTo(44, 37); g.closePath(); g.fill();
+}));
+registrar('municionT', sprite(g => {
+  // cargador de tambor: disco de acero con la cinta de balas de latón
+  ovalo(g, 32, 38, 18, 18, '#2a2e38'); ovalo(g, 32, 37, 16, 16, '#6a707e'); ovalo(g, 31, 36, 12, 12, '#8a909e');
+  ovalo(g, 32, 38, 4, 4, '#14161c');
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; g.strokeStyle = '#2a2e38'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(32, 38); g.lineTo(32 + Math.cos(a) * 15, 38 + Math.sin(a) * 15); g.stroke(); }
+  for (let k = 0; k < 5; k++) { r(g, 20 + k * 5, 52, 4, 8, '#c8962e'); r(g, 20 + k * 5, 52, 4, 2, '#f0d080'); }
+}));
+
+// Roca rodante: cuatro cuadros girando (una esfera de piedra con grietas)
+for (let k = 0; k < 4; k++) registrar('roca_' + k, sprite(g => {
+  const a = k * Math.PI / 2;
+  ovalo(g, 32, 34, 28, 28, '#2a2622'); ovalo(g, 31, 33, 26, 26, '#6e665a'); ovalo(g, 28, 29, 17, 17, '#8e8576');
+  g.strokeStyle = '#2a2622'; g.lineWidth = 2.2;
+  g.beginPath(); g.moveTo(32 + Math.cos(a) * 6, 34 + Math.sin(a) * 6); g.lineTo(32 + Math.cos(a + 0.5) * 22, 34 + Math.sin(a + 0.5) * 22); g.stroke();
+  g.beginPath(); g.moveTo(32 + Math.cos(a + 2.4) * 8, 34 + Math.sin(a + 2.4) * 8); g.lineTo(32 + Math.cos(a + 2.9) * 24, 34 + Math.sin(a + 2.9) * 24); g.stroke();
+  for (const [da, dr] of [[1.2, 14], [3.6, 17], [5.2, 12]]) ovalo(g, 32 + Math.cos(a + da) * dr, 34 + Math.sin(a + da) * dr, 3, 3, '#4a443a');
 }));
 
 // Proyectiles de los arqueros y de las trampas de dardos (siempre de cara a la cámara: una flecha en diagonal).
