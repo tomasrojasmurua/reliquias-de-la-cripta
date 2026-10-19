@@ -10,6 +10,7 @@ import { abrirTablilla, elegirPista } from './acertijos.js';
 import { recortarZonas } from './laberinto.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
+import { lienzoEmblema } from '../datos/emblemas.js';
 
 const $ = s => document.querySelector(s);
 
@@ -169,9 +170,10 @@ function pintarMazmorras() {
     const est = progreso.mazmorras[m.id] || {};
     const b = document.createElement('button');
     b.className = 'mazmorra';
-    b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><strong>${m.nombre}</strong><span>${m.descripcion}</span>
+    b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><div class="titulo-mazmorra"><i class="marco-emblema"></i><strong>${m.nombre}</strong></div><span>${m.descripcion}</span>
       <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
       <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}</small>`;
+    b.querySelector('.marco-emblema').appendChild(lienzoEmblema(m.id));
     b.onclick = () => abrirPreparar(m);
     lista.appendChild(b);
   }

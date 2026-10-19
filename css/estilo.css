@@ -151,6 +151,15 @@ body.jugando #escena { display: none; }
 }
 .mazmorra .numero { position: absolute; right: 14px; top: 10px; font: 900 28px Cinzel, Georgia, serif; color: rgba(0, 0, 0, .35); text-shadow: 0 1px 0 rgba(255, 230, 190, .12); font-style: normal; }
 .mazmorra strong { font-family: Cinzel, Georgia, serif; font-weight: 800; color: var(--oro); font-size: 18px; letter-spacing: .04em; padding-right: 36px; }
+/* el emblema en pixel art, engastado en la piedra al lado del nombre */
+.titulo-mazmorra { display: flex; align-items: center; gap: 12px; padding-right: 36px; }
+.titulo-mazmorra strong { padding-right: 0; }
+.marco-emblema {
+  flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 3px;
+  background: radial-gradient(circle at 50% 40%, #2a2014, #0e0a06); border: 2px solid #5a4630;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 230, 190, .12);
+}
+.emblema { width: 48px; height: 48px; image-rendering: pixelated; image-rendering: crisp-edges; }
 .mazmorra span { font-family: 'IM Fell English', Georgia, serif; color: #d8c8a6; font-size: 15px; line-height: 1.35; }
 .mazmorra small { font-family: 'IM Fell English', Georgia, serif; font-size: 13px; color: #c0a878; }
 .barra { height: 5px; background: rgba(0, 0, 0, .45); border-radius: 3px; overflow: hidden; box-shadow: inset 0 1px 2px #000; }
@@ -344,6 +353,8 @@ body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-i
   .menu .mazmorra { padding: 13px 14px 12px; }
   .mazmorra strong { font-size: 17px; }
   .mazmorra span { font-size: 14px; }
+  .marco-emblema { width: 48px; height: 48px; } .emblema { width: 40px; height: 40px; }
+  .titulo-mazmorra { gap: 10px; }
   #vitrinas { gap: 18px; }
 }
 /* Horizontal: poca altura, así que todo se aprieta y los ajustes van lado a lado */
@@ -359,6 +370,7 @@ body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-i
   .accion-fija { padding-top: 14px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
   .accion-fija button.principal { font-size: 16px; padding: 11px 22px; }
   .menu .accion-fija button { padding-top: 11px; padding-bottom: 11px; }
+  .marco-emblema { width: 44px; height: 44px; } .emblema { width: 32px; height: 32px; }
   #resumen .datos { font-size: 16px; line-height: 1.5; padding: 6px 20px; }
   .ficha { display: grid; grid-template-columns: auto 1fr; column-gap: 16px; align-items: center; text-align: left; width: min(560px, 100%); }
   .ficha-pieza { grid-row: 1 / span 6; }
