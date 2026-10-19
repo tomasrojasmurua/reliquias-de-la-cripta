@@ -217,6 +217,7 @@ body.retro #vista { image-rendering: pixelated; }
 #hud-zona.completa em { color: #7fe0a0; }
 @media (max-width: 620px) { #hud-zona span { display: none; } }
 
+#prep-tiempo { display: flex; flex-direction: column; align-items: center; }
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }
 #hud-reloj.urgente { color: #ff5a4a; border-color: #8a2a1a; animation: latido 1s infinite; }

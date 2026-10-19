@@ -39,15 +39,36 @@
 <section id="mazmorras" class="pantalla menu" hidden>
   <h2>Elige una mazmorra</h2>
   <p class="sub">Cada puerta lleva a una cripta distinta. Los túneles cambian cada vez que entras.</p>
-  <div class="fila" id="modos">
-    <button data-limite="0">Explorar</button>
-    <button data-limite="240">Contrarreloj 4 min</button>
-    <button data-limite="360">6 min</button>
-    <button data-limite="480">8 min</button>
-  </div>
-  <p class="nota" id="nota-modo"></p>
   <div id="lista-mazmorras"></div>
   <button data-ir="portada">Volver</button>
+</section>
+
+<section id="preparar" class="pantalla menu" hidden>
+  <h2></h2>
+  <p class="sub" id="prep-desc"></p>
+  <p>Modo</p>
+  <div class="fila">
+    <button data-modo="explorar">Explorar</button>
+    <button data-modo="contrarreloj">Contrarreloj</button>
+  </div>
+  <p id="prep-titulo-tamano">Tamaño</p>
+  <div class="fila" id="prep-tamanos">
+    <button data-tamano="pequena">Pequeña</button>
+    <button data-tamano="mediana">Mediana</button>
+    <button data-tamano="grande">Grande</button>
+  </div>
+  <p class="nota" id="nota-tamano"></p>
+  <div id="prep-tiempo">
+    <p>Tiempo</p>
+    <div class="fila">
+      <button data-ritmo="0"></button>
+      <button data-ritmo="1"></button>
+      <button data-ritmo="2"></button>
+    </div>
+  </div>
+  <p class="nota" id="nota-modo"></p>
+  <button id="btn-entrar" class="principal">Entrar</button>
+  <button data-ir="mazmorras">Volver</button>
 </section>
 
 <section id="coleccion" class="pantalla menu" hidden>

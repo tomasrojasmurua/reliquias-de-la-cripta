@@ -7,6 +7,7 @@ import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
+import { recortarZonas } from './laberinto.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 
@@ -26,9 +27,18 @@ progreso.opciones ||= {};
 function guardar() { try { localStorage.setItem(CLAVE, JSON.stringify(progreso)); } catch (e) { /* sin almacenamiento */ } }
 
 const CALIDADES = { alta: 1, media: 0.75, retro: 0.4 };
-// Contrarreloj: segundos para reunir el botín y escapar (0 = explorar sin reloj).
-let limite = progreso.opciones.limite || 0;
-const recordDe = (def, seg) => (progreso.records || {})[def.id + ':' + seg] || 0;
+// Antes de entrar se elige el modo, el tamaño (cuántas zonas de la mazmorra) y, en el contrarreloj,
+// el tiempo, que depende del tamaño.
+const TAMANOS = {
+  pequena: { zonas: 1, minutos: [3, 4, 6] },
+  mediana: { zonas: 2, minutos: [5, 8, 11] },
+  grande: { zonas: Infinity, minutos: [8, 12, 16] },
+};
+const RITMOS = ['Corto', 'Normal', 'Largo'];
+const prep = { modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
+let elegida = null;   // la mazmorra de la pantalla de preparación
+let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
+const recordDe = (def, tamano, seg) => (progreso.records || {})[`${def.id}:${tamano}:${seg}`] || 0;
 let calidad = progreso.opciones.calidad || 'alta';
 
 // ---------- Inicio ----------
@@ -88,18 +98,47 @@ function destello(clase) {
 
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
-function pintarModos() {
-  for (const b of document.querySelectorAll('[data-limite]')) b.classList.toggle('activo', +b.dataset.limite === limite);
-  $('#nota-modo').textContent = limite
-    ? `Tienes ${limite / 60} minutos para reunir el botín más valioso y salir. Si se apaga la última antorcha antes de escapar, pierdes la mitad de los puntos.`
+// ---------- Preparar la expedición ----------
+
+// las mazmorras sin zonas tienen un solo tamaño
+const tamanoDe = def => def.sectores ? prep.tamano : 'grande';
+const limiteDe = def => prep.modo === 'contrarreloj' ? TAMANOS[tamanoDe(def)].minutos[prep.ritmo] * 60 : 0;
+const minuscula = t => t[0].toLowerCase() + t.slice(1);
+
+function abrirPreparar(def) {
+  elegida = def;
+  pintarPreparar();
+  mostrar('preparar');
+}
+function pintarPreparar() {
+  const def = elegida, Z = def.sectores, tam = tamanoDe(def), contra = prep.modo === 'contrarreloj';
+  $('#preparar h2').textContent = def.nombre;
+  $('#prep-desc').textContent = def.descripcion;
+  for (const b of document.querySelectorAll('[data-modo]')) b.classList.toggle('activo', b.dataset.modo === prep.modo);
+  $('#prep-titulo-tamano').hidden = $('#prep-tamanos').hidden = !Z;
+  for (const b of document.querySelectorAll('[data-tamano]')) b.classList.toggle('activo', b.dataset.tamano === tam);
+  const n = TAMANOS[tam].zonas, z = Z?.zonas || [];
+  $('#nota-tamano').textContent = !Z ? ''
+    : n === 1 ? `Solo la primera zona: ${minuscula(z[0].nombre)}. La salida se esconde en ella.`
+    : n === 2 ? `Las dos primeras zonas: ${minuscula(z[0].nombre)} y ${minuscula(z[1].nombre)}.`
+    : `Las ${z.length} zonas, con ${minuscula(z.at(-1).nombre)} tras un pasadizo secreto.`;
+  $('#prep-tiempo').hidden = !contra;
+  document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
+    b.textContent = `${RITMOS[i]} · ${TAMANOS[tam].minutos[i]} min`;
+    b.classList.toggle('activo', i === prep.ritmo);
+  });
+  const seg = limiteDe(def), rec = recordDe(def, tam, seg);
+  $('#nota-modo').textContent = contra
+    ? `Tienes ${seg / 60} minutos para reunir el botín más valioso y salir. Si se apaga la última antorcha antes de escapar, pierdes la mitad de los puntos.${rec ? ` Récord: ${rec} puntos.` : ''}`
     : 'Explora sin apuro: cada tesoro que encuentres va a tu colección.';
 }
-for (const b of document.querySelectorAll('[data-limite]')) b.onclick = () => {
-  limite = +b.dataset.limite; progreso.opciones.limite = limite; guardar(); pintarMazmorras();
-};
+const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave] = valor; guardar(); pintarPreparar(); };
+for (const b of document.querySelectorAll('[data-modo]')) b.onclick = () => elegir('modo', b.dataset.modo);
+for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
+for (const b of document.querySelectorAll('[data-ritmo]')) b.onclick = () => elegir('ritmo', +b.dataset.ritmo);
+$('#btn-entrar').onclick = () => empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
 
 function pintarMazmorras() {
-  pintarModos();
   const lista = $('#lista-mazmorras');
   lista.innerHTML = '';
   for (const m of MAZMORRAS) {
@@ -110,8 +149,8 @@ function pintarMazmorras() {
     b.className = 'mazmorra';
     b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><strong>${m.nombre}</strong><span>${m.descripcion}</span>
       <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
-      <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}${limite && recordDe(m, limite) ? ` · Récord ${recordDe(m, limite)} puntos` : ''}</small>`;
-    b.onclick = () => empezar(m);
+      <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}</small>`;
+    b.onclick = () => abrirPreparar(m);
     lista.appendChild(b);
   }
 }
@@ -227,10 +266,11 @@ $('#btn-musica').onclick = () => { progreso.opciones.sinMusica = alternarMusica(
 
 // ---------- Partida ----------
 
-function empezar(def) {
+function empezar(def, tamano = 'grande', limite = 0) {
   if (!render) return;
   activarAudio();
-  juego = new Juego(def, {
+  actual = { def, tamano, limite };
+  juego = new Juego(recortarZonas(def, TAMANOS[tamano].zonas), {
     mensaje,
     tesoro(t, r) {
       // en el contrarreloj el botín va a la colección solo si escapas con él
@@ -305,7 +345,7 @@ function terminar(r, exito) {
   pausar();
   $('#panel').hidden = true;
   if (r.limite) return terminarContrarreloj(r, exito);
-  if (exito) {
+  if (exito && actual.tamano === 'grande') {
     const est = progreso.mazmorras[r.mazmorra.id] ||= {};
     est.completada = true;
     est.secretos = Math.max(est.secretos || 0, r.secretos);
@@ -321,7 +361,7 @@ function terminar(r, exito) {
     <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b></li>`;
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre}</span>`).join('');
   $('#btn-reintentar').textContent = 'Jugar de nuevo';
-  $('#btn-reintentar').onclick = () => empezar(r.mazmorra);
+  $('#btn-reintentar').onclick = () => empezar(actual.def, actual.tamano, actual.limite);
   mostrar('resumen');
   detenerAmbiente();
   document.body.classList.remove('jugando');
@@ -331,7 +371,7 @@ function terminar(r, exito) {
 function terminarContrarreloj(r, exito) {
   const puntos = exito ? r.puntos : Math.floor(r.puntos / 2);
   if (exito) for (const id of r.tesoros) if (!progreso.tesoros.includes(id)) progreso.tesoros.push(id);
-  const clave = r.mazmorra.id + ':' + r.limite, antes = recordDe(r.mazmorra, r.limite);
+  const clave = `${r.mazmorra.id}:${actual.tamano}:${r.limite}`, antes = recordDe(r.mazmorra, actual.tamano, r.limite);
   if (puntos > antes) (progreso.records ||= {})[clave] = puntos;
   guardar();
   const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
@@ -344,7 +384,7 @@ function terminarContrarreloj(r, exito) {
     <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b> de ${r.limite / 60}:00</li>`;
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre} +${RAREZAS[TESORO[id].rareza].valor}</span>`).join('');
   $('#btn-reintentar').textContent = 'Revancha';
-  $('#btn-reintentar').onclick = () => empezar(r.mazmorra);
+  $('#btn-reintentar').onclick = () => empezar(actual.def, actual.tamano, actual.limite);
   mostrar('resumen');
   detenerAmbiente();
   document.body.classList.remove('jugando');
