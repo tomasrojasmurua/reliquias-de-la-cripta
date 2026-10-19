@@ -26,6 +26,9 @@ progreso.opciones ||= {};
 function guardar() { try { localStorage.setItem(CLAVE, JSON.stringify(progreso)); } catch (e) { /* sin almacenamiento */ } }
 
 const CALIDADES = { alta: 1, media: 0.75, retro: 0.4 };
+// Contrarreloj: segundos para reunir el botín y escapar (0 = explorar sin reloj).
+let limite = progreso.opciones.limite || 0;
+const recordDe = (def, seg) => (progreso.records || {})[def.id + ':' + seg] || 0;
 let calidad = progreso.opciones.calidad || 'alta';
 
 // ---------- Inicio ----------
@@ -85,7 +88,18 @@ function destello(clase) {
 
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
+function pintarModos() {
+  for (const b of document.querySelectorAll('[data-limite]')) b.classList.toggle('activo', +b.dataset.limite === limite);
+  $('#nota-modo').textContent = limite
+    ? `Tienes ${limite / 60} minutos para reunir el botín más valioso y salir. Si se apaga la última antorcha antes de escapar, pierdes la mitad de los puntos.`
+    : 'Explora sin apuro: cada tesoro que encuentres va a tu colección.';
+}
+for (const b of document.querySelectorAll('[data-limite]')) b.onclick = () => {
+  limite = +b.dataset.limite; progreso.opciones.limite = limite; guardar(); pintarMazmorras();
+};
+
 function pintarMazmorras() {
+  pintarModos();
   const lista = $('#lista-mazmorras');
   lista.innerHTML = '';
   for (const m of MAZMORRAS) {
@@ -96,7 +110,7 @@ function pintarMazmorras() {
     b.className = 'mazmorra';
     b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><strong>${m.nombre}</strong><span>${m.descripcion}</span>
       <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
-      <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}</small>`;
+      <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}${limite && recordDe(m, limite) ? ` · Récord ${recordDe(m, limite)} puntos` : ''}</small>`;
     b.onclick = () => empezar(m);
     lista.appendChild(b);
   }
@@ -219,6 +233,8 @@ function empezar(def) {
   juego = new Juego(def, {
     mensaje,
     tesoro(t, r) {
+      // en el contrarreloj el botín va a la colección solo si escapas con él
+      if (juego.limite) { mensaje(`${t.nombre} (${r.nombre}): +${r.valor}`, 4); destello('oro'); return; }
       const nuevo = !progreso.tesoros.includes(t.id);
       if (nuevo) { progreso.tesoros.push(t.id); guardar(); }
       mensaje(`${nuevo ? '¡Tesoro!' : 'Ya lo tenías:'} ${t.nombre} (${r.nombre})`, 4);
@@ -229,8 +245,12 @@ function empezar(def) {
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     salida: r => terminar(r, true),
-    muerte: r => setTimeout(() => terminar(r, false), 1400),
-  });
+    muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
+    tiempoAgotado: r => terminar(r, false),
+  }, undefined, { limite });
+  $('#hud-reloj').hidden = !limite;
+  $('#caja-puntos').hidden = !limite;
+  document.body.classList.toggle('contrarreloj', !!limite);
   render.construir(juego.mapa);
   capaMapa.hidden = true;
   iniciarAmbiente(def.ambiente);
@@ -281,6 +301,8 @@ function abrirPanelTablilla(a) {
 
 function terminar(r, exito) {
   pausar();
+  $('#panel').hidden = true;
+  if (r.limite) return terminarContrarreloj(r, exito);
   if (exito) {
     const est = progreso.mazmorras[r.mazmorra.id] ||= {};
     est.completada = true;
@@ -296,6 +318,30 @@ function terminar(r, exito) {
     <li>Enemigos: <b>${r.abatidos}/${r.totalEnemigos}</b></li>
     <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b></li>`;
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre}</span>`).join('');
+  $('#btn-reintentar').textContent = 'Jugar de nuevo';
+  $('#btn-reintentar').onclick = () => empezar(r.mazmorra);
+  mostrar('resumen');
+  detenerAmbiente();
+  document.body.classList.remove('jugando');
+}
+
+// Al escapar te llevas todos los puntos y los tesoros van a tu colección; si se acaba el tiempo adentro, la mitad de los puntos y ningún tesoro.
+function terminarContrarreloj(r, exito) {
+  const puntos = exito ? r.puntos : Math.floor(r.puntos / 2);
+  if (exito) for (const id of r.tesoros) if (!progreso.tesoros.includes(id)) progreso.tesoros.push(id);
+  const clave = r.mazmorra.id + ':' + r.limite, antes = recordDe(r.mazmorra, r.limite);
+  if (puntos > antes) (progreso.records ||= {})[clave] = puntos;
+  guardar();
+  const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
+  $('#resumen h2').textContent = exito ? `¡Escapaste con ${puntos} puntos!` : r.causa;
+  $('#resumen .datos').innerHTML = `
+    <li>Puntos: <b>${exito ? puntos : `${r.puntos} → ${puntos}`}</b>${exito ? '' : ' (la mitad, por no escapar)'}</li>
+    ${puntos > antes ? '<li>¡Nuevo récord!</li>' : antes ? `<li>Récord: <b>${antes}</b></li>` : ''}
+    <li>Tesoros: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
+    <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>
+    <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b> de ${r.limite / 60}:00</li>`;
+  $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre} +${RAREZAS[TESORO[id].rareza].valor}</span>`).join('');
+  $('#btn-reintentar').textContent = 'Revancha';
   $('#btn-reintentar').onclick = () => empezar(r.mazmorra);
   mostrar('resumen');
   detenerAmbiente();
@@ -318,6 +364,12 @@ function actualizarHUD() {
   $('#hud-arma').textContent = j.arma === 'revolver' ? 'Revólver' : 'Látigo';
   $('#hud-balas').textContent = j.arma === 'revolver' ? `${j.tambor} | ${j.reserva}` : (j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : '—');
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
+  if (juego.limite) {
+    const r = Math.ceil(juego.restante()), rel = $('#hud-reloj');
+    rel.textContent = `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
+    rel.classList.toggle('urgente', r <= 60);
+    $('#hud-puntos').textContent = juego.puntos();
+  }
   // en las mazmorras por zonas: «Zona 2 · Las galerías: 1 de 4 reliquias»
   const z = juego.zonaActual(), hz = $('#hud-zona');
   hz.hidden = !z;
@@ -344,12 +396,13 @@ function cuadro(t) {
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
   if (ent.pulsos.has('mapa') && !pausado) capaMapa.hidden = !capaMapa.hidden;
-  if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, juego.tension()); }
+  if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
+  else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
   render.ajustarTamano(CALIDADES[calidad]);
   // la antorcha titila
   const linterna = juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025;
-  render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo });
+  render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra() });
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);

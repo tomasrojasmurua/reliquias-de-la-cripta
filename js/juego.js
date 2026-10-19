@@ -42,10 +42,13 @@ const SALPICA = { momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: '
 const VEL_FUEGO = 5.5;
 
 export class Juego {
-  constructor(def, eventos, semilla) {
+  // `opciones.limite`: segundos del contrarreloj (0 = exploración libre, sin reloj).
+  constructor(def, eventos, semilla, opciones = {}) {
     this.def = def;
+    this.limite = opciones.limite || 0;
+    this.reloj = 0;
     this.mapa = cargarMazmorra(def, semilla);
-    this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte}
+    this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
     const m = this.mapa;
     this.j = {
       x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
@@ -208,7 +211,8 @@ export class Juego {
     const j = this.j;
     this.fogonazo = Math.max(0, this.fogonazo - dt * 6);
     this.animarPuertas(dt);
-    if (j.muerto) return;
+    this.avanzarReloj(dt);
+    if (j.muerto) { if (this.reaparecer > 0 && (this.reaparecer -= dt) <= 0) this.revivir(); return; }
 
     j.yaw += ent.giro + ent.giroTeclas * GIRO_TECLAS * dt;
     j.cabeceo = Math.max(-MAX_CABECEO, Math.min(MAX_CABECEO, j.cabeceo + ent.cabeceo));
@@ -520,9 +524,50 @@ export class Juego {
     this.ev.salida(this.resumen());
   }
 
+  // ---------- Contrarreloj ----------
+
+  // Corre aparte de `actualizar` para que no se detenga mientras lees una tablilla.
+  avanzarReloj(dt) {
+    if (!this.limite || this.terminado) return;
+    const antes = this.restante();
+    this.reloj += dt;
+    const r = this.restante();
+    if (antes > 60 && r <= 60) { sonar('gruñido'); this.ev.mensaje('¡Queda un minuto! Las antorchas empiezan a apagarse.', 4); }
+    if (r <= 0) { this.terminado = true; this.ev.tiempoAgotado(this.resumen('Se apagó la última antorcha.')); }
+  }
+
+  restante() { return Math.max(0, this.limite - this.reloj); }
+
+  // En el último minuto las antorchas de los muros se apagan poco a poco (1 = luz normal).
+  penumbra() { return this.limite ? 0.35 + 0.65 * Math.min(1, this.restante() / 60) : 1; }
+
+  // Puntos según la rareza de cada tesoro (común 1, raro 3, épico 8, legendario 20).
+  puntos() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0); }
+
+  // En el contrarreloj morir no termina la partida: sueltas tu último tesoro y reapareces en el inicio.
+  caer() {
+    const j = this.j, id = this.tesoros.pop();
+    const o = id && this.objetos.find(q => q.tipo === 'tesoro' && q.tesoro === id);
+    if (o) {
+      const c = this.mapa.celda(Math.floor(j.x), Math.floor(j.z));
+      if (j.cayendo === undefined && c?.tipo === 'suelo' && !c.peligro && !c.trampa) { o.x = j.x; o.z = j.z; }
+      o.cogido = false;
+      const z = this.zonas[o.zona];
+      if (z) z.halladas--;
+    }
+    this.reaparecer = 4;
+    this.ev.mensaje(o ? `Soltaste ${TESORO[id].nombre}. Reapareces en el inicio…` : 'Reapareces en el inicio…', 4);
+  }
+
+  revivir() {
+    const j = this.j, m = this.mapa;
+    Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: 100, muerto: false, quemadura: 0 });
+    delete j.cayendo;
+  }
+
   resumen(causa = null) {
     return {
-      causa,
+      causa, puntos: this.puntos(), limite: this.limite, reloj: Math.min(this.reloj, this.limite),
       mazmorra: this.def, tesoros: this.tesoros, totalTesoros: this.totalTesoros,
       secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
       abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,

@@ -26,6 +26,9 @@ Cada mazmorra tiene además un **ala nueva con alturas**, con su propia tablilla
 
 En las últimas mazmorras, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
 
+## Contrarreloj
+En la pantalla de mazmorras se elige **Explorar** (sin reloj) o **Contrarreloj** de 4, 6 u 8 minutos. Cada tesoro da puntos según su rareza (común 1, raro 3, épico 8, legendario 20). Si escapas antes de que se acabe el tiempo te llevas todos los puntos y los tesoros pasan a tu colección; si se apaga la última antorcha estando adentro, pierdes la mitad de los puntos y ningún tesoro va a la colección. En el último minuto las antorchas de los muros se van apagando. Morir no termina la partida: sueltas tu último tesoro donde caíste y reapareces en el inicio. El reloj sigue corriendo mientras lees una tablilla. Se guarda el récord de cada mazmorra y duración, y «Revancha» genera un laberinto nuevo. Es la base del futuro modo multijugador.
+
 ## Controles
 - **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Tab o M para el mapa, Esc para pausar.
 - **Celular:** joystick en la mitad izquierda para moverse; arrastrar en la derecha para mirar, tocar para disparar y tocar dos veces y mantener para ráfaga. Puntería asistida, la vista vuelve sola al horizonte, el botón de la mano se ilumina cuando hay algo que usar enfrente, vibración al disparar y al recibir daño (Android). En Opciones: sensibilidad, modo zurdo y vibración.

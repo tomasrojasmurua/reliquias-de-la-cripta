@@ -39,6 +39,13 @@
 <section id="mazmorras" class="pantalla menu" hidden>
   <h2>Elige una mazmorra</h2>
   <p class="sub">Cada puerta lleva a una cripta distinta. Los túneles cambian cada vez que entras.</p>
+  <div class="fila" id="modos">
+    <button data-limite="0">Explorar</button>
+    <button data-limite="240">Contrarreloj 4 min</button>
+    <button data-limite="360">6 min</button>
+    <button data-limite="480">8 min</button>
+  </div>
+  <p class="nota" id="nota-modo"></p>
   <div id="lista-mazmorras"></div>
   <button data-ir="portada">Volver</button>
 </section>
@@ -113,10 +120,12 @@
   <div id="fps"></div>
   <button id="btn-pausa" aria-label="Pausa">II</button>
   <div id="hud-zona" hidden><b></b> <span></span> <em></em></div>
+  <div id="hud-reloj" hidden></div>
   <div id="hud">
     <div class="caja"><small>Vida</small><b id="hud-vida">100</b></div>
     <div class="caja"><small id="hud-arma">Látigo</small><b id="hud-balas">—</b></div>
     <div class="caja"><small>Tesoros</small><b id="hud-tesoros">0/0</b></div>
+    <div class="caja" id="caja-puntos" hidden><small>Puntos</small><b id="hud-puntos">0</b></div>
   </div>
   <div id="zona-tactil"></div>
   <div id="joy-base" hidden></div>
