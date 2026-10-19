@@ -3,7 +3,7 @@
 
 export const T = 64;
 export const COLS = 16;
-export const FILAS = 28;
+export const FILAS = 32;
 
 const casillas = {};   // nombre -> [col, fila]
 const dibujos = [];
@@ -763,31 +763,48 @@ function tramado(g, color, intensidad, desfase = 0) {
 
 function r(g, x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
-// Humanoide genérico. estilo: cuerpo 'momia' (vendado, macizo) o 'huesos' (esqueleto),
-// colores y un accesorio opcional. pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto,
-// 5 y 6 cayendo (animación de muerte), 7 lanzar (brazos al frente), 8 paso intermedio.
+// Enemigos. Cada uno tiene su silueta propia para reconocerlo de lejos.
+// pose: 0/1 caminar, 2 ataque, 3 dolor, 4 muerto, 5 y 6 cayendo (animación de muerte),
+// 7 lanzar (brazos al frente), 8 paso intermedio.
+// Los humanoides comparten esqueleto o cuerpo macizo y se distinguen por lo que llevan encima;
+// las bestias (escorpión, araña, serpiente) y el coloso de piedra se dibujan enteros.
 const ESTILOS = {
-  momia: { cuerpo: 'momia', piel: '#c9b98f', sombra: '#8f7f5b', ojo: '#ff5a1f' },
-  esqueleto: { cuerpo: 'huesos', piel: '#e4ddc8', sombra: '#a8a08a', ojo: '#2a1a10' },
-  // guerrero vikingo congelado, con casco de cuernos y ojos azules
-  draugr: { cuerpo: 'momia', piel: '#9fb6c4', sombra: '#5d7584', ojo: '#7fe8ff', accesorio: 'cuernos' },
-  // esqueleto pirata con pañuelo rojo y sable
-  pirata: { cuerpo: 'huesos', piel: '#ddd3b8', sombra: '#9e957c', ojo: '#2a1a10', accesorio: 'pañuelo' },
-  // guerrero jaguar con piel moteada y tocado de plumas
-  jaguar: { cuerpo: 'momia', piel: '#d9a441', sombra: '#8a5e1c', ojo: '#ffe14a', accesorio: 'plumas', manchas: true },
-  // sectario del templo maldito: túnica roja y máscara de calavera
-  sectario: { cuerpo: 'momia', piel: '#8a2418', sombra: '#4e0f0a', ojo: '#ffcc33', accesorio: 'mascara', liso: true },
-  // caballero cruzado guardián: armadura y sobreveste blanca con cruz roja
-  caballero: { cuerpo: 'momia', piel: '#a4aab2', sombra: '#5c626a', ojo: '#111111', accesorio: 'yelmo', liso: true },
-  // Guardianes: uno por mazmorra, más grandes (el juego los dibuja a 1.2 m) y con su propio tocado.
-  faraon: { cuerpo: 'momia', piel: '#d9c890', sombra: '#9a8656', ojo: '#4fd0ff', accesorio: 'nemes', franjas: ['#2f5ad0', '#e8b83a'] },
-  anubis: { cuerpo: 'momia', piel: '#3a3028', sombra: '#1c1610', ojo: '#ffcc33', accesorio: 'nemes', franjas: ['#111111', '#e8b83a'], liso: true },
-  jarl: { cuerpo: 'momia', piel: '#7e98a8', sombra: '#3e5464', ojo: '#bff6ff', accesorio: 'cuernos', corona: true },
-  capitan: { cuerpo: 'huesos', piel: '#d6c8a4', sombra: '#8e8264', ojo: '#ff3a1a', accesorio: 'tricornio' },
-  rey_jaguar: { cuerpo: 'momia', piel: '#b8801c', sombra: '#6a420c', ojo: '#ff4a1a', accesorio: 'plumas', manchas: true, corona: true },
-  gran_sectario: { cuerpo: 'momia', piel: '#5a0e08', sombra: '#2a0604', ojo: '#ff3a1a', accesorio: 'mascara', liso: true, corona: true },
-  gran_caballero: { cuerpo: 'momia', piel: '#5e636c', sombra: '#2e3238', ojo: '#ff3a1a', accesorio: 'yelmo', liso: true, corona: true },
+  // momia que avanza con los brazos al frente: un ojo tapado por las vendas, el otro encendido
+  momia: { cuerpo: 'momia', piel: '#cbbb90', sombra: '#8f7f5b', ojo: '#ff5a1f', brazos: 'adelante' },
+  // esqueleto con espada oxidada, escudo roto y ojos verdes
+  esqueleto: { cuerpo: 'huesos', piel: '#e4ddc8', sombra: '#a8a08a', ojo: '#8dff6a' },
+  // guerrero vikingo congelado: hombreras de piel, casco de cuernos, barba de escarcha y hacha
+  draugr: { cuerpo: 'momia', piel: '#8fa6b4', sombra: '#536b7a', ojo: '#7fe8ff', liso: true, hombros: 3 },
+  // esqueleto pirata: tricornio, parche, casaca, garfio y alfanje
+  pirata: { cuerpo: 'huesos', piel: '#ddd3b8', sombra: '#9e957c', ojo: '#ffb03a' },
+  // guerrero jaguar: la cabeza del jaguar por casco, abanico de plumas y macana de obsidiana
+  jaguar: { cuerpo: 'momia', piel: '#9a6234', sombra: '#5e3618', ojo: '#ffe14a', liso: true },
+  // sectario del templo maldito: túnica hasta el suelo, capucha, máscara de calavera y fuego en la mano
+  sectario: { cuerpo: 'momia', piel: '#7a1e14', sombra: '#420c08', ojo: '#ffcc33', liso: true, tunica: true },
+  // caballero cruzado: yelmo cerrado con ojos rojos en la mirilla, sobreveste, escudo y espada
+  caballero: { cuerpo: 'momia', piel: '#8e949c', sombra: '#545a62', ojo: '#ff3a20', liso: true, malla: true },
+  // Guardianes: uno por mazmorra, más grandes (el juego los dibuja a 1.2 m). Llevan lo mismo que el
+  // enemigo de su mazmorra (`base`) con otros colores, y encima su tocado o una corona.
+  faraon: { cuerpo: 'momia', piel: '#d9c890', sombra: '#9a8656', ojo: '#4fd0ff', brazos: 'adelante', base: 'momia', tocado: 'nemes', franjas: ['#2f5ad0', '#e8b83a'] },
+  anubis: { cuerpo: 'momia', piel: '#3a3028', sombra: '#1c1610', ojo: '#ffcc33', liso: true, tocado: 'nemes', franjas: ['#111111', '#e8b83a'] },
+  jarl: { cuerpo: 'momia', piel: '#7e98a8', sombra: '#3e5464', ojo: '#bff6ff', liso: true, hombros: 4, base: 'draugr', corona: true },
+  capitan: { cuerpo: 'huesos', piel: '#d6c8a4', sombra: '#8e8264', ojo: '#ff3a1a', base: 'pirata' },
+  rey_jaguar: { cuerpo: 'momia', piel: '#7a4a1c', sombra: '#4a2a0c', ojo: '#ff4a1a', liso: true, base: 'jaguar', corona: true },
+  gran_sectario: { cuerpo: 'momia', piel: '#5a0e08', sombra: '#2a0604', ojo: '#ff3a1a', liso: true, tunica: true, base: 'sectario', corona: true },
+  gran_caballero: { cuerpo: 'momia', piel: '#5e636c', sombra: '#2e3238', ojo: '#ff3a1a', liso: true, malla: true, base: 'caballero', corona: true },
 };
+const BESTIAS_ARTE = { escorpion, arana, serpiente, coloso };
+const TIPOS_ENEMIGO = [...Object.keys(ESTILOS), ...Object.keys(BESTIAS_ARTE)];
+
+function postura(pose) {
+  return {
+    dy: pose === 3 ? 2 : pose === 8 ? -1 : 0,
+    vaiven: pose === 0 ? 2 : pose === 1 ? -2 : 0, // los brazos se balancean al caminar
+    alza: pose === 2 ? -10 : pose === 7 ? -6 : 0,
+    subeI: pose === 1 ? 2 : 0, subeD: pose === 0 ? 2 : 0, // pie que se levanta al caminar
+    ataca: pose === 2, dolor: pose === 3, lanza: pose === 7,
+  };
+}
 
 // Segmento de un miembro: cónico, con los extremos redondeados (hombro-codo, codo-mano...).
 function miembro(g, x0, y0, x1, y1, a0, a1, c) {
@@ -799,18 +816,32 @@ function miembro(g, x0, y0, x1, y1, a0, a1, c) {
 }
 function ovalo(g, x, y, rx, ry, c) { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
 
-// Cuerpo con carne o vendas (momia, draugr, jaguar, sectario, caballero): hombros redondos,
-// cintura más angosta, miembros que se afinan y manos.
-function cuerpoMacizo(g, e, dy, alza, vaiven, subeI, subeD) {
-  const piel = e.piel, sombra = e.sombra;
-  // piernas y pies
-  miembro(g, 27, 41 + dy, 26, 58 - subeI, 4.6, 3.4, piel); ovalo(g, 25, 60 - subeI, 4.5, 2.6, sombra);
-  miembro(g, 37, 41 + dy, 38, 58 - subeD, 4.6, 3.4, piel); ovalo(g, 39, 60 - subeD, 4.5, 2.6, sombra);
-  g.fillStyle = sombra; g.fillRect(31, 42 + dy, 2, 8); // entrepierna
+// Dónde quedan las manos (para empuñar armas).
+function manos(e, p) {
+  if (e.brazos === 'adelante') return { yI: 27 + p.dy + p.alza * 0.6 + p.vaiven, yD: 27 + p.dy + p.alza * 0.6 - p.vaiven, xI: 22, xD: 42 };
+  return { yI: 43 + p.dy + p.alza + p.vaiven, yD: 43 + p.dy + p.alza - p.vaiven, xI: 17, xD: 47 };
+}
+
+// Cuerpo con carne, vendas o armadura: hombros redondos, cintura más angosta, miembros que se afinan y manos.
+function cuerpoMacizo(g, e, p) {
+  const { piel, sombra } = e, { dy, alza, vaiven, subeI, subeD } = p, w = e.hombros || 0;
+  if (e.tunica) {
+    // túnica hasta el suelo que se mece al caminar, con pliegues y el borde deshilachado
+    const m = vaiven / 2;
+    g.fillStyle = piel; g.beginPath();
+    g.moveTo(23, 36 + dy); g.lineTo(41, 36 + dy); g.lineTo(48 + m, 61);
+    for (let x = 48; x >= 16; x -= 4) g.lineTo(x + m - 2, x % 8 ? 58 : 62);
+    g.lineTo(16 + m, 61); g.closePath(); g.fill();
+    g.fillStyle = sombra; for (const x of [26, 32, 38]) { g.beginPath(); g.moveTo(x, 42 + dy); g.lineTo(x + (x - 32) * 0.35 + m - 1, 60); g.lineTo(x + (x - 32) * 0.35 + m + 1, 60); g.fill(); }
+  } else {
+    miembro(g, 27, 41 + dy, 26, 58 - subeI, 4.6, 3.4, piel); ovalo(g, 25, 60 - subeI, 4.5, 2.6, sombra);
+    miembro(g, 37, 41 + dy, 38, 58 - subeD, 4.6, 3.4, piel); ovalo(g, 39, 60 - subeD, 4.5, 2.6, sombra);
+    g.fillStyle = sombra; g.fillRect(31, 42 + dy, 2, 8); // entrepierna
+  }
   // torso: hombros anchos que bajan a la cintura, y la pelvis
   g.fillStyle = piel; g.beginPath();
-  g.moveTo(20, 23 + dy); g.quadraticCurveTo(32, 18 + dy, 44, 23 + dy); g.lineTo(41, 40 + dy); g.lineTo(23, 40 + dy); g.closePath(); g.fill();
-  ovalo(g, 21, 24 + dy, 4, 4, piel); ovalo(g, 43, 24 + dy, 4, 4, piel);
+  g.moveTo(20 - w, 23 + dy); g.quadraticCurveTo(32, 18 + dy, 44 + w, 23 + dy); g.lineTo(41, 40 + dy); g.lineTo(23, 40 + dy); g.closePath(); g.fill();
+  ovalo(g, 21 - w, 24 + dy, 4 + w / 2, 4 + w / 2, piel); ovalo(g, 43 + w, 24 + dy, 4 + w / 2, 4 + w / 2, piel);
   g.fillStyle = piel; g.beginPath(); g.roundRect(22, 36 + dy, 20, 8, 4); g.fill();
   g.fillStyle = sombra; g.fillRect(25, 30 + dy, 14, 1); g.fillRect(31, 24 + dy, 2, 10); // pecho y esternón
   // cuello y cabeza
@@ -819,15 +850,21 @@ function cuerpoMacizo(g, e, dy, alza, vaiven, subeI, subeD) {
   g.fillStyle = sombra; g.fillRect(25, 13 + dy, 14, 1);
   ovalo(g, 29, 12 + dy, 2.4, 1.8, '#1a0e06'); ovalo(g, 35, 12 + dy, 2.4, 1.8, '#1a0e06');
   r(g, 28, 11 + dy, 2, 2, e.ojo); r(g, 34, 11 + dy, 2, 2, e.ojo);
-  // brazos: hombro, codo y mano
-  const codoI = 33 + dy + alza / 2 + vaiven, manoI = 41 + dy + alza + vaiven;
-  const codoD = 33 + dy + alza / 2 - vaiven, manoD = 41 + dy + alza - vaiven;
-  miembro(g, 19, 25 + dy, 16, codoI, 3.8, 3, piel); miembro(g, 16, codoI, 17, manoI, 3, 2.6, piel); ovalo(g, 17, manoI + 2, 3, 3.2, sombra);
-  miembro(g, 45, 25 + dy, 48, codoD, 3.8, 3, piel); miembro(g, 48, codoD, 47, manoD, 3, 2.6, piel); ovalo(g, 47, manoD + 2, 3, 3.2, sombra);
-  // texturas sobre lo ya pintado: vendas cruzadas o manchas de jaguar
+  const mn = manos(e, p);
+  if (e.brazos === 'adelante') {
+    // brazos estirados hacia ti: se ven cortos, con las manos grandes delante del pecho
+    miembro(g, 19, 25 + dy, mn.xI - 1, mn.yI, 3.8, 3.4, piel); ovalo(g, mn.xI, mn.yI, 4, 3.6, sombra);
+    miembro(g, 45, 25 + dy, mn.xD + 1, mn.yD, 3.8, 3.4, piel); ovalo(g, mn.xD, mn.yD, 4, 3.6, sombra);
+    for (let k = 0; k < 3; k++) { r(g, mn.xI - 3 + k * 2, mn.yI + 2, 1, 3, sombra); r(g, mn.xD - 2 + k * 2, mn.yD + 2, 1, 3, sombra); }
+  } else {
+    const codoI = 33 + dy + alza / 2 + vaiven, codoD = 33 + dy + alza / 2 - vaiven;
+    miembro(g, 19 - w, 25 + dy, 16 - w / 2, codoI, 3.8, 3, piel); miembro(g, 16 - w / 2, codoI, 17, mn.yI - 2, 3, 2.6, piel); ovalo(g, 17, mn.yI, 3, 3.2, sombra);
+    miembro(g, 45 + w, 25 + dy, 48 + w / 2, codoD, 3.8, 3, piel); miembro(g, 48 + w / 2, codoD, 47, mn.yD - 2, 3, 2.6, piel); ovalo(g, 47, mn.yD, 3, 3.2, sombra);
+  }
+  // texturas sobre lo ya pintado: vendas cruzadas o cota de malla
   g.save(); g.globalCompositeOperation = 'source-atop';
-  if (e.manchas) {
-    for (const [x, y] of [[23, 26], [30, 29], [38, 25], [26, 35], [36, 37], [16, 30], [47, 31], [26, 48], [38, 52], [29, 8], [34, 15]]) { ovalo(g, x, y + dy, 2, 1.4, '#4a2c0c'); r(g, x, y + dy, 1, 1, '#2a1806'); }
+  if (e.malla) {
+    for (let y = 0; y < 64; y += 2) for (let x = (y / 2) % 2; x < 64; x += 2) r(g, x, y, 1, 1, 'rgba(20,24,30,.35)');
   } else if (!e.liso) {
     for (let y = 4; y < 64; y += 4) {
       g.fillStyle = sombra; g.save(); g.translate(32, y + dy); g.rotate((y % 8 ? 1 : -1) * 0.12); g.fillRect(-30, 0, 60, 1); g.fillStyle = 'rgba(255,250,235,.35)'; g.fillRect(-30, 1, 60, 1); g.restore();
@@ -835,91 +872,227 @@ function cuerpoMacizo(g, e, dy, alza, vaiven, subeI, subeD) {
     g.fillStyle = 'rgba(0,0,0,.18)'; for (let i = 0; i < 40; i++) g.fillRect((i * 37) % 64, (i * 23) % 64, 1, 1); // mugre
   }
   g.restore();
-  if (!e.liso && !e.manchas) { g.fillStyle = piel; g.fillRect(15, manoI + 4, 2, 7); g.fillRect(16, manoI + 9, 1, 3); } // tira suelta
 }
 
 // Esqueleto: cráneo con mandíbula, columna, costillas curvas, pelvis y huesos con articulaciones.
-function esqueletoDe(g, e, dy, alza, vaiven, subeI, subeD) {
-  const hueso = e.piel, osc = e.sombra;
+function esqueletoDe(g, e, p) {
+  const hueso = e.piel, osc = e.sombra, { dy, alza, vaiven, subeI, subeD } = p;
   const art = (x, y) => ovalo(g, x, y, 2.3, 2.3, hueso);
-  // piernas
   miembro(g, 27, 40 + dy, 26, 50, 1.7, 1.5, hueso); art(26, 50); miembro(g, 26, 50, 26, 59 - subeI, 1.5, 1.4, hueso); ovalo(g, 25, 61 - subeI, 4, 1.8, hueso);
   miembro(g, 37, 40 + dy, 38, 50, 1.7, 1.5, hueso); art(38, 50); miembro(g, 38, 50, 38, 59 - subeD, 1.5, 1.4, hueso); ovalo(g, 39, 61 - subeD, 4, 1.8, hueso);
-  // pelvis
   g.fillStyle = hueso; g.beginPath(); g.moveTo(24, 36 + dy); g.lineTo(40, 36 + dy); g.lineTo(37, 42 + dy); g.lineTo(32, 40 + dy); g.lineTo(27, 42 + dy); g.closePath(); g.fill();
   ovalo(g, 28, 39 + dy, 1.4, 1.4, osc); ovalo(g, 36, 39 + dy, 1.4, 1.4, osc);
-  // columna
   for (let y = 18; y < 37; y += 3) { r(g, 30, y + dy, 4, 2, hueso); r(g, 31, y + 2 + dy, 2, 1, osc); }
-  // clavículas y costillas curvas
   g.strokeStyle = hueso; g.lineWidth = 2;
   g.beginPath(); g.moveTo(21, 22 + dy); g.quadraticCurveTo(32, 19 + dy, 43, 22 + dy); g.stroke();
   for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(32, 23 + i * 4 + dy, 10 - i, 3.2, 0, Math.PI * 0.04, Math.PI * 0.96); g.stroke(); }
-  // brazos
   const codoI = 32 + dy + alza / 2 + vaiven, manoI = 40 + dy + alza + vaiven;
   const codoD = 32 + dy + alza / 2 - vaiven, manoD = 40 + dy + alza - vaiven;
   art(20, 23 + dy); miembro(g, 20, 23 + dy, 18, codoI, 1.6, 1.4, hueso); art(18, codoI); miembro(g, 18, codoI, 18, manoI, 1.4, 1.2, hueso);
   for (let k = -1; k <= 1; k++) r(g, 17 + k * 1.5, manoI + 1, 1, 4, hueso);
   art(44, 23 + dy); miembro(g, 44, 23 + dy, 46, codoD, 1.6, 1.4, hueso); art(46, codoD); miembro(g, 46, codoD, 46, manoD, 1.4, 1.2, hueso);
   for (let k = -1; k <= 1; k++) r(g, 46 + k * 1.5, manoD + 1, 1, 4, hueso);
-  // cráneo
+  // cráneo; la mandíbula se descuelga al atacar
   ovalo(g, 32, 11 + dy, 7.2, 7.5, hueso);
-  g.fillStyle = hueso; g.beginPath(); g.roundRect(27, 15 + dy, 10, 5, 2); g.fill();
+  const boca = p.ataca ? 3 : 0;
+  g.fillStyle = hueso; g.beginPath(); g.roundRect(27, 15 + dy + boca, 10, 5, 2); g.fill();
+  if (boca) r(g, 28, 16 + dy, 8, boca + 1, '#1a0e06');
   ovalo(g, 29, 11 + dy, 2.3, 2.5, '#1a0e06'); ovalo(g, 35, 11 + dy, 2.3, 2.5, '#1a0e06');
-  r(g, 29, 11 + dy, 1, 1, e.ojo === '#2a1a10' ? '#5a4a3a' : e.ojo); r(g, 35, 11 + dy, 1, 1, e.ojo === '#2a1a10' ? '#5a4a3a' : e.ojo);
+  r(g, 29, 11 + dy, 1, 1, e.ojo); r(g, 35, 11 + dy, 1, 1, e.ojo);
   g.fillStyle = '#1a0e06'; g.beginPath(); g.moveTo(32, 13 + dy); g.lineTo(30.5, 16 + dy); g.lineTo(33.5, 16 + dy); g.fill();
-  r(g, 28, 18 + dy, 8, 1, '#1a0e06'); for (let x = 29; x < 36; x += 2) r(g, x, 17 + dy, 1, 3, '#1a0e06');
+  r(g, 28, 18 + dy + boca, 8, 1, '#1a0e06'); for (let x = 29; x < 36; x += 2) r(g, x, 17 + dy + boca, 1, 3, '#1a0e06');
 }
 
+// Lo que cada humanoide lleva encima. `detras` se pinta antes del cuerpo.
+const ADORNOS = {
+  momia: {
+    delante(g, e, p) {
+      const { dy } = p;
+      // vendas sobre el ojo izquierdo; el derecho arde
+      g.fillStyle = e.piel; g.save(); g.translate(29, 11 + dy); g.rotate(-0.35); g.fillRect(-5, -2, 10, 4); g.restore();
+      r(g, 25, 11 + dy, 8, 1, e.sombra);
+      ovalo(g, 35, 12 + dy, 2.8, 2.2, '#1a0e06'); r(g, 34, 11 + dy, 3, 2, e.ojo); r(g, 35, 11 + dy, 1, 1, '#ffd8a0');
+      // gemido: la boca se abre más al atacar
+      ovalo(g, 32, 17 + dy, p.ataca ? 3 : 2.2, p.ataca ? 2.2 : 1.2, '#1a0e06');
+      // vendas sueltas que cuelgan de la cabeza y de las manos
+      g.fillStyle = e.piel; g.beginPath(); g.moveTo(38, 8 + dy); g.lineTo(41, 9 + dy); g.lineTo(46 - p.vaiven, 22 + dy); g.lineTo(44 - p.vaiven, 23 + dy); g.fill();
+      const mn = manos(e, p);
+      g.beginPath(); g.moveTo(mn.xD + 2, mn.yD); g.lineTo(mn.xD + 4, mn.yD); g.lineTo(mn.xD + 6 + p.vaiven, mn.yD + 13); g.lineTo(mn.xD + 4 + p.vaiven, mn.yD + 14); g.fill();
+      // huecos en las vendas que dejan ver la carne seca
+      ovalo(g, 38, 35 + dy, 2, 1.4, '#3a2a18'); ovalo(g, 26, 50, 1.3, 2, '#3a2a18'); ovalo(g, 25, 31 + dy, 1.4, 1, '#3a2a18');
+      // amuleto de escarabajo en el pecho
+      ovalo(g, 32, 33 + dy, 3.2, 2.6, '#c8a040'); ovalo(g, 32, 33 + dy, 2.2, 1.8, '#2a62b8'); r(g, 32, 31 + dy, 1, 4, '#163a7a');
+    },
+  },
+  esqueleto: {
+    delante(g, e, p) {
+      const { dy, alza, vaiven } = p, yD = 40 + dy + alza - vaiven;
+      // espada oxidada, mellada
+      r(g, 45, yD - 22, 3, 22, '#9a8268'); r(g, 46, yD - 22, 1, 21, '#c8b8a0'); r(g, 45, yD - 14, 1, 2, '#3a2a1a'); r(g, 47, yD - 8, 1, 2, '#3a2a1a');
+      r(g, 42, yD - 1, 9, 2, '#6a5030'); r(g, 45, yD + 1, 3, 4, '#4a3420');
+      // escudo redondo de madera, partido
+      const sy = 33 + dy + vaiven;
+      ovalo(g, 15, sy, 8, 8.5, '#5a5a62'); ovalo(g, 15, sy, 6.8, 7.3, '#7a5028');
+      r(g, 9, sy - 1, 13, 1, '#4a3018'); r(g, 9, sy + 3, 13, 1, '#4a3018');
+      ovalo(g, 15, sy, 2, 2, '#a8a8b0');
+      g.strokeStyle = '#1a0e06'; g.lineWidth = 1; g.beginPath(); g.moveTo(12, sy - 7); g.lineTo(14, sy - 3); g.lineTo(11, sy + 1); g.lineTo(13, sy + 6); g.stroke();
+    },
+  },
+  draugr: {
+    detras(g, e, p) {
+      // capa de piel que asoma tras los hombros
+      ovalo(g, 32, 34 + p.dy, 17, 14, '#3a2a1c');
+    },
+    delante(g, e, p) {
+      const { dy } = p, mn = manos(e, p);
+      // hacha de dos manos: astil y hoja de media luna escarchada
+      r(g, 46, mn.yD - 22, 3, 30, '#5a3a1e'); r(g, 46, mn.yD - 22, 1, 30, '#7a5230');
+      g.fillStyle = '#b8c4cc'; g.beginPath(); g.moveTo(49, mn.yD - 20); g.quadraticCurveTo(60, mn.yD - 22, 59, mn.yD - 10); g.quadraticCurveTo(56, mn.yD - 12, 49, mn.yD - 10); g.fill();
+      r(g, 57, mn.yD - 20, 2, 9, '#e8f4fa');
+      // hombreras de piel
+      for (const x of [16, 48]) { ovalo(g, x, 23 + dy, 7, 5, '#4a3422'); for (let k = -2; k <= 2; k++) r(g, x + k * 2.5, 26 + dy, 2, 3, '#2e2014'); }
+      // casco de cuernos con nasal
+      ovalo(g, 32, 6 + dy, 8.5, 5.5, '#6a6e74'); r(g, 25, 4 + dy, 3, 2, '#9aa0a8');
+      r(g, 23, 7 + dy, 18, 3, '#8a8f96'); r(g, 31, 7 + dy, 2, 8, '#8a8f96');
+      for (const s of [-1, 1]) {
+        g.strokeStyle = '#e8e0c8'; g.lineCap = 'round';
+        g.lineWidth = 3.4; g.beginPath(); g.moveTo(32 + s * 8, 7 + dy); g.quadraticCurveTo(32 + s * 15, 6 + dy, 32 + s * 14, -1 + dy); g.stroke();
+        r(g, 32 + s * 14 - 1, -1 + dy, 2, 2, '#fff8e8');
+      }
+      // barba larga de escarcha, trenzada
+      g.fillStyle = '#d8e6ee'; g.beginPath(); g.moveTo(25, 15 + dy); g.lineTo(39, 15 + dy); g.lineTo(37, 26 + dy); g.lineTo(33, 34 + dy); g.lineTo(31, 34 + dy); g.lineTo(27, 26 + dy); g.closePath(); g.fill();
+      for (let y = 20; y < 33; y += 3) { r(g, 30, y + dy, 1, 2, '#8aa4b4'); r(g, 33, y + dy, 1, 2, '#8aa4b4'); }
+      r(g, 29, 17 + dy, 6, 1, '#6a8494');
+    },
+  },
+  pirata: {
+    delante(g, e, p) {
+      const { dy, alza, vaiven } = p, yI = 40 + dy + alza + vaiven, yD = 40 + dy + alza - vaiven;
+      // casaca azul abierta, con botones de latón
+      g.fillStyle = '#24305a';
+      g.beginPath(); g.moveTo(19, 21 + dy); g.lineTo(27, 22 + dy); g.lineTo(25, 46 + dy); g.lineTo(18, 48 + dy); g.fill();
+      g.beginPath(); g.moveTo(45, 21 + dy); g.lineTo(37, 22 + dy); g.lineTo(39, 46 + dy); g.lineTo(46, 48 + dy); g.fill();
+      for (let y = 26; y < 44; y += 5) { r(g, 25, y + dy, 1, 1, '#e8c060'); r(g, 38, y + dy, 1, 1, '#e8c060'); }
+      // faja roja
+      r(g, 24, 35 + dy, 16, 3, '#b02020'); r(g, 36, 38 + dy, 3, 6, '#b02020');
+      // parche con su cinta y aro de oro
+      g.strokeStyle = '#111'; g.lineWidth = 1; g.beginPath(); g.moveTo(25, 7 + dy); g.lineTo(38, 15 + dy); g.stroke();
+      ovalo(g, 29, 11 + dy, 2.8, 2.6, '#111');
+      ovalo(g, 25, 15 + dy, 1.4, 1.6, '#e8c060'); r(g, 25, 15 + dy, 1, 1, '#3a2a1a');
+      // tricornio con calavera
+      g.fillStyle = '#1c1814'; g.beginPath(); g.moveTo(18, 7 + dy); g.lineTo(23, 0 + dy); g.lineTo(32, 2 + dy); g.lineTo(41, 0 + dy); g.lineTo(46, 7 + dy); g.lineTo(32, 5 + dy); g.closePath(); g.fill();
+      ovalo(g, 32, 3 + dy, 7, 3.5, '#1c1814');
+      r(g, 19, 6 + dy, 12, 1, '#c8a040'); r(g, 33, 6 + dy, 12, 1, '#c8a040');
+      r(g, 31, 1 + dy, 3, 2, '#e8e0c8'); r(g, 31, 3 + dy, 1, 1, '#1c1814'); r(g, 33, 3 + dy, 1, 1, '#1c1814');
+      // garfio en la izquierda
+      r(g, 15, yI, 5, 3, '#5a3a1a');
+      g.strokeStyle = '#c8ccd2'; g.lineWidth = 1.6; g.beginPath(); g.arc(16, yI + 6, 3, -Math.PI / 2, Math.PI * 0.9); g.stroke();
+      // alfanje curvo en la derecha
+      g.strokeStyle = '#d8dde4'; g.lineWidth = 2.6; g.beginPath(); g.moveTo(47, yD); g.quadraticCurveTo(53, yD - 10, 49, yD - 21); g.stroke();
+      g.strokeStyle = '#c8a040'; g.lineWidth = 1.4; g.beginPath(); g.arc(47, yD + 1, 3, Math.PI, 0); g.stroke();
+    },
+  },
+  jaguar: {
+    detras(g, e, p) {
+      // abanico de plumas de quetzal
+      const colores = ['#2fa860', '#2f6ad0', '#2fa860', '#d03030', '#2fa860', '#2f6ad0', '#2fa860'];
+      colores.forEach((c, i) => {
+        const a = -Math.PI / 2 + (i - 3) * 0.42;
+        const x = 32 + Math.cos(a) * 12, y = 13 + p.dy + Math.sin(a) * 10;
+        g.save(); g.translate(x, y); g.rotate(a + Math.PI / 2); ovalo(g, 0, 0, 2.6, 8, c); ovalo(g, 0, -5, 1.6, 2.4, '#e8c020'); g.restore();
+      });
+    },
+    delante(g, e, p) {
+      const { dy } = p, mn = manos(e, p);
+      const PIEL = '#d9a441', MOTA = '#3a2008';
+      // piel de jaguar sobre los hombros
+      for (const x of [19, 45]) { ovalo(g, x, 24 + dy, 6, 5, PIEL); r(g, x - 2, 22 + dy, 2, 2, MOTA); r(g, x + 2, 25 + dy, 2, 1, MOTA); }
+      // taparrabos rojo y collar de jade
+      g.fillStyle = '#b02a20'; g.beginPath(); g.moveTo(28, 40 + dy); g.lineTo(36, 40 + dy); g.lineTo(35, 51); g.lineTo(29, 51); g.fill();
+      for (let x = 25; x < 40; x += 3) ovalo(g, x + 1, 21 + dy + Math.abs(x - 31) * 0.15, 1.5, 1.5, '#2fb46a');
+      // pintura de guerra en la cara
+      r(g, 25, 14 + dy, 14, 2, '#1a1a1a');
+      // la cabeza del jaguar como casco: orejas, ojos de jade y colmillos sobre la frente
+      ovalo(g, 32, 5 + dy, 9.5, 6.5, PIEL);
+      ovalo(g, 24, 0 + dy, 2.6, 2.6, PIEL); ovalo(g, 40, 0 + dy, 2.6, 2.6, PIEL); r(g, 24, 0 + dy, 1, 1, MOTA); r(g, 40, 0 + dy, 1, 1, MOTA);
+      for (const [x, y] of [[28, 2], [35, 1], [32, 4], [26, 6], [38, 6]]) ovalo(g, x, y + dy, 1.3, 1, MOTA);
+      r(g, 27, 3 + dy, 3, 2, '#3fd08a'); r(g, 34, 3 + dy, 3, 2, '#3fd08a');
+      r(g, 23, 9 + dy, 18, 2, PIEL);
+      g.fillStyle = '#f4ecd8';
+      for (const x of [26, 36]) { g.beginPath(); g.moveTo(x, 10 + dy); g.lineTo(x + 2, 10 + dy); g.lineTo(x + 1, 14 + dy); g.fill(); }
+      // macana: paleta de madera con filos de obsidiana
+      r(g, 45, mn.yD - 22, 4, 26, '#7a4a20'); r(g, 45, mn.yD - 22, 1, 26, '#9a6a3a');
+      g.fillStyle = '#16121e';
+      for (let k = 0; k < 5; k++) { const y = mn.yD - 21 + k * 4; g.beginPath(); g.moveTo(44, y); g.lineTo(42, y + 1.5); g.lineTo(44, y + 3); g.fill(); g.beginPath(); g.moveTo(49, y); g.lineTo(51, y + 1.5); g.lineTo(49, y + 3); g.fill(); }
+    },
+  },
+  sectario: {
+    delante(g, e, p) {
+      const { dy } = p, mn = manos(e, p);
+      // cordón dorado y collar de calaveritas
+      r(g, 23, 37 + dy, 18, 2, '#c8a050'); r(g, 34, 39 + dy, 2, 7, '#c8a050');
+      for (let x = 26; x <= 38; x += 4) { ovalo(g, x, 27 + dy + Math.abs(x - 32) * 0.2, 1.6, 1.6, '#e8e0c8'); r(g, x - 1, 27 + dy, 1, 1, '#111'); }
+      // capucha en punta
+      g.fillStyle = '#5a1610'; g.beginPath(); g.moveTo(21, 23 + dy); g.lineTo(23, 7 + dy); g.lineTo(32, -2 + dy); g.lineTo(41, 7 + dy); g.lineTo(43, 23 + dy); g.lineTo(38, 21 + dy); g.lineTo(26, 21 + dy); g.closePath(); g.fill();
+      // máscara de calavera con ojos encendidos
+      ovalo(g, 32, 13 + dy, 6, 7, '#e8e0c8');
+      ovalo(g, 29.5, 12 + dy, 1.8, 2, '#111'); ovalo(g, 34.5, 12 + dy, 1.8, 2, '#111');
+      r(g, 29, 12 + dy, 1, 1, e.ojo); r(g, 34, 12 + dy, 1, 1, e.ojo);
+      g.fillStyle = '#111'; g.beginPath(); g.moveTo(32, 14 + dy); g.lineTo(31, 16 + dy); g.lineTo(33, 16 + dy); g.fill();
+      r(g, 29, 18 + dy, 6, 1, '#111'); for (let x = 30; x < 35; x += 2) r(g, x, 17 + dy, 1, 3, '#111');
+      // manos pálidas: daga ondulada en la derecha y una llamita en la izquierda
+      ovalo(g, mn.xI, mn.yI, 3, 3.2, '#c8b898'); ovalo(g, mn.xD, mn.yD, 3, 3.2, '#c8b898');
+      g.strokeStyle = '#c8ccd2'; g.lineWidth = 2; g.beginPath(); g.moveTo(47, mn.yD - 2);
+      for (let k = 1; k <= 4; k++) g.lineTo(47 + (k % 2 ? 1.5 : -1.5), mn.yD - 2 - k * 3.5); g.stroke();
+      r(g, 45, mn.yD - 2, 5, 2, '#c8a040');
+      if (!p.lanza) { ovalo(g, mn.xI, mn.yI - 6, 2.6, 3.6, '#ff8a1a'); ovalo(g, mn.xI, mn.yI - 5, 1.4, 2, '#ffe14a'); }
+    },
+  },
+  caballero: {
+    delante(g, e, p) {
+      const { dy, vaiven } = p, mn = manos(e, p);
+      // sobreveste blanca con la cruz roja y cinturón
+      g.fillStyle = '#eeeae0'; g.beginPath(); g.moveTo(22, 21 + dy); g.lineTo(42, 21 + dy); g.lineTo(43, 50); g.lineTo(38, 52); g.lineTo(32, 50); g.lineTo(26, 52); g.lineTo(21, 50); g.closePath(); g.fill();
+      r(g, 30, 24 + dy, 4, 23, '#b02020'); r(g, 25, 29 + dy, 14, 4, '#b02020');
+      r(g, 22, 37 + dy, 20, 2, '#5a3a1e'); r(g, 31, 37 + dy, 2, 2, '#c8a040');
+      // yelmo cerrado con la mirilla en cruz y los ojos que brillan dentro
+      g.fillStyle = '#8a9098'; g.beginPath(); g.roundRect(24, 2 + dy, 16, 18, 2); g.fill();
+      r(g, 24, 2 + dy, 16, 2, '#c8ccd2'); r(g, 24, 9 + dy, 16, 1, '#c8a040');
+      r(g, 25, 11 + dy, 14, 2, '#111'); r(g, 31, 11 + dy, 2, 7, '#111');
+      r(g, 27, 11 + dy, 2, 1, e.ojo); r(g, 35, 11 + dy, 2, 1, e.ojo);
+      for (const [x, y] of [[27, 15], [36, 15], [27, 17], [36, 17]]) r(g, x, y + dy, 1, 1, '#2a2e34');
+      // escudo de cometa en el brazo izquierdo
+      const sy = 27 + dy + vaiven;
+      g.fillStyle = '#5a5e66'; g.beginPath(); g.moveTo(8, sy); g.lineTo(25, sy); g.lineTo(25, sy + 12); g.lineTo(16.5, sy + 23); g.lineTo(8, sy + 12); g.closePath(); g.fill();
+      g.fillStyle = '#eeeae0'; g.beginPath(); g.moveTo(9.5, sy + 1.5); g.lineTo(23.5, sy + 1.5); g.lineTo(23.5, sy + 11.5); g.lineTo(16.5, sy + 20.5); g.lineTo(9.5, sy + 11.5); g.closePath(); g.fill();
+      r(g, 15, sy + 2, 3, 17, '#b02020'); r(g, 10, sy + 6, 13, 3, '#b02020');
+      // espada larga
+      r(g, 46, mn.yD - 26, 3, 25, '#d8dde4'); r(g, 47, mn.yD - 26, 1, 24, '#ffffff');
+      r(g, 42, mn.yD - 2, 11, 2, '#c8a040'); r(g, 46, mn.yD, 3, 4, '#5a3a1e'); ovalo(g, 47.5, mn.yD + 5, 1.6, 1.6, '#c8a040');
+    },
+  },
+};
+
 function humanoide(g, tipo, pose) {
-  const e = ESTILOS[tipo];
-  const momia = e.cuerpo === 'momia';
-  const piel = e.piel, sombra = e.sombra;
+  const e = ESTILOS[tipo], ad = ADORNOS[tipo] || ADORNOS[e.base] || {};
   // muerte: el mismo cuerpo (en pose de dolor) que se arrodilla, se desploma y queda tendido
-  if (pose === 4 || pose === 5 || pose === 6) {
-    g.save();
-    if (pose === 5) { g.translate(32, 62); g.rotate(0.12); g.scale(1, 0.78); g.translate(-32, -62); }
-    else if (pose === 6) { g.translate(32, 62); g.rotate(0.6); g.scale(0.85, 0.85); g.translate(-32, -62); }
-    else { g.translate(32, 54); g.rotate(Math.PI / 2); g.scale(0.9, 0.9); g.translate(-32, -37); }
-    humanoide(g, tipo, 3);
-    g.restore();
-    return;
+  if (pose === 4 || pose === 5 || pose === 6) { caida(g, pose, () => humanoide(g, tipo, 3)); return; }
+  const p = postura(pose);
+  ad.detras?.(g, e, p);
+  if (e.cuerpo === 'momia') cuerpoMacizo(g, e, p);
+  else esqueletoDe(g, e, p);
+  ad.delante?.(g, e, p);
+  tocado(g, e, p);
+  herida(g, p, 29, 28 + p.dy);
+  if (p.lanza) { // conjuro: fuego entre las manos
+    r(g, 26, 20, 12, 10, '#ff8a1a'); r(g, 28, 22, 8, 6, '#ffe14a'); r(g, 30, 24, 4, 2, '#fff8d0');
   }
-  const paso = pose === 1 ? 1 : 0;
-  const dy = pose === 3 ? 2 : pose === 8 ? -1 : 0;
-  const vaiven = pose === 0 ? 2 : pose === 1 ? -2 : 0; // los brazos se balancean al caminar
-  const alza = pose === 2 ? -10 : pose === 7 ? -6 : 0;
-  const subeI = pose === 1 ? 2 : 0, subeD = pose === 0 ? 2 : 0; // pie que se levanta al caminar
-  if (momia) cuerpoMacizo(g, e, dy, alza, vaiven, subeI, subeD);
-  else esqueletoDe(g, e, dy, alza, vaiven, subeI, subeD);
-  if (e.accesorio === 'pañuelo') {
-    // sable en la mano derecha
-    r(g, 47, 6 + dy + alza, 2, 18, '#d8dde4'); r(g, 48, 6 + dy + alza, 1, 18, '#ffffff'); r(g, 44, 23 + dy + alza, 8, 2, '#c8a040');
-  }
-  if (e.accesorio === 'cuernos') {
-    r(g, 23, 4 + dy, 18, 5, '#6a6e74'); r(g, 23, 4 + dy, 18, 1, '#9aa0a8');
-    r(g, 18, 0 + dy, 4, 6, '#e8e0c8'); r(g, 42, 0 + dy, 4, 6, '#e8e0c8');
-    r(g, 20, 6 + dy, 4, 3, '#e8e0c8'); r(g, 40, 6 + dy, 4, 3, '#e8e0c8');
-    r(g, 26, 18 + dy, 12, 6, '#c8d8e0'); // barba escarchada
-  }
-  if (e.accesorio === 'pañuelo') { r(g, 24, 5 + dy, 16, 4, '#b02020'); r(g, 38, 7 + dy, 6, 3, '#b02020'); }
-  if (e.accesorio === 'plumas') {
-    r(g, 23, 3 + dy, 18, 5, '#c08a2a');
-    const colores = ['#2fa860', '#d03030', '#2f6ad0', '#2fa860', '#e8c020'];
-    colores.forEach((c, i) => r(g, 22 + i * 4, -6 + dy + Math.abs(2 - i) * 2, 3, 10, c));
-    r(g, 26, 9 + dy, 12, 2, '#4a2c0c');
-  }
-  if (e.accesorio === 'mascara') {
-    r(g, 22, 4 + dy, 20, 6, '#4e0f0a'); r(g, 22, 4 + dy, 3, 18, '#4e0f0a'); r(g, 39, 4 + dy, 3, 18, '#4e0f0a'); // capucha
-    r(g, 26, 9 + dy, 12, 11, '#e8e0c8'); r(g, 27, 12 + dy, 3, 3, '#111'); r(g, 34, 12 + dy, 3, 3, '#111'); r(g, 29, 17 + dy, 6, 2, '#111');
-    r(g, 27, 12 + dy, 1, 1, '#ffcc33'); r(g, 34, 12 + dy, 1, 1, '#ffcc33');
-    r(g, 26, 24 + dy, 12, 2, '#e8b83a'); // collar
-  }
-  if (e.accesorio === 'yelmo') {
-    r(g, 24, 4 + dy, 16, 17, '#8a9098'); r(g, 25, 4 + dy, 14, 2, '#c8ccd2'); r(g, 26, 12 + dy, 12, 2, '#111'); r(g, 31, 14 + dy, 2, 5, '#111');
-    r(g, 22, 22 + dy, 20, 19, '#eeeae0'); r(g, 30, 24 + dy, 4, 14, '#b02020'); r(g, 25, 28 + dy, 14, 4, '#b02020'); // sobreveste
-    r(g, 50, 4 + dy + alza, 2, 26, '#d8dde4'); r(g, 46, 28 + dy + alza, 10, 2, '#8a6a2a'); // espada
-  }
-  if (e.accesorio === 'nemes') {
+}
+
+// Lo que distingue a un guardián de lejos: el nemes de faraón o una corona de oro sobre lo que ya lleve.
+function tocado(g, e, p) {
+  const { dy } = p;
+  if (e.tocado === 'nemes') {
     // tocado de faraón a franjas, que cae sobre los hombros, con la cobra en la frente
     const [a, b] = e.franjas;
     r(g, 22, 3 + dy, 20, 7, a); r(g, 20, 8 + dy, 5, 16, a); r(g, 39, 8 + dy, 5, 16, a);
@@ -927,27 +1100,230 @@ function humanoide(g, tipo, pose) {
     r(g, 31, 1 + dy, 2, 4, '#e8b83a'); r(g, 30, 1 + dy, 4, 1, '#e8b83a');
     r(g, 29, 20 + dy, 6, 5, '#2f5ad0'); r(g, 30, 21 + dy, 4, 1, '#e8b83a'); // barba postiza
   }
-  if (e.accesorio === 'tricornio') {
-    r(g, 18, 3 + dy, 28, 4, '#1a1410'); r(g, 22, -1 + dy, 20, 5, '#1a1410'); r(g, 18, 3 + dy, 28, 1, '#c8a040');
-    r(g, 29, 0 + dy, 6, 3, '#e8e0c8'); r(g, 30, 1 + dy, 1, 1, '#1a1410'); r(g, 33, 1 + dy, 1, 1, '#1a1410'); // calavera del sombrero
-    r(g, 47, 6 + dy + alza, 2, 18, '#d8dde4'); r(g, 48, 6 + dy + alza, 1, 18, '#ffffff'); r(g, 44, 23 + dy + alza, 8, 3, '#e8b83a'); // sable
-  }
   if (e.corona) {
-    // corona de oro con gemas: se reconoce de lejos que es el guardián
-    const y0 = e.accesorio === 'plumas' ? -8 : e.accesorio === 'cuernos' ? 0 : 1;
-    r(g, 25, y0 + 3 + dy, 14, 3, '#e8b83a'); r(g, 25, y0 + 3 + dy, 14, 1, '#ffe58a');
-    for (const x of [25, 30, 35]) r(g, x, y0 + dy, 4, 3, '#e8b83a');
-    r(g, 27, y0 + 4 + dy, 2, 1, '#e0304a'); r(g, 31, y0 + 4 + dy, 2, 1, '#3a6ee8'); r(g, 35, y0 + 4 + dy, 2, 1, '#e0304a');
-  }
-  if (pose === 3) { ovalo(g, 29, 28 + dy, 3, 2, '#7a1010'); r(g, 29, 30 + dy, 1, 3, '#7a1010'); }
-  if (pose === 7) { // conjuro: fuego entre las manos
-    r(g, 26, 12 + alza + 14, 12, 10, '#ff8a1a'); r(g, 28, 14 + alza + 14, 8, 6, '#ffe14a'); r(g, 30, 16 + alza + 14, 4, 2, '#fff8d0');
+    // corona de oro con gemas, sobre el casco o la capucha
+    r(g, 25, 3 + dy, 14, 3, '#e8b83a'); r(g, 25, 3 + dy, 14, 1, '#ffe58a');
+    for (const x of [25, 30, 35]) r(g, x, 0 + dy, 4, 3, '#e8b83a');
+    r(g, 27, 4 + dy, 2, 1, '#e0304a'); r(g, 31, 4 + dy, 2, 1, '#3a6ee8'); r(g, 35, 4 + dy, 2, 1, '#e0304a');
   }
 }
 
-for (const tipo of Object.keys(ESTILOS)) {
-  for (let pose = 0; pose < 9; pose++) registrar(`${tipo}_${pose}`, sprite(g => humanoide(g, tipo, pose)));
+// La animación de muerte común: se dobla, se desploma y queda tendido de lado.
+function caida(g, pose, dibujar, tendido) {
+  g.save();
+  if (pose === 5) { g.translate(32, 62); g.rotate(0.12); g.scale(1, 0.78); g.translate(-32, -62); }
+  else if (pose === 6) { g.translate(32, 62); g.rotate(0.6); g.scale(0.85, 0.85); g.translate(-32, -62); }
+  else if (tendido) { g.restore(); tendido(); return; }
+  else { g.translate(32, 54); g.rotate(Math.PI / 2); g.scale(0.9, 0.9); g.translate(-32, -37); }
+  dibujar();
+  g.restore();
 }
+function herida(g, p, x, y) {
+  if (p.dolor) { ovalo(g, x, y, 3, 2, '#7a1010'); r(g, x, y + 2, 1, 3, '#7a1010'); }
+}
+
+// ---------- Bestias ----------
+
+// Escorpión gigante, visto de frente: pinzas abiertas a los lados y la cola curvada por encima,
+// con el aguijón apuntándote. Al atacar, la cola se lanza hacia delante.
+function escorpion(g, pose) {
+  const C = '#b4521f', O = '#5e240c', CL = '#e08a3a', VENENO = '#9aff4a';
+  if (pose >= 4 && pose <= 6) {
+    caida(g, pose, () => escorpion(g, 3), () => {
+      // panza arriba, con las patas encogidas
+      for (let i = 0; i < 4; i++) for (const s of [-1, 1]) trazo(g, O, 2.4, 32 + s * 8, 52, 32 + s * (12 + i * 3), 44 - i, 32 + s * (10 + i * 3), 40 - i * 2);
+      ovalo(g, 32, 54, 14, 6, C); ovalo(g, 32, 54, 10, 4, '#d8a060');
+      for (let x = 24; x <= 40; x += 4) r(g, x, 51, 1, 6, O);
+      trazo(g, C, 4, 44, 56, 52, 58, 58, 55); ovalo(g, 59, 54, 3, 2.4, O);
+      ovalo(g, 12, 55, 5, 3.4, C);
+    });
+    return;
+  }
+  const p = postura(pose), golpe = p.ataca || p.lanza, s = p.vaiven;
+  // patas: cuatro por lado, alternando al caminar
+  for (let i = 0; i < 4; i++) {
+    const alza = ((i + (pose === 1 ? 1 : 0)) % 2 && pose !== 8) ? 2 : 0;
+    for (const lado of [-1, 1]) {
+      const ax = 32 + lado * 9, ay = 44 + i * 3, kx = 32 + lado * (18 + i * 2), ky = 38 + i * 3 - alza, fx = 32 + lado * (26 - i * 1.5), fy = 60 - (lado > 0 ? alza : 0);
+      trazo(g, O, 3, ax, ay, kx, ky, fx, fy);
+      r(g, kx - 1, ky - 1, 2, 2, CL);
+    }
+  }
+  // cola: segmentos que suben por detrás y el aguijón al final
+  const n = 7;
+  for (let k = 0; k <= n; k++) {
+    const t = k / n;
+    const x = golpe ? 32 + Math.sin(t * Math.PI) * 6 : 32 + s * t * 1.5 + Math.sin(t * Math.PI) * 3;
+    const y = golpe ? 42 - Math.sin(t * Math.PI * 0.9) * 28 + t * 4 : 42 - t * 32;
+    ovalo(g, x, y, 5.5 - t * 1.8, 4 - t, C); r(g, x - 3 + t * 2, y + 2 - t, 6 - t * 3, 1, O);
+  }
+  const ax = golpe ? 32 : 32 + s * 1.5, ay = golpe ? 22 : 8, tam = golpe ? 6 : 4.2;
+  ovalo(g, ax, ay, tam, tam * 0.9, CL);
+  g.fillStyle = '#2a1206'; g.beginPath(); g.moveTo(ax - 1.6, ay + tam * 0.6); g.lineTo(ax + 1.6, ay + tam * 0.6); g.lineTo(ax, ay + tam * (golpe ? 2.4 : 1.9)); g.fill();
+  r(g, ax, ay + tam * (golpe ? 2.4 : 1.9), 1, 2, VENENO);
+  // pinzas
+  const py = golpe ? -6 : p.dy;
+  for (const lado of [-1, 1]) {
+    const cx = 32 + lado * 21, cy = 27 + py;
+    trazo(g, C, 4.5, 32 + lado * 8, 45, 32 + lado * 15, 40 + py / 2, cx, cy + 6);
+    ovalo(g, cx, cy, 5.5, 6.5, C); r(g, cx - 2, cy - 2, 2, 4, CL);
+    const abre = golpe ? 0.7 : 0.25;
+    g.fillStyle = C;
+    for (const f of [-1, 1]) {
+      g.save(); g.translate(cx + f * 2, cy - 4); g.rotate(f * abre);
+      g.beginPath(); g.moveTo(-2, 0); g.lineTo(2, 0); g.lineTo(f * 1, -9); g.fill(); g.restore();
+    }
+  }
+  // cuerpo acorazado y la cabeza con sus ojos
+  ovalo(g, 32, 46 + p.dy, 11, 8, C);
+  for (let k = 0; k < 3; k++) { g.strokeStyle = O; g.lineWidth = 1; g.beginPath(); g.ellipse(32, 40 + k * 3 + p.dy, 10 - k, 3, 0, 0.1, Math.PI - 0.1); g.stroke(); }
+  ovalo(g, 32, 51 + p.dy, 8, 4.5, CL);
+  r(g, 28, 48 + p.dy, 2, 2, '#ffe14a'); r(g, 34, 48 + p.dy, 2, 2, '#ffe14a'); r(g, 31, 47 + p.dy, 2, 1, '#ffe14a');
+  r(g, 29, 54 + p.dy, 2, 3, O); r(g, 33, 54 + p.dy, 2, 3, O);
+  herida(g, p, 36, 44);
+}
+
+// Araña gigante: abdomen peludo con una calavera roja marcada, ocho ojos encendidos y quelíceros
+// con colmillos que gotean veneno. Al atacar levanta las patas delanteras.
+function arana(g, pose) {
+  const C = '#2c2034', O = '#160e1c', PATA = '#3a2c48', PELO = '#6a5880', MARCA = '#c0201a', OJO = '#ff3a2a';
+  if (pose >= 4 && pose <= 6) {
+    caida(g, pose, () => arana(g, 3), () => {
+      // patas arriba, encogidas
+      for (let i = 0; i < 4; i++) for (const s of [-1, 1]) trazo(g, PATA, 1.8, 32 + s * 6, 52, 32 + s * (12 + i * 5), 46 - i * 3, 32 + s * (9 + i * 6), 38 - i * 4);
+      ovalo(g, 32, 54, 15, 7, C); ovalo(g, 32, 54, 5, 3, MARCA); ovalo(g, 18, 57, 6, 4, C);
+    });
+    return;
+  }
+  const p = postura(pose), golpe = p.ataca || p.lanza;
+  // abdomen con la calavera
+  ovalo(g, 32, 27 + p.dy, 13, 12, C);
+  for (let a = 0; a < Math.PI * 2; a += 0.35) r(g, 32 + Math.cos(a) * 13.5, 27 + p.dy + Math.sin(a) * 12.5, 1, 2, PELO);
+  ovalo(g, 32, 23 + p.dy, 5, 4.6, MARCA); r(g, 29, 26 + p.dy, 6, 3, MARCA);
+  ovalo(g, 30, 23 + p.dy, 1.3, 1.5, O); ovalo(g, 34, 23 + p.dy, 1.3, 1.5, O); r(g, 30, 28 + p.dy, 1, 1, O); r(g, 32, 28 + p.dy, 1, 1, O);
+  // patas: largas y delante del abdomen, con la rodilla más alta que el cuerpo
+  for (let i = 0; i < 4; i++) {
+    const alza = ((i + (pose === 1 ? 1 : 0)) % 2 && pose !== 8) ? 3 : 0;
+    for (const lado of [-1, 1]) {
+      const ax = 32 + lado * 7, ay = 40 + i * 2;
+      let kx = 32 + lado * (13 + i * 5), ky = 8 + i * 5 - alza, fx = 32 + lado * (20 + i * 3.8), fy = 62 - (lado > 0 ? 0 : alza / 2);
+      if (golpe && i === 0) { kx = 32 + lado * 12; ky = 2; fx = 32 + lado * 7; fy = 16; }
+      trazo(g, PATA, 2.8, ax, ay, kx, ky); trazo(g, PATA, 2, kx, ky, fx, fy);
+      r(g, kx - 1, ky - 1, 3, 3, PELO);
+      for (let k = 1; k <= 2; k++) { const x = ax + (kx - ax) * k / 3, y = ay + (ky - ay) * k / 3; r(g, x, y - 2, 1, 2, PELO); }
+    }
+  }
+  // cabeza, ojos y colmillos
+  ovalo(g, 32, 43 + p.dy, 10, 8, C);
+  for (const [x, y, t] of [[29, 41, 2.2], [35, 41, 2.2], [26, 39, 1.1], [38, 39, 1.1], [30, 37.5, 1], [34, 37.5, 1], [27, 44, 1], [37, 44, 1]]) { ovalo(g, x, y + p.dy, t, t, OJO); if (t > 2) r(g, x - 1, y - 1 + p.dy, 1, 1, '#ffd0c0'); }
+  const ab = golpe ? 2 : 0;
+  for (const lado of [-1, 1]) {
+    ovalo(g, 32 + lado * (3 + ab), 50 + p.dy, 3, 4, C);
+    g.fillStyle = '#e8dcc0'; g.beginPath(); g.moveTo(32 + lado * (2 + ab), 52 + p.dy); g.lineTo(32 + lado * (4.5 + ab), 52 + p.dy); g.lineTo(32 + lado * (1 + ab / 2), 58 + p.dy + ab); g.fill();
+  }
+  if (golpe) { r(g, 30, 60, 1, 2, '#9aff4a'); r(g, 34, 61, 1, 2, '#9aff4a'); }
+  herida(g, p, 36, 30);
+}
+
+// Serpiente gigante (cobra): enroscada en el suelo, erguida, con la capucha abierta y la lengua bífida.
+// Al atacar se lanza hacia ti con la boca abierta.
+function serpiente(g, pose) {
+  const C = '#3f8a3a', O = '#1f4f22', VIENTRE = '#d8c060', MOTA = '#163a18';
+  if (pose >= 4 && pose <= 6) {
+    caida(g, pose, () => serpiente(g, 3), () => {
+      // tendida: los anillos aflojados y la cabeza en el suelo
+      ovalo(g, 30, 57, 22, 5, C); ovalo(g, 30, 57, 22, 5, C); r(g, 10, 56, 40, 1, O);
+      trazo(g, C, 7, 46, 56, 54, 54, 58, 57); ovalo(g, 59, 57, 5, 3.4, C); r(g, 57, 56, 2, 1, '#1a1a1a');
+      for (let x = 14; x < 46; x += 6) r(g, x, 53, 3, 2, MOTA);
+    });
+    return;
+  }
+  const p = postura(pose), golpe = p.ataca || p.lanza, s = p.vaiven;
+  // anillos en el suelo
+  ovalo(g, 32, 57, 21, 6, C); for (let x = 14; x < 52; x += 6) r(g, x, 55, 3, 2, MOTA); r(g, 12, 58, 40, 1, O);
+  ovalo(g, 34, 51, 15, 5, C); for (let x = 22; x < 46; x += 6) r(g, x + 2, 49, 3, 2, MOTA);
+  // cuerpo erguido en curva de S, con el vientre claro anillado
+  const hy = golpe ? 19 : 13 + p.dy, hx = 32 + (golpe ? 0 : s);
+  const curva = [34, 50, 29 - s, 42, 33 + s, 33, hx, hy + 10];
+  trazo(g, C, 10, ...curva);
+  trazo(g, VIENTRE, 4.5, ...curva);
+  for (let y = 26; y < 50; y += 3) r(g, 28, y, 9, 1, '#a8902a');
+  // capucha
+  const cw = golpe ? 14 : 12.5;
+  ovalo(g, hx, hy + 11, cw, 11, C);
+  ovalo(g, hx, hy + 12, 5, 9, VIENTRE);
+  for (let y = hy + 5; y < hy + 21; y += 3) r(g, hx - 4, y, 9, 1, '#a8902a');
+  for (const lado of [-1, 1]) { ovalo(g, hx + lado * (cw - 4), hy + 9, 2, 3, MOTA); r(g, hx + lado * (cw - 4), hy + 8, 1, 1, VIENTRE); }
+  // cabeza
+  const hr = golpe ? 1.3 : 1;
+  ovalo(g, hx, hy, 6.5 * hr, 5 * hr, C);
+  r(g, hx - 4, hy - 4 * hr, 8, 2, O);
+  r(g, hx - 4 * hr, hy - 1, 2, 2, '#ffe14a'); r(g, hx + 2 * hr, hy - 1, 2, 2, '#ffe14a');
+  r(g, hx - 3 * hr, hy - 1, 1, 2, '#111'); r(g, hx + 3 * hr - 1, hy - 1, 1, 2, '#111');
+  if (golpe) {
+    ovalo(g, hx, hy + 5, 5, 3.4, '#5a0a10');
+    g.fillStyle = '#f4ecd8';
+    for (const lado of [-1, 1]) { g.beginPath(); g.moveTo(hx + lado * 4, hy + 2); g.lineTo(hx + lado * 2.5, hy + 2); g.lineTo(hx + lado * 3, hy + 7); g.fill(); }
+  } else if (pose !== 1) {
+    // lengua bífida
+    trazo(g, '#d02020', 1, hx, hy + 4, hx, hy + 8);
+    trazo(g, '#d02020', 1, hx, hy + 8, hx - 2, hy + 10); trazo(g, '#d02020', 1, hx, hy + 8, hx + 2, hy + 10);
+  }
+  herida(g, p, hx + 3, hy + 14);
+}
+
+// Coloso de piedra: la sorpresa más dura. Cuerpo de roca con musgo, cabeza hundida entre los hombros,
+// puños enormes y runas que brillan. Al atacar junta los puños sobre la cabeza.
+function coloso(g, pose) {
+  const C = '#7a7468', O = '#4a463e', CL = '#a29a8a', MUSGO = '#4f7a3a', RUNA = '#ffb030';
+  if (pose >= 4 && pose <= 6) {
+    caida(g, pose, () => coloso(g, 3), () => {
+      // un montón de rocas con las runas apagándose
+      for (const [x, y, rx, ry] of [[20, 56, 10, 7], [40, 55, 12, 8], [30, 49, 9, 7], [52, 59, 7, 4], [10, 59, 6, 4]]) { ovalo(g, x, y, rx, ry, C); r(g, x - rx / 2, y - 1, rx, 1, O); }
+      ovalo(g, 30, 46, 3, 2, MUSGO); r(g, 38, 53, 4, 1, '#a86a20'); r(g, 22, 55, 3, 1, '#a86a20');
+    });
+    return;
+  }
+  const p = postura(pose), golpe = p.ataca || p.lanza, { dy, subeI, subeD, vaiven } = p;
+  // piernas: bloques macizos
+  g.fillStyle = C; g.beginPath(); g.roundRect(18, 42 + dy, 11, 20 - subeI, 3); g.fill(); g.beginPath(); g.roundRect(35, 42 + dy, 11, 20 - subeD, 3); g.fill();
+  r(g, 18, 52 - subeI, 11, 1, O); r(g, 35, 52 - subeD, 11, 1, O);
+  // torso de roca
+  g.fillStyle = C; g.beginPath(); g.roundRect(14, 16 + dy, 36, 30, 7); g.fill();
+  r(g, 16, 30 + dy, 10, 1, O); r(g, 38, 24 + dy, 9, 1, O); r(g, 24, 40 + dy, 14, 1, O);
+  // runas encendidas en el pecho
+  trazo(g, RUNA, 1.5, 28, 22 + dy, 32, 26 + dy, 36, 22 + dy); trazo(g, RUNA, 1.5, 32, 26 + dy, 32, 36 + dy); trazo(g, RUNA, 1.5, 28, 32 + dy, 36, 32 + dy);
+  // cabeza pequeña hundida entre los hombros
+  g.fillStyle = CL; g.beginPath(); g.roundRect(25, 8 + dy, 14, 12, 3); g.fill();
+  r(g, 25, 11 + dy, 14, 2, O);
+  r(g, 27, 13 + dy, 3, 2, RUNA); r(g, 34, 13 + dy, 3, 2, RUNA);
+  r(g, 29, 17 + dy, 6, 1, O);
+  // hombros y brazos enormes
+  for (const lado of [-1, 1]) {
+    const hx = 32 + lado * 19, hy = 20 + dy;
+    ovalo(g, hx, hy, 9, 8, CL);
+    ovalo(g, hx - lado * 2, hy - 5, 4, 2.4, MUSGO); r(g, hx - lado * 3, hy - 3, 1, 4, MUSGO); r(g, hx - lado, hy - 3, 1, 3, MUSGO);
+    if (golpe) {
+      miembro(g, hx, hy, 32 + lado * 10, 2, 5.5, 5, C);
+      ovalo(g, 32 + lado * 7, 2, 7, 6, CL); r(g, 32 + lado * 7 - 3, 1, 6, 1, O);
+    } else {
+      const my = 46 + dy + (lado < 0 ? vaiven : -vaiven);
+      miembro(g, hx, hy + 2, hx + lado * 2, my - 6, 5.5, 5, C);
+      ovalo(g, hx + lado * 2, my, 7, 6.5, CL);
+      for (let k = -1; k <= 1; k++) r(g, hx + lado * 2 + k * 3 - 1, my + 2, 1, 3, O);
+    }
+  }
+  herida(g, p, 26, 28);
+}
+
+const tipoArte = tipo => BESTIAS_ARTE[tipo] ? (g, pose) => BESTIAS_ARTE[tipo](g, pose) : (g, pose) => humanoide(g, tipo, pose);
+for (const tipo of TIPOS_ENEMIGO) {
+  const dibujar = tipoArte(tipo);
+  for (let pose = 0; pose < 9; pose++) registrar(`${tipo}_${pose}`, sprite(g => dibujar(g, pose)));
+}
+// hilo de seda del que cuelga la araña cuando baja del techo
+registrar('hilo', sprite(g => r(g, 31, 0, 2, 64, '#d8d4e0'), { relieve: false }));
+registrar('icor', sprite(g => mancha(g, ['#7ac63a', '#4a8a1a', '#b8f070'], 11), { relieve: false }));
 
 // Partículas de impacto y proyectiles (sin relieve: son manchas pequeñas de luz o polvo).
 function mancha(g, colores, semilla, n = 14) {

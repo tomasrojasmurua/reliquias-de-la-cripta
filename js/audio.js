@@ -83,6 +83,8 @@ const SONIDOS = {
   muerteEnemigo() { tono(180, 0.7, 0.25, 'sawtooth', 0, 40); ruido(0.5, 400, 1, 0.3); },
   dolor() { tono(300, 0.2, 0.3, 'sawtooth', 0, 150); },
   ataque() { ruido(0.15, 800, 1, 0.35); },
+  // algo sale de su escondite: un roce de tierra y un chillido que sube
+  surgir() { ruido(0.5, 300, 1, 0.45); ruido(0.35, 2600, 1.5, 0.12, 'bandpass', 0.1); tono(70, 0.5, 0.25, 'sawtooth', 0, 160); },
   error() { tono(160, 0.15, 0.2, 'square'); tono(120, 0.2, 0.2, 'square', 0.12); },
   acierto() { [523, 784, 1047].forEach((f, i) => tono(f, 0.3, 0.2, 'triangle', i * 0.1)); },
   fuego() { ruido(0.6, 700, 0.8, 0.35, 'bandpass'); tono(220, 0.4, 0.08, 'sawtooth', 0, 90); },
