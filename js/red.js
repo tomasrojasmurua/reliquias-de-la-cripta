@@ -2,6 +2,8 @@
 // servidor propio. El anfitrión es el centro de la sala: los demás le hablan a él y él reparte los mensajes.
 // PeerJS solo hace falta para presentar a los navegadores con el código de la sala; después no interviene.
 
+import { SERVIDORES_ICE } from '../datos/red.js';
+
 export const MAX_JUGADORES = 4;
 export const COLORES = ['rojo', 'azul', 'verde', 'amarillo'];
 export const HZ_POSICION = 12;
@@ -9,6 +11,14 @@ export const HZ_POSICION = 12;
 const PREFIJO = 'reliquias-';
 const LETRAS = 'ABCDEFGHJKMNPQRSTUVWXYZ';   // sin I, L ni O para que el código no se confunda al dictarlo
 const ESPERA_CONEXION = 12000;
+const SILENCIO = 12000;     // sin saber nada del otro lado durante tanto, se da por perdido (cerrar la pestaña no siempre avisa)
+const RECONEXION = 25000;   // lo que se insiste en volver a la sala si se corta la conexión en plena partida
+
+// Los que usa PeerJS si no se le dice otra cosa (STUN de Google y los TURN gratuitos y compartidos de PeerJS).
+const ICE_PREDETERMINADOS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+];
 
 export const codigoValido = c => /^[A-Z]{4}$/.test(c);
 export const normalizarCodigo = c => String(c || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
@@ -16,10 +26,16 @@ const limpiarNombre = (n, i) => String(n || '').replace(/[<>&"']/g, '').trim().s
 
 // El servidor que presenta a los navegadores: el gratuito de PeerJS, o el de `?senal=host:puerto` (pruebas o uno propio).
 function opcionesSenal() {
-  const s = new URLSearchParams(location.search).get('senal');
-  if (!s) return {};
-  const [host, puerto] = s.split(':');
-  return { host, port: +puerto || 9000, path: '/', secure: false };
+  const q = new URLSearchParams(location.search);
+  const o = {};
+  const s = q.get('senal');
+  if (s) { const [host, puerto] = s.split(':'); Object.assign(o, { host, port: +puerto || 9000, path: '/', secure: false }); }
+  // `?turn=turn:host:3478|usuario|clave` agrega un relevo propio (pruebas); `datos/red.js` es el lugar fijo
+  const extra = [...SERVIDORES_ICE];
+  const [urls, username, credential] = (q.get('turn') || '').split('|');
+  if (urls) extra.push({ urls, username, credential });
+  if (extra.length) o.config = { iceServers: [...ICE_PREDETERMINADOS, ...extra] };
+  return o;
 }
 
 let cargando = null;
@@ -41,6 +57,9 @@ function cargarPeerJS() {
 //   alPosicion(id, p)      un cazador se movió: { x, y, z, yaw, pt }
 //   alTesoro(i, id)        el tesoro `i` se lo llevó el cazador `id` (puede ser yo, o llegué tarde)
 //   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
+//   alEnlace(enLinea)      (invitado) se cortó la conexión con el anfitrión (false) o volvió (true)
+//   alConexion(id, enLinea) otro cazador perdió la conexión o volvió
+//   alEmote(id, k)         un cazador mandó el mensaje rápido `k`
 //   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
 //   alGolpe(i, daño)       (anfitrión) un invitado le pegó al enemigo `i`
 //   alDano(n, causa)       (invitado) un enemigo me hirió
@@ -59,6 +78,12 @@ export class Sala {
     this.enPartida = false;
     this.cerrada = false;
     this.duenos = new Map();     // solo el anfitrión: tesoro -> quién se lo llevó
+    this.fichas = new Map();     // solo el anfitrión: puesto -> ficha secreta con la que el invitado puede volver tras un corte
+    this.caidos = new Map();     // solo el anfitrión: puesto -> plazo para que vuelva el invitado que perdió la conexión
+    this.ficha = Math.random().toString(36).slice(2) + Date.now().toString(36);   // la mía, si soy invitado
+    this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
+    this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
+    this.alEnlace = this.alConexion = this.alEmote = () => {};
     this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = () => {};
   }
 
@@ -73,6 +98,7 @@ export class Sala {
         const sala = new Sala(peer, true, codigo);
         sala.jugadores = [{ id: 0, nombre: limpiarNombre(nombre, 0), color: COLORES[0], estado: 'sala', puntos: 0 }];
         peer.on('connection', c => sala.#recibir(c));
+        sala.#vigilar();
         peer.on('disconnected', () => { if (!sala.cerrada) peer.reconnect(); });
         return sala;
       } catch (e) {
@@ -86,46 +112,145 @@ export class Sala {
     await cargarPeerJS();
     const peer = await abrirPeer().catch(e => { throw errorLegible(e); });
     const sala = new Sala(peer, false, codigo);
-    await new Promise((ok, mal) => {
-      const c = peer.connect(PREFIJO + codigo, { reliable: true });
-      const plazo = setTimeout(() => { c.close(); mal(new Error(`No se encontró la sala ${codigo}. Revisa el código o pídele al anfitrión que la vuelva a abrir.`)); }, ESPERA_CONEXION);
-      let admitido = false;
-      c.on('open', () => c.send({ t: 'hola', nombre }));
-      c.on('data', m => {
-        if (m.t === 'llena' || m.t === 'iniciada') { clearTimeout(plazo); mal(new Error(m.t === 'llena' ? 'La sala está llena (hasta 4 cazadores).' : 'La partida de esa sala ya empezó.')); return; }
-        if (m.t === 'sala' && !admitido) { admitido = true; clearTimeout(plazo); sala.conexion = c; ok(); }
-        sala.#mensajeDelAnfitrion(m);
-      });
-      c.on('close', () => { if (!admitido) { clearTimeout(plazo); mal(new Error('No se pudo entrar a la sala.')); } else sala.#caida('El anfitrión salió de la sala.'); });
-      c.on('error', () => { if (!admitido) { clearTimeout(plazo); mal(new Error('No se pudo entrar a la sala.')); } });
-    }).catch(e => { peer.destroy(); throw e; });
+    sala.nombre = nombre;
+    peer.on('disconnected', () => { if (!sala.cerrada && !peer.destroyed) peer.reconnect(); });
+    await sala.#conectar().catch(e => { peer.destroy(); throw e; });
+    sala.#vigilar();
     return sala;
+  }
+
+  // Cada 3 segundos un latido en las dos direcciones, y se da por perdido a quien calla demasiado.
+  #vigilar() {
+    let n = 0;
+    this.vigilante = setInterval(() => {
+      const ahora = Date.now();
+      if (++n % 3 === 0) {
+        if (this.soyAnfitrion) this.#aviso({ t: 'latido' });
+        else this.conexion?.open && this.conexion.send({ t: 'latido' });
+      }
+      if (this.soyAnfitrion) {
+        for (const [id, c] of [...this.conexiones]) {
+          if (ahora - (this.visto.get(id) || ahora) < SILENCIO) continue;
+          this.#salio(id);
+          c.close();
+        }
+      } else if (this.conexion && !this.reintentando && ahora - this.vistoHost > SILENCIO) {
+        this.conexion.close();
+        this.#perdida();
+      }
+    }, 1000);
+  }
+
+  // Habla con el anfitrión y espera que me admita (sirve para entrar y para volver tras un corte).
+  #conectar() {
+    return new Promise((ok, mal) => {
+      const c = this.peer.connect(PREFIJO + this.codigo, { reliable: true });
+      const fallo = (msg, motivo) => { clearTimeout(plazo); mal(Object.assign(new Error(msg), { motivo })); };
+      const plazo = setTimeout(() => { c.close(); fallo(`No se encontró la sala ${this.codigo}. Revisa el código o pídele al anfitrión que la vuelva a abrir.`); }, ESPERA_CONEXION);
+      let admitido = false;
+      c.on('open', () => c.send({ t: 'hola', nombre: this.nombre, ficha: this.ficha }));
+      c.on('data', m => {
+        if (m.t === 'llena' || m.t === 'iniciada') { fallo(m.t === 'llena' ? 'La sala está llena (hasta 4 cazadores).' : 'La partida de esa sala ya empezó.', m.t); return; }
+        if (m.t === 'sala' && !admitido) { admitido = true; clearTimeout(plazo); this.conexion = c; ok(); }
+        this.#mensajeDelAnfitrion(m);
+      });
+      c.on('close', () => { if (!admitido) fallo('No se pudo entrar a la sala.'); else if (this.conexion === c) this.#perdida(); });
+      c.on('error', () => { if (!admitido) fallo('No se pudo entrar a la sala.'); });
+    });
+  }
+
+  // Se cortó la conexión con el anfitrión. En la sala de espera no hay a qué volver; en plena partida se insiste un rato.
+  async #perdida() {
+    if (this.cerrada || this.reintentando) return;
+    if (!this.enPartida) { this.#caida('El anfitrión salió de la sala.'); return; }
+    this.reintentando = true;
+    this.alEnlace(false);
+    const hasta = Date.now() + RECONEXION;
+    while (!this.cerrada && Date.now() < hasta) {
+      try {
+        if (this.peer.disconnected && !this.peer.destroyed) this.peer.reconnect();
+        await this.#conectar();
+        this.reintentando = false;
+        this.alEnlace(true);
+        return;
+      } catch (e) { if (e.motivo === 'iniciada' || e.motivo === 'llena') break; }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    this.reintentando = false;
+    this.#caida('Se perdió la conexión con la sala.');
   }
 
   // ---------- Anfitrión ----------
 
   #recibir(c) {
-    if (this.enPartida || this.jugadores.length >= MAX_JUGADORES) {
-      const t = this.enPartida ? 'iniciada' : 'llena';
-      c.on('open', () => { c.send({ t }); setTimeout(() => c.close(), 400); });
-      return;
-    }
-    // el primer puesto libre (sale uno y entra otro: queda con su color)
-    const id = [...Array(MAX_JUGADORES).keys()].find(i => !this.jugadores.some(j => j.id === i));
-    this.conexiones.set(id, c);
-    c.on('data', m => this.#mensajeDeInvitado(id, m));
-    const salio = () => { if (this.conexiones.get(id) !== c) return; this.conexiones.delete(id); this.jugadores = this.jugadores.filter(j => j.id !== id); this.#difundirSala(); this.alPosicion(id, null); this.#aviso({ t: 'sale', id }); };
+    let id;   // el puesto, una vez admitido
+    c.on('data', m => {
+      if (id !== undefined) { this.visto.set(id, Date.now()); this.#mensajeDeInvitado(id, m); return; }
+      if (m.t !== 'hola') return;
+      // un invitado que perdió la conexión en plena partida vuelve a su puesto con su ficha
+      const ficha = String(m.ficha || '').slice(0, 40);
+      const previo = ficha && [...this.caidos.keys()].find(i => this.fichas.get(i) === ficha);
+      if (previo !== undefined) { id = previo; this.#reconectar(id, c); return; }
+      if (this.enPartida || this.jugadores.length >= MAX_JUGADORES) {
+        c.send({ t: this.enPartida ? 'iniciada' : 'llena' });
+        setTimeout(() => c.close(), 400);
+        return;
+      }
+      // el primer puesto libre (sale uno y entra otro: queda con su color)
+      id = [...Array(MAX_JUGADORES).keys()].find(i => !this.jugadores.some(j => j.id === i));
+      this.conexiones.set(id, c);
+      this.visto.set(id, Date.now());
+      this.fichas.set(id, ficha);
+      this.jugadores.push({ id, nombre: limpiarNombre(m.nombre, id), color: COLORES[id], estado: 'sala', puntos: 0 });
+      this.jugadores.sort((a, b) => a.id - b.id);
+      c.send({ t: 'sala', yo: id, config: this.config, jugadores: this.jugadores });
+      this.#difundirSala();
+    });
+    const salio = () => { if (id !== undefined && this.conexiones.get(id) === c) this.#salio(id); };
     c.on('close', salio);
     c.on('error', salio);
   }
 
+  // Se fue un invitado. En plena partida se le guarda el puesto un rato por si fue un corte breve.
+  #salio(id) {
+    const j = this.jugadores.find(q => q.id === id);
+    this.conexiones.delete(id);
+    if (j && j.estado === 'jugando' && !j.fin) {
+      this.caidos.set(id, setTimeout(() => this.#retirar(id), RECONEXION + 5000));
+      this.alPosicion(id, null);
+      this.alConexion(id, false);
+      this.#aviso({ t: 'conexion', id, ok: false });
+      return;
+    }
+    this.#retirar(id);
+  }
+
+  #retirar(id) {
+    clearTimeout(this.caidos.get(id));
+    this.caidos.delete(id);
+    this.fichas.delete(id);
+    this.jugadores = this.jugadores.filter(j => j.id !== id);
+    this.#difundirSala();
+    this.alPosicion(id, null);
+    this.#aviso({ t: 'sale', id });
+  }
+
+  #reconectar(id, c) {
+    clearTimeout(this.caidos.get(id));
+    this.caidos.delete(id);
+    this.conexiones.set(id, c);
+    this.visto.set(id, Date.now());
+    c.send({ t: 'sala', yo: id, config: this.config, jugadores: this.jugadores });
+    c.send({ t: 'tomados', l: [...this.duenos] });   // los tesoros que ya se llevaron mientras no estaba
+    this.alConexion(id, true);
+    this.#aviso({ t: 'conexion', id, ok: true }, id);
+  }
+
   #mensajeDeInvitado(id, m) {
-    if (m.t === 'hola') {
-      if (this.jugadores.some(j => j.id === id)) return;
-      this.jugadores.push({ id, nombre: limpiarNombre(m.nombre, id), color: COLORES[id], estado: 'sala', puntos: 0 });
-      this.jugadores.sort((a, b) => a.id - b.id);
-      this.conexiones.get(id).send({ t: 'sala', yo: id, config: this.config, jugadores: this.jugadores });
-      this.#difundirSala();
+    if (m.t === 'emote') {
+      const k = Math.min(3, Math.max(0, m.k | 0));
+      this.alEmote(id, k);
+      this.#aviso({ t: 'emote', id, k }, id);
     } else if (m.t === 'p') {
       const p = { x: +m.x, y: +m.y, z: +m.z, yaw: +m.yaw, pt: m.pt | 0, m: m.m | 0 };
       this.alPosicion(id, p);
@@ -210,6 +335,7 @@ export class Sala {
   // ---------- Invitado ----------
 
   #mensajeDelAnfitrion(m) {
+    this.vistoHost = Date.now();
     if (m.t === 'sala') {
       if (m.yo !== undefined) this.yo = m.yo;
       this.jugadores = m.jugadores;
@@ -224,6 +350,12 @@ export class Sala {
       this.alPosicion(m.id, null);
     } else if (m.t === 'marcador') {
       this.alMarcador(m.lista);
+    } else if (m.t === 'emote') {
+      this.alEmote(m.id, m.k | 0);
+    } else if (m.t === 'conexion') {
+      this.alConexion(m.id, !!m.ok);
+    } else if (m.t === 'tomados') {
+      for (const [i, id] of Array.isArray(m.l) ? m.l : []) this.alTesoro(i | 0, id | 0);
     } else if (m.t === 'en') {
       this.alEnemigos(m);
     } else if (m.t === 'dano') {
@@ -261,6 +393,12 @@ export class Sala {
     this.conexiones.get(id)?.send({ t: 'dano', n, c });
   }
 
+  // Un mensaje rápido (0 a 3) para los demás.
+  emote(k) {
+    if (this.soyAnfitrion) this.#aviso({ t: 'emote', id: 0, k });
+    else this.conexion?.open && this.conexion.send({ t: 'emote', k });
+  }
+
   // Pido el tesoro `i`; la respuesta llega por alTesoro(i, quién se lo llevó).
   tomar(i) {
     if (this.soyAnfitrion) this.#reclamar(i, 0);
@@ -282,6 +420,7 @@ export class Sala {
   // 'sala' (en la sala de espera) o 'jugando'.
   ponerEstado(e) {
     if (this.soyAnfitrion) { this.jugadores[0].estado = e; if (e === 'sala') this.enPartida = false; this.#difundirSala(); }
+    else if (e === 'sala') { this.enPartida = false; this.conexion?.open && this.conexion.send({ t: 'estado', e }); }
     else this.conexion?.open && this.conexion.send({ t: 'estado', e });
   }
 
@@ -296,6 +435,7 @@ export class Sala {
   #caida(motivo) {
     if (this.cerrada) return;
     this.cerrada = true;
+    clearInterval(this.vigilante);
     this.alPerderse(motivo);
     this.peer.destroy();
   }
@@ -303,6 +443,8 @@ export class Sala {
   cerrar() {
     if (this.cerrada) return;
     this.cerrada = true;
+    clearInterval(this.vigilante);
+    for (const t of this.caidos.values()) clearTimeout(t);
     for (const c of this.conexiones.values()) c.close();
     this.conexion?.close();
     this.peer.destroy();
@@ -315,8 +457,15 @@ function abrirPeer(id) {
   return new Promise((ok, mal) => {
     const peer = new window.Peer(id, opcionesSenal());
     const plazo = setTimeout(() => { peer.destroy(); mal(Object.assign(new Error('timeout'), { type: 'network' })); }, ESPERA_CONEXION);
-    peer.on('open', () => { clearTimeout(plazo); ok(peer); });
-    peer.on('error', e => { clearTimeout(plazo); peer.destroy(); mal(e); });
+    const fallo = e => { clearTimeout(plazo); peer.destroy(); mal(e); };
+    peer.on('error', fallo);
+    peer.on('open', () => {
+      clearTimeout(plazo);
+      // ya abierto, un error suelto (por ejemplo «no hay nadie con ese código» al reintentar) no debe cerrar el peer
+      peer.off('error', fallo);
+      peer.on('error', () => {});
+      ok(peer);
+    });
   });
 }
 

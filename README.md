@@ -51,6 +51,10 @@ En «Preparar la expedición» el modo **Con amigos** crea una sala de hasta 4 c
 
 Los navegadores se conectan entre sí con WebRTC (PeerJS, en `js/vendor/`, MIT) y no hay servidor propio; solo se usa el servidor gratuito de PeerJS para presentarlos con el código. Con `?senal=host:puerto` se usa otro (pruebas locales: `npx peerjs --port 9000`). Al crear la sala el anfitrión elige tesoros **exclusivos** o **compartidos**. Si son compartidos, todos pueden recoger cada tesoro y gana quien más reúna. Si son exclusivos, cada tesoro es de quien lo pide primero al anfitrión; los demás encuentran en su lugar una nota «¡Llegaste tarde!» con el sello del ganador. Si un cazador cae, suelta su último tesoro y vuelve a estar disponible para todos. El marcador en vivo (arriba a la izquierda) ordena a los cazadores por puntos. Al terminar se ve quién consiguió cada tesoro y quién resolvió cada acertijo, para comentarlo.
 
+Si a un invitado se le corta la conexión en plena partida, el juego la reintenta solo durante unos 25 segundos y el anfitrión le guarda el puesto (recupera los tesoros que se llevaron mientras no estaba). Si el anfitrión se cae, cada invitado sigue por su cuenta. Hay mensajes rápidos (botones en el celular; Z, X, C y V en el computador) y los otros cazadores aparecen en el automapa solo donde ya exploraste; cuando uno se lleva un tesoro, se le ve unos 8 segundos con un pulso de su color aunque esté en zona desconocida (sobre un círculo de niebla, sin revelar el plano).
+
+Si alguna red no deja conectar, PeerJS usa unos servidores de relevo gratuitos y compartidos que pueden saturarse; para que conecten siempre se puede agregar uno propio en `datos/red.js` (o probar con `?turn=turn:host:3478|usuario|clave`).
+
 Los enemigos los mueve el anfitrión: persiguen al cazador más cercano y los demás ven lo mismo (un invitado le pega al enemigo y el anfitrión le resta la vida; si el anfitrión termina antes, sigue simulándolos para los demás). Los sellos y pasadizos son de cada uno, pero los acertijos son los mismos para todos: quien descifra uno que otro no logra saca ventaja, y eso es parte del juego.
 
 ## Expedición del día
