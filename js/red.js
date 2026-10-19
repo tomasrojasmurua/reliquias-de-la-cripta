@@ -63,6 +63,7 @@ function cargarPeerJS() {
 //   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
 //   alGolpe(i, daño)       (anfitrión) un invitado le pegó al enemigo `i`
 //   alDano(n, causa)       (invitado) un enemigo me hirió
+//   alForzado(id, a)       el cazador `id` forzó el sello del acertijo `a` con la palanca (solo para avisar: cada uno abre el suyo)
 //   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado, tesoros, resueltos }]
 //   alPerderse(motivo)     se cayó la conexión con la sala
 export class Sala {
@@ -83,7 +84,7 @@ export class Sala {
     this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
     this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
     this.alEnlace = this.alConexion = this.alEmote = () => {};
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = () => {};
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -265,6 +266,10 @@ export class Sala {
       this.#reclamar(m.i | 0, id);
     } else if (m.t === 'suelta') {
       this.#soltado(m.i | 0, +m.x, +m.z, id);
+    } else if (m.t === 'forzo') {
+      const a = String(m.a).slice(0, 40);
+      this.alForzado(id, a);
+      this.#aviso({ t: 'forzo', id, a }, id);
     }
   }
 
@@ -359,6 +364,8 @@ export class Sala {
       this.alTesoro(m.i, m.id);
     } else if (m.t === 'suelto') {
       this.alSuelto(m.i, m.x, m.z);
+    } else if (m.t === 'forzo') {
+      this.alForzado(m.id, String(m.a));
     }
   }
 
@@ -402,6 +409,12 @@ export class Sala {
   soltar(i, x, z) {
     if (this.soyAnfitrion) this.#soltado(i, x, z, 0);
     else this.conexion?.open && this.conexion.send({ t: 'suelta', i, x: +x.toFixed(2), z: +z.toFixed(2) });
+  }
+
+  // Forcé el sello del acertijo `a` con la palanca: a los demás solo les llega el aviso.
+  forzar(a) {
+    if (this.soyAnfitrion) this.#aviso({ t: 'forzo', id: 0, a: String(a) });
+    else this.conexion?.open && this.conexion.send({ t: 'forzo', a: String(a) });
   }
 
   // 'sala' (en la sala de espera) o 'jugando'.

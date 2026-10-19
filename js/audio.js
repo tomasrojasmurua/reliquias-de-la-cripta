@@ -195,6 +195,11 @@ const SONIDOS = {
     tono(2600, 0.03, 0.12, 'square', 0.11, 900);
   },
   golpe() { ruido(0.1, 500, 1, 0.5); tono(110, 0.08, 0.2, 'sine', 0, 60); },
+  palanca() { tono(1250, 0.05, 0.12, 'square'); tono(1870, 0.1, 0.1, 'triangle', 0.04); tono(90, 0.12, 0.2, 'sine', 0, 60); ruido(0.1, 5000, 2, 0.05, 'highpass', 0.02); },
+  forzar() {
+    tono(200, 0.3, 0.18, 'sawtooth', 0, 80); ruido(0.3, 350, 1, 0.4, 'lowpass');
+    tono(1500, 0.04, 0.2, 'square', 0.3); ruido(0.12, 1400, 3, 0.5, 'bandpass', 0.3); tono(70, 0.2, 0.3, 'sine', 0.3, 40);
+  },
   recoger() { tono(660, 0.08, 0.15, 'triangle'); tono(990, 0.14, 0.15, 'triangle', 0.07); ruido(0.08, 6000, 1, 0.04, 'highpass'); },
   tesoro() {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tono(f, 0.3, 0.13, 'triangle', i * 0.08));
