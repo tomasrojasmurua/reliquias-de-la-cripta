@@ -75,7 +75,29 @@ function mostrar(id) {
   animarEscena(id !== 'juego');
   document.body.classList.toggle('adentro', id !== 'portada');
   if (id === 'portada') pintarPortada();
+  // deja una entrada en el historial para que el botón atrás del celular vuelva al menú en vez de cerrar el juego
+  if (id !== 'portada' && !history.state?.reliquias) history.pushState({ reliquias: 1 }, '');
 }
+
+// Atrás: cierra la ficha abierta, pausa la partida o vuelve al menú anterior. Responde si hizo algo.
+function atras() {
+  if (!$('#ficha').hidden) { $('#ficha').hidden = true; return true; }
+  const visible = document.querySelector('.pantalla:not([hidden])');
+  if (visible?.id === 'juego') {
+    if ($('#pausa').hidden && $('#panel').hidden) { pausar(); $('#pausa').hidden = false; }
+    return true;
+  }
+  const b = visible?.querySelector('.atras, .atras-texto');
+  b?.click();
+  return !!b;
+}
+addEventListener('popstate', () => {
+  if (atras()) history.pushState({ reliquias: 1 }, '');
+  else history.back();   // en la portada, atrás sale del juego
+});
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.querySelector('.menu:not([hidden])')) atras();
+});
 
 function pintarPortada() {
   const total = TESOROS.length, tengo = progreso.tesoros.length;
@@ -115,7 +137,7 @@ function pintarPreparar() {
   $('#preparar h2').textContent = def.nombre;
   $('#prep-desc').textContent = def.descripcion;
   for (const b of document.querySelectorAll('[data-modo]')) b.classList.toggle('activo', b.dataset.modo === prep.modo);
-  $('#prep-titulo-tamano').hidden = $('#prep-tamanos').hidden = !Z;
+  $('#prep-grupo-tamano').hidden = !Z;
   for (const b of document.querySelectorAll('[data-tamano]')) b.classList.toggle('activo', b.dataset.tamano === tam);
   const n = TAMANOS[tam].zonas, z = Z?.zonas || [];
   $('#nota-tamano').textContent = !Z ? ''
@@ -124,7 +146,7 @@ function pintarPreparar() {
     : `Las ${z.length} zonas, con ${minuscula(z.at(-1).nombre)} tras un pasadizo secreto.`;
   $('#prep-tiempo').hidden = !contra;
   document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
-    b.textContent = `${RITMOS[i]} · ${TAMANOS[tam].minutos[i]} min`;
+    b.innerHTML = `${RITMOS[i]}<small>${TAMANOS[tam].minutos[i]} min</small>`;
     b.classList.toggle('activo', i === prep.ritmo);
   });
   const seg = limiteDe(def), rec = recordDe(def, tam, seg);
