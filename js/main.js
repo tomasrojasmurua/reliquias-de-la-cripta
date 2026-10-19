@@ -12,6 +12,7 @@ import { recortarZonas } from './laberinto.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 import { lienzoEmblema } from '../datos/emblemas.js';
+import { hayRanking, mejoresDel, subir } from './ranking.js';
 import { expedicion, racha, textoCompartir, MODIFICADORES, TAMANO_DIARIA, MINUTOS_DIARIA } from './diaria.js';
 
 const $ = s => document.querySelector(s);
@@ -312,11 +313,62 @@ function pintarDiaria() {
   const compartir = $('#btn-diaria-compartir');
   compartir.hidden = !hecha;
   compartir.onclick = () => compartirTexto(textoCompartir(exp, hecha, id => TESORO[id].rareza, URL_JUEGO));
+  pintarRanking(exp.fecha);
 }
 $('#btn-diaria').onclick = () => {
+  guardarNombre();
   const exp = expedicion(MAZMORRAS);
   empezar(exp.def, TAMANO_DIARIA, MINUTOS_DIARIA * 60, exp);
 };
+
+// Ranking en línea (solo si datos/ranking.js tiene un proyecto de Supabase). Cada navegador es un
+// jugador con su propio identificador; el nombre se elige en la pantalla de la expedición.
+const jugador = () => progreso.jugador ||= (crypto.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, () => Math.floor(Math.random() * 16).toString(16)));
+function guardarNombre() {
+  const nombre = $('#diaria-jugador').value.trim().slice(0, 20);
+  if (nombre && nombre !== progreso.opciones.nombre) { progreso.opciones.nombre = nombre; guardar(); }
+}
+$('#diaria-jugador').addEventListener('change', () => { guardarNombre(); enviarPendientes().then(() => pintarRanking()); });
+
+// Sube los resultados oficiales que aún no llegan al ranking (sin conexión o sin nombre al terminar).
+async function enviarPendientes() {
+  if (!hayRanking() || !progreso.opciones.nombre) return;
+  for (const [fecha, r] of Object.entries(diarias())) {
+    if (!r.pendiente) continue;
+    try {
+      await subir({ fecha, jugador: jugador(), nombre: progreso.opciones.nombre, puntos: r.puntosFinales, segundos: Math.round(r.reloj), escapo: r.escapo, tesoros: r.tesoros.length });
+      delete r.pendiente;
+      guardar();
+    } catch (e) { /* sin conexión: se intenta de nuevo la próxima vez */ }
+  }
+}
+
+async function pintarRanking(fecha = expedicion(MAZMORRAS).fecha) {
+  const caja = $('#diaria-ranking');
+  caja.hidden = !hayRanking();
+  if (caja.hidden) return;
+  const entrada = $('#diaria-jugador');
+  if (document.activeElement !== entrada) entrada.value = progreso.opciones.nombre || '';
+  const nota = $('#diaria-ranking-nota'), tabla = $('#diaria-tabla');
+  const mio = diarias()[fecha];
+  nota.textContent = !progreso.opciones.nombre ? 'Ponte un nombre para aparecer en el ranking.'
+    : mio?.pendiente ? 'Tu resultado se subirá cuando haya conexión.' : '';
+  try {
+    const filas = await mejoresDel(fecha);
+    tabla.innerHTML = filas.length ? '' : '<p class="nota">Nadie ha escapado todavía. ¡Sé el primero!</p>';
+    for (const f of filas) {
+      const li = document.createElement('li');
+      const min = Math.floor(f.segundos / 60), seg = String(f.segundos % 60).padStart(2, '0');
+      li.textContent = `${f.nombre} · ${f.puntos} puntos `;
+      li.insertAdjacentHTML('beforeend', `<small>${min}:${seg}${f.escapo ? '' : ' · atrapado'}</small>`);
+      if (mio && !mio.pendiente && f.nombre === progreso.opciones.nombre && f.puntos === mio.puntosFinales) li.className = 'yo';
+      tabla.appendChild(li);
+    }
+  } catch (e) {
+    tabla.innerHTML = '';
+    nota.textContent = 'No se pudo cargar el ranking (¿sin conexión?).';
+  }
+}
 
 async function compartirTexto(texto) {
   try {
@@ -485,7 +537,7 @@ function resumenDiaria(r, exito, puntos) {
     escapo: exito, puntosFinales: puntos, reloj: r.reloj, tesoros: [...r.tesoros], totalTesoros: r.totalTesoros,
     acertijos: r.acertijos, totalAcertijos: r.totalAcertijos,
   };
-  if (primera) { diarias()[exp.fecha] = resultado; guardar(); }
+  if (primera) { diarias()[exp.fecha] = { ...resultado, pendiente: hayRanking() }; guardar(); enviarPendientes(); }
   const oficial = diarias()[exp.fecha], n = racha(diarias());
   $('#resumen .datos').insertAdjacentHTML('afterbegin', primera
     ? `<li>Expedición nº ${exp.numero} · racha de <b>${n}</b> día${n === 1 ? '' : 's'}</li>`

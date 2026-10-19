@@ -39,6 +39,8 @@ Al elegir una mazmorra se prepara la expedición: el modo, **Explorar** (sin rel
 ## Expedición del día
 Desde la portada, **Expedición del día** lleva a una cripta que es la misma para todos ese día: la mazmorra, los túneles, la salida y las pistas de las tablillas salen de la fecha (`js/diaria.js`), así que no hace falta servidor. Es un contrarreloj de 8 minutos en tamaño mediano, con dos modificadores del día: **Antorcha mojada** (la antorcha alumbra la mitad), **Munición escasa** (3 balas en el revólver y cajas de 6), **La cripta despierta** (los enemigos ven más lejos y corren más), **Herido** (60 de vida) o **Escritura antigua** (pistas un punto más difíciles). Las mazmorras se turnan sin repetirse dos días seguidos. Solo cuenta el primer intento de cada día: queda guardado, suma a la racha de días seguidos y se puede **compartir** como texto (puntos, tiempo y un cuadrito por tesoro según su rareza, sin nombres para no dar pistas). Los intentos siguientes son práctica y no cuentan para los récords del contrarreloj.
 
+**Ranking en línea.** Si `datos/ranking.js` tiene un proyecto de Supabase (gratis), la pantalla de la expedición muestra los 10 mejores del día y un campo para tu nombre. El primer intento de cada día se sube solo; si no hay conexión, se sube la próxima vez que abras la expedición. Para activarlo: crea el proyecto, corre `herramientas/ranking.sql` en su SQL Editor y copia la URL y la clave «anon public» a `datos/ranking.js`. La clave pública solo deja leer el ranking y agregar resultados del día; no deja borrar ni cambiar nada. Sin configurar, el ranking no aparece y el juego funciona igual.
+
 ## Controles
 - **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Tab o M para el mapa, Esc para pausar.
 - **Celular:** joystick en la mitad izquierda para moverse; arrastrar en la derecha para mirar, tocar para disparar y tocar dos veces y mantener para ráfaga. Puntería asistida, la vista vuelve sola al horizonte, el botón de la mano se ilumina cuando hay algo que usar enfrente, vibración al disparar y al recibir daño (Android). En Opciones: sensibilidad, modo zurdo y vibración.
@@ -70,6 +72,7 @@ La **colección** muestra los tesoros en vitrinas, una por rareza: estanterías 
 - `js/laberinto.js`: genera los túneles de cada partida.
 - `js/hitos.js`: murales y estatuas que hacen reconocible cada sala.
 - `js/diaria.js`: la expedición del día (mazmorra, semilla y modificadores según la fecha) y el texto para compartir.
+- `js/ranking.js`, `datos/ranking.js`: el ranking en línea de la expedición (Supabase); `herramientas/ranking.sql` crea su tabla.
 - `datos/mazmorras.js`: las mazmorras (planos de texto, ver abajo).
 - `datos/tesoros.js`: catálogo de tesoros y rarezas.
 - `datos/emblemas.js`: el emblema en pixel art de cada mazmorra (16 × 16, una letra por píxel) que se ve al lado de su nombre al elegirla. Una mazmorra nueva necesita el suyo con la misma `id`.

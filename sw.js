@@ -1,13 +1,13 @@
 // Guarda los archivos del juego para jugar sin conexión.
 // Pide primero la versión nueva a la red y, si no hay conexión, usa la copia guardada.
 // ARCHIVOS y CACHE los escribe herramientas/cache.js: córrelo después de cambiar cualquier archivo del juego.
-const CACHE = 'reliquias-e3aa04ae96';
+const CACHE = 'reliquias-05a7723ce4';
 const ARCHIVOS = [
   './', 'index.html', 'css/estilo.css', 'manifest.webmanifest', 'js/acertijos.js', 'js/arma.js',
   'js/audio.js', 'js/automapa.js', 'js/diaria.js', 'js/entrada.js', 'js/escena.js', 'js/hitos.js',
-  'js/juego.js', 'js/laberinto.js', 'js/main.js', 'js/mapa.js', 'js/palancas.js', 'js/render.js',
-  'js/texturas.js', 'datos/emblemas.js', 'datos/mazmorras.js', 'datos/pistas.js', 'datos/tesoros.js',
-  'iconos/icono-192.png', 'iconos/icono-512.png', 'iconos/idolo.svg',
+  'js/juego.js', 'js/laberinto.js', 'js/main.js', 'js/mapa.js', 'js/palancas.js', 'js/ranking.js',
+  'js/render.js', 'js/texturas.js', 'datos/emblemas.js', 'datos/mazmorras.js', 'datos/pistas.js',
+  'datos/ranking.js', 'datos/tesoros.js', 'iconos/icono-192.png', 'iconos/icono-512.png', 'iconos/idolo.svg',
 ];
 
 self.addEventListener('install', e => {
@@ -21,7 +21,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
+  // el ranking en línea siempre se pide a la red (no tiene sentido guardar el de otro día)
+  if (e.request.method !== 'GET' || e.request.url.includes('/rest/v1/')) return;
   e.respondWith(
     fetch(e.request)
       .then(r => { const copia = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copia)); return r; })

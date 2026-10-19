@@ -254,6 +254,11 @@ body.jugando #escena { display: none; }
 #diaria-nombre { font-family: Cinzel, Georgia, serif; font-weight: 800; color: var(--oro); font-size: 18px; letter-spacing: .04em; }
 #diaria-mods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 #diaria-mods li { text-align: center; color: #e6d6b4; font-style: italic; font-size: 14px; }
+#diaria-ranking .campo-nombre { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 14px; color: #d8c49a; }
+#diaria-jugador { font: inherit; color: var(--texto); background: rgba(0, 0, 0, .4); border: 1px solid #5a4630; border-radius: 4px; padding: 6px 8px; width: 12em; }
+#diaria-tabla { margin: 0; padding: 0 0 0 26px; font-size: 15px; line-height: 1.6; }
+#diaria-tabla li.yo { color: var(--oro); font-weight: bold; }
+#diaria-tabla small { color: var(--suave); }
 #diaria-mods b { display: block; font: 700 14px Cinzel, Georgia, serif; font-style: normal; letter-spacing: .08em; color: #ff9a6a; }
 
 /* ---------- Juego ---------- */
