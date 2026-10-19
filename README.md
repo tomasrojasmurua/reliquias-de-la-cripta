@@ -28,6 +28,9 @@ Cada mazmorra tiene además un **ala nueva con alturas**, con su propia tablilla
 
 En las últimas mazmorras, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
 
+## Guardianes
+Cada mazmorra tiene un guardián que vigila su reliquia más valiosa (la que no está escondida en un nicho): Jepri, el faraón escarabajo; el sacerdote de Anubis; el Jarl de hielo; el capitán del galeón; el Rey Jaguar; el sumo sacerdote del culto y el Caballero Negro. Son más grandes que los demás enemigos, llevan corona o tocado, aguantan unos diez balazos y no se frenan con cada golpe. Cuando te ven a media distancia **embisten** en línea recta (hay que hacerse a un lado), y al perder cada tercio de vida **llaman a dos siervos**. Mientras pelean se ve su barra de vida arriba, y al caer dejan vendas. Se declaran con `guardian: { tipo, nombre }` en `datos/mazmorras.js`; sus valores están en `GUARDIANES` (`js/juego.js`) y su dibujo en `ESTILOS` (`js/texturas.js`).
+
 ## Contrarreloj
 Al elegir una mazmorra se prepara la expedición: el modo, **Explorar** (sin reloj) o **Contrarreloj**; el tamaño, **Pequeña** (solo la primera zona), **Mediana** (las dos primeras) o **Grande** (todas, con la cámara secreta); y en el contrarreloj el tiempo, que depende del tamaño (pequeña 3, 4 o 6 minutos; mediana 5, 8 u 11; grande 8, 12 o 16). La mazmorra se recorta con `recortarZonas` en `js/laberinto.js`; solo escapar de la grande la marca como completada. Cada tesoro da puntos según su rareza (común 1, raro 3, épico 8, legendario 20). Si escapas antes de que se acabe el tiempo te llevas todos los puntos y los tesoros pasan a tu colección; si se apaga la última antorcha estando adentro, pierdes la mitad de los puntos y ningún tesoro va a la colección. En el último minuto las antorchas de los muros se van apagando. Morir no termina la partida: sueltas tu último tesoro donde caíste y reapareces en el inicio. El reloj sigue corriendo mientras lees una tablilla. Se guarda el récord de cada mazmorra, tamaño y duración, y «Revancha» genera un laberinto nuevo. Es la base del futuro modo multijugador.
 
@@ -99,7 +102,7 @@ Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [mi
 ## Revisar los cambios
 Cada cambio que llega a GitHub pasa por una revisión automática (`.github/workflows/revisar.yml`). Para correrla en tu equipo hace falta Node 22: `npm install` una vez y luego `npm run revisar`, que hace tres cosas:
 
-- `npm run validar` carga cada mazmorra con 25 semillas en los tres tamaños y avisa si falta el inicio o la salida, si el borde del plano queda abierto, si un acertijo no tiene tablilla o sello, si un tesoro no existe o está en dos mazmorras, o si no se puede llegar a pie a la salida, a una tablilla o a un tesoro.
+- `npm run validar` carga cada mazmorra con 25 semillas en los tres tamaños y avisa si falta el inicio, la salida o el guardián, si el borde del plano queda abierto, si un acertijo no tiene tablilla o sello, si un tesoro no existe o está en dos mazmorras, o si no se puede llegar a pie a la salida, a una tablilla o a un tesoro.
 - `node herramientas/cache.js --revisar` comprueba que `sw.js` esté al día. Después de cambiar cualquier archivo del juego, `npm run cache` reescribe la lista de archivos y la versión del caché sin conexión.
 - `npm run probar` abre el juego en Chromium, entra a cada mazmorra por el menú y falla si aparece un error.
 

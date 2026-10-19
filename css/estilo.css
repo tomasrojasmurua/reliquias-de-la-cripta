@@ -277,6 +277,11 @@ body.retro #vista { image-rendering: pixelated; }
 #hud-zona em { font-style: normal; color: #f1e4c8; }
 #hud-zona.completa em { color: #7fe0a0; }
 @media (max-width: 620px) { #hud-zona span { display: none; } }
+/* barra de vida del guardián, arriba al centro mientras pelea */
+#hud-jefe { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 52px); left: 50%; transform: translateX(-50%); width: min(420px, 70vw); text-align: center; pointer-events: none; z-index: 2; }
+#hud-jefe b { display: block; font: 700 14px Cinzel, Georgia, serif; letter-spacing: .08em; color: #ff9a6a; text-shadow: 0 1px 3px #000; margin-bottom: 4px; }
+#hud-jefe .barra { height: 8px; border: 1px solid #5a1a10; }
+#hud-jefe .barra i { background: linear-gradient(90deg, #7a1010, #e0304a); transition: width .2s; }
 
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }

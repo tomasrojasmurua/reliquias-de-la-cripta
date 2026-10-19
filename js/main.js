@@ -510,6 +510,13 @@ function actualizarHUD() {
     rel.classList.toggle('urgente', r <= 60);
     $('#hud-puntos').textContent = juego.puntos();
   }
+  // el guardián, mientras pelea
+  const g = juego.guardian, hj = $('#hud-jefe');
+  hj.hidden = !g || g.estado === 'dormido' || g.estado === 'muerto';
+  if (!hj.hidden) {
+    hj.children[0].textContent = g.nombre;
+    hj.querySelector('i').style.width = `${Math.max(0, g.vida / g.vidaMax) * 100}%`;
+  }
   // en las mazmorras por zonas: «Zona 2 · Las galerías: 1 de 4 reliquias»
   const z = juego.zonaActual(), hz = $('#hud-zona');
   hz.hidden = !z;
