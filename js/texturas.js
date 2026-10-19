@@ -1083,6 +1083,263 @@ registrar('deco_telarana', sprite(g => {
   for (let rr = 12; rr < 60; rr += 11) { g.beginPath(); g.arc(2, 2, rr, 0, Math.PI / 2); g.stroke(); }
 }, { relieve: false }));
 
+// ---------- Hitos de las salas (js/hitos.js) ----------
+// Murales: láminas con transparencia que van apenas delante de un muro, así sirven sobre cualquier piedra.
+// Las pinturas están desconchadas (se ve el muro por los huecos); lo colgado o tallado lleva relieve.
+
+// Pintura vieja: tonos que varían y huecos donde se cayó el pigmento.
+function pintura(fn, semillaDesgaste, desgaste = 0.33) {
+  return b => {
+    sprite(fn, { relieve: false })(b);
+    const r = rng(semillaDesgaste), mancha = fbm(r, 4, 3), poro = ruidoSuave(semilla(r), 64);
+    for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+      const i = (y * T + x) * 4;
+      if (!b.d[i + 3]) continue;
+      const m = mancha(x, y);
+      if (m < desgaste || poro(x, y) > 0.94) { b.d[i + 3] = 0; continue; }
+      const f = 0.78 + m * 0.36 - (TRAMA_T[(y & 3) * 4 + (x & 3)] / 16) * 0.08;
+      b.d[i] *= f; b.d[i + 1] *= f; b.d[i + 2] *= f;
+    }
+  };
+}
+// Piedra o madera tallada: el color con motas antes de darle relieve.
+function moteado(g, semillaN, fuerza = 0.18) {
+  const rnd = rng(semillaN), im = g.getImageData(0, 0, T, T), d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) continue;
+    const f = 1 - fuerza / 2 + rnd() * fuerza;
+    d[i] *= f; d[i + 1] *= f; d[i + 2] *= f;
+  }
+  g.putImageData(im, 0, 0);
+}
+function glifo(g, forma, x0, y0, color, k = 2) {
+  forma.forEach((fila, j) => [...fila].forEach((ch, i) => { if (ch === '#') r(g, x0 + i * k, y0 + j * k, k, k, color); }));
+}
+function mano(g, x, y, ang, c, k = 1) {
+  g.save(); g.translate(x, y); g.rotate(ang); g.scale(k, k); g.fillStyle = c;
+  g.beginPath(); g.ellipse(0, 3, 5, 6, 0, 0, Math.PI * 2); g.fill();
+  for (const [dx, l] of [[-4, 6], [-1.5, 8], [1.5, 8], [4, 6]]) g.fillRect(dx - 1, -3 - l, 2.2, l + 2);
+  g.save(); g.translate(-5, 3); g.rotate(-0.9); g.fillRect(-1, -7, 2.4, 7); g.restore();
+  g.fillRect(-3, 8, 6, 5);
+  g.restore();
+}
+
+// Friso de jeroglíficos pintados entre dos franjas de colores (empalma con el de al lado).
+registrar('hito_jeroglificos', pintura(g => {
+  const COL = ['#2f5fa8', '#b8342a', '#d8a838', '#2f8a5a'];
+  for (let x = 0; x < T; x += 8) { r(g, x, 4, 8, 4, COL[(x / 8) % 4]); r(g, x, 56, 8, 4, COL[(x / 8 + 2) % 4]); }
+  r(g, 0, 9, T, 1, '#1a120a'); r(g, 0, 55, T, 1, '#1a120a');
+  for (const xc of [2, 23, 44]) r(g, xc + 17, 12, 1, 41, '#1a120a');   // líneas entre columnas
+  const orden = [[0, 1, 4], [3, 2, 0], [1, 4, 3]];
+  orden.forEach((col, k) => col.forEach((n, j) => glifo(g, GLIFOS[n], 4 + k * 21, 13 + j * 14, ['#1a2a4a', '#8a2418', '#1a120a'][(k + j) % 3])));
+}, 201));
+
+// Disco solar alado sobre una franja de colores.
+registrar('hito_disco_alado', pintura(g => {
+  const plumas = ['#2f5fa8', '#2f8a5a', '#b8342a', '#d8a838'];
+  for (const lado of [-1, 1]) for (let k = 0; k < 4; k++) {
+    const largo = 26 - k * 3;
+    for (let p = 0; p < largo; p += 3) {
+      const x = 32 + lado * (8 + p), y = 20 + k * 3 + Math.round(p * p / 120);
+      r(g, lado < 0 ? x - 2 : x, y, 3, 3, plumas[k]);
+    }
+  }
+  ovalo(g, 32, 20, 8, 8, '#1a120a'); ovalo(g, 32, 20, 7, 7, '#c8301e'); ovalo(g, 30, 18, 2, 2, '#e8603a');
+  r(g, 22, 25, 3, 6, '#d8a838'); r(g, 39, 25, 3, 6, '#d8a838');   // las dos cobras
+  r(g, 21, 23, 4, 3, '#2f8a5a'); r(g, 39, 23, 4, 3, '#2f8a5a');
+  for (let x = 6; x < 58; x += 6) r(g, x, 44, 5, 3, plumas[(x / 6) % 4]);
+  glifo(g, GLIFOS[0], 27, 49, '#1a120a', 2);
+}, 203));
+
+// Ojo de Horus grande, en negro y azul.
+registrar('hito_ojo', pintura(g => {
+  g.fillStyle = '#e8dcc0'; g.beginPath(); g.ellipse(32, 26, 18, 9, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#141018'; g.lineWidth = 3; g.beginPath(); g.ellipse(32, 26, 18, 9, 0, 0, Math.PI * 2); g.stroke();
+  ovalo(g, 32, 26, 7, 7, '#2f5fa8'); ovalo(g, 32, 26, 4, 4, '#141018');
+  r(g, 12, 12, 40, 3, '#141018'); r(g, 48, 15, 10, 3, '#141018');            // ceja y cola
+  r(g, 50, 26, 10, 3, '#141018');
+  r(g, 26, 35, 3, 16, '#141018'); r(g, 26, 49, 9, 3, '#141018');            // lágrima
+  g.strokeStyle = '#141018'; g.lineWidth = 3; g.beginPath(); g.moveTo(38, 35); g.lineTo(42, 46); g.arc(46, 46, 4, Math.PI, Math.PI * 2.4); g.stroke();
+  for (let x = 6; x < 60; x += 8) r(g, x, 58, 5, 3, '#b8342a');
+}, 205));
+
+// Manos en negativo, de ocre y rojo, y unos puntos.
+registrar('hito_manos', pintura(g => {
+  mano(g, 19, 30, -0.25, '#b03a1e', 1.5); mano(g, 46, 26, 0.25, '#c8642a', 1.4);
+  for (const [x, y] of [[10, 50], [14, 54], [10, 58], [56, 46], [58, 52]]) ovalo(g, x, y, 1.6, 1.6, '#a8381e');
+}, 207, 0.25));
+
+// Espiral y círculos picados en la piedra, en ocre claro.
+registrar('hito_espiral', pintura(g => {
+  g.strokeStyle = '#e0c890'; g.lineWidth = 3; g.beginPath();
+  for (let a = 0; a < Math.PI * 7; a += 0.1) { const rr = 2 + a * 1.05; const x = 28 + Math.cos(a) * rr, y = 30 + Math.sin(a) * rr; a ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  g.lineWidth = 2; g.strokeStyle = '#c8a870';
+  for (const rr of [3, 7]) { g.beginPath(); g.arc(52, 52, rr, 0, Math.PI * 2); g.stroke(); }
+  for (const [x, y] of [[8, 8], [14, 6], [52, 10], [56, 16], [8, 56]]) ovalo(g, x, y, 1.6, 1.6, '#e0c890');
+}, 209));
+
+// Friso de runas pintadas de rojo entre dos cintas (empalma con el de al lado).
+const RUNAS = [
+  [[1, 0, 1, 14], [1, 0, 6, 5], [1, 5, 6, 10]],                  // ᚠ
+  [[1, 0, 1, 14], [6, 0, 6, 14], [1, 0, 6, 6]],                  // ᚢ
+  [[1, 0, 1, 14], [1, 2, 6, 7], [6, 7, 1, 12]],                  // ᚦ
+  [[1, 0, 6, 7], [6, 7, 1, 14], [6, 0, 1, 7], [1, 7, 6, 14]],    // ᛟ
+  [[3, 0, 3, 14], [0, 3, 3, 6], [6, 3, 3, 6]],                   // ᛉ
+  [[1, 0, 1, 14], [1, 0, 6, 4], [6, 4, 1, 8]],                   // ᚱ
+];
+registrar('hito_runas', pintura(g => {
+  g.strokeStyle = '#b02a1e'; g.lineWidth = 3;
+  for (const y of [10, 52]) { g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= T; x += 4) g.lineTo(x, y + Math.sin(x / T * Math.PI * 4) * 3); g.stroke(); }
+  g.lineWidth = 2.5;
+  [0, 3, 1, 5, 2, 4].forEach((n, k) => {
+    const x0 = 3 + (k % 3) * 21, y0 = k < 3 ? 17 : 34;
+    for (const [a, b, c, d] of RUNAS[n]) { g.beginPath(); g.moveTo(x0 + a * 1.4 + 4, y0 + b); g.lineTo(x0 + c * 1.4 + 4, y0 + d); g.stroke(); }
+  });
+}, 211));
+
+// Escudo redondo colgado: tablas pintadas en cuartos y umbo de hierro, con dos hachas detrás.
+registrar('hito_escudo', sprite(g => {
+  g.save(); g.translate(32, 34);
+  for (const a of [-0.75, 0.75]) {
+    g.save(); g.rotate(a); r(g, -1.5, -28, 3, 54, '#6a4424');
+    g.fillStyle = '#9aa0a6'; g.beginPath(); g.moveTo(1, -28); g.lineTo(11, -30); g.lineTo(11, -16); g.lineTo(1, -20); g.fill(); g.restore();
+  }
+  g.restore();
+  ovalo(g, 32, 34, 21, 21, '#3a2a1a');
+  g.save(); g.beginPath(); g.arc(32, 34, 19, 0, Math.PI * 2); g.clip();
+  for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#e2d6b8' : '#a82a1e'; g.beginPath(); g.moveTo(32, 34); g.arc(32, 34, 20, k * Math.PI / 2, (k + 1) * Math.PI / 2); g.fill(); }
+  for (let x = 13; x < 52; x += 6) r(g, x, 14, 1, 40, 'rgba(40, 24, 12, 0.5)');
+  g.restore();
+  ovalo(g, 32, 34, 6, 6, '#5a5e64'); ovalo(g, 31, 33, 3, 3, '#9aa0a6');
+  moteado(g, 213, 0.12);
+}));
+
+// Calavera con tibias cruzadas, pintada de blanco por los piratas.
+registrar('hito_calavera', pintura(g => {
+  g.save(); g.translate(32, 36);
+  for (const a of [-0.7, 0.7]) { g.save(); g.rotate(a); r(g, -2, -22, 4, 44, '#e8e2d0'); ovalo(g, -2, -22, 3, 3, '#e8e2d0'); ovalo(g, 2, -22, 3, 3, '#e8e2d0'); ovalo(g, -2, 22, 3, 3, '#e8e2d0'); ovalo(g, 2, 22, 3, 3, '#e8e2d0'); g.restore(); }
+  g.restore();
+  ovalo(g, 32, 28, 12, 11, '#e8e2d0'); r(g, 25, 34, 14, 9, '#e8e2d0');
+  ovalo(g, 27, 28, 3.5, 4, '#1a120a'); ovalo(g, 37, 28, 3.5, 4, '#1a120a'); r(g, 31, 34, 2, 3, '#1a120a');
+  for (const x of [27, 31, 35]) r(g, x, 40, 1, 3, '#1a120a');
+  // una marca de flecha raspada debajo: «por aquí»
+  r(g, 14, 57, 30, 2, '#d8d0bc'); r(g, 40, 54, 2, 8, '#d8d0bc'); r(g, 42, 56, 2, 4, '#d8d0bc');
+}, 215));
+
+// Friso de la serpiente emplumada sobre una greca escalonada (empalma con el de al lado).
+registrar('hito_serpiente', pintura(g => {
+  for (let x = 0; x < T; x++) {
+    const y = 24 + Math.round(Math.sin(x / T * Math.PI * 2) * 7);
+    r(g, x, y - 5, 1, 11, '#2f7a4a');
+    if ((x + Math.floor(y / 2)) % 4 === 0) r(g, x, y - 2, 1, 3, '#d8b838');   // escamas
+    if (x % 8 === 0) r(g, x, y - 9, 2, 4, ['#2fa8a0', '#c8301e'][(x / 8) % 2]);   // plumas
+  }
+  // greca escalonada abajo
+  for (let x = 0; x < T; x += 16) {
+    r(g, x, 50, 16, 2, '#b8342a'); r(g, x, 58, 16, 2, '#b8342a');
+    r(g, x + 2, 52, 2, 6, '#b8342a'); r(g, x + 2, 52, 8, 2, '#b8342a'); r(g, x + 8, 52, 2, 4, '#b8342a');
+    r(g, x + 10, 56, 6, 2, '#d8a838');
+  }
+}, 217));
+
+// Piedra del sol tallada: anillos, rayos y un rostro en el centro.
+registrar('hito_calendario', sprite(g => {
+  ovalo(g, 32, 32, 27, 27, '#8a8270'); ovalo(g, 32, 32, 22, 22, '#9a927e');
+  g.strokeStyle = '#5a5446'; g.lineWidth = 1.5;
+  for (const rr of [26, 21, 14]) { g.beginPath(); g.arc(32, 32, rr, 0, Math.PI * 2); g.stroke(); }
+  for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2; r(g, 32 + Math.cos(a) * 23.5 - 1, 32 + Math.sin(a) * 23.5 - 1, 2, 2, '#5a5446'); }
+  g.fillStyle = '#8a8270';
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.2; g.beginPath(); g.moveTo(32 + Math.cos(a - 0.2) * 14, 32 + Math.sin(a - 0.2) * 14); g.lineTo(32 + Math.cos(a) * 21, 32 + Math.sin(a) * 21); g.lineTo(32 + Math.cos(a + 0.2) * 14, 32 + Math.sin(a + 0.2) * 14); g.fill(); }
+  ovalo(g, 32, 32, 9, 9, '#b0a68c');
+  r(g, 28, 29, 3, 2, '#3a3428'); r(g, 34, 29, 3, 2, '#3a3428'); r(g, 30, 35, 5, 2, '#8a2418'); r(g, 31, 37, 3, 3, '#a8381e');
+  moteado(g, 219);
+}));
+
+// Máscara de jade colgada, con ojos de concha y orejeras rojas.
+registrar('hito_mascara', sprite(g => {
+  g.fillStyle = '#2f8a5a'; g.beginPath(); g.moveTo(18, 14); g.lineTo(46, 14); g.lineTo(48, 36); g.lineTo(40, 52); g.lineTo(24, 52); g.lineTo(16, 36); g.closePath(); g.fill();
+  r(g, 20, 12, 24, 4, '#d8a838');
+  r(g, 21, 26, 9, 5, '#e8e2d0'); r(g, 34, 26, 9, 5, '#e8e2d0'); r(g, 24, 27, 4, 3, '#141018'); r(g, 37, 27, 4, 3, '#141018');
+  r(g, 30, 28, 4, 12, '#3aa06a');
+  r(g, 26, 43, 12, 4, '#1a3a24'); r(g, 28, 44, 8, 2, '#e8e2d0');
+  ovalo(g, 12, 32, 4, 4, '#b8342a'); ovalo(g, 52, 32, 4, 4, '#b8342a');
+  for (let k = 0; k < 6; k++) r(g, 19 + k * 5, 17 + (k % 2) * 3, 3, 3, '#4fb07a');   // teselas
+  moteado(g, 221, 0.22);
+}));
+
+// Fresco de la abadía: cruz roja en un medallón claro, con un renglón en latín debajo.
+registrar('hito_cruz', pintura(g => {
+  ovalo(g, 32, 26, 20, 20, '#c8a838'); ovalo(g, 32, 26, 17, 17, '#e8dcc0');
+  g.fillStyle = '#a82020';
+  g.beginPath(); g.moveTo(29, 26); g.lineTo(24, 11); g.lineTo(40, 11); g.lineTo(35, 26); g.lineTo(40, 41); g.lineTo(24, 41); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(32, 23); g.lineTo(17, 18); g.lineTo(17, 34); g.lineTo(32, 29); g.lineTo(47, 34); g.lineTo(47, 18); g.closePath(); g.fill();
+  const rnd = rng(225);
+  for (const y of [50, 56]) for (let x = 10; x < 54;) { const w = 2 + Math.floor(rnd() * 5); r(g, x, y, Math.min(w, 54 - x), 2, '#3a1a10'); x += w + 2; }
+}, 223));
+
+// Estatuas: se ven siempre de frente, como los enemigos.
+registrar('estatua_chacal', sprite(g => {
+  r(g, 14, 50, 36, 12, '#6a6458'); r(g, 12, 48, 40, 3, '#7a7466');   // pedestal
+  r(g, 20, 52, 24, 3, '#c8a838');
+  g.fillStyle = '#26221e';
+  g.beginPath(); g.moveTo(22, 48); g.lineTo(42, 48); g.lineTo(40, 30); g.lineTo(34, 22); g.lineTo(26, 24); g.closePath(); g.fill();   // cuerpo sentado
+  r(g, 22, 40, 6, 8, '#26221e'); r(g, 36, 40, 6, 8, '#26221e');
+  ovalo(g, 31, 17, 6, 6, '#26221e'); r(g, 22, 15, 6, 4, '#26221e');   // cabeza y hocico
+  r(g, 29, 4, 3, 10, '#26221e'); r(g, 34, 5, 3, 9, '#26221e');   // orejas
+  r(g, 29, 15, 2, 2, '#e8c040');
+  r(g, 26, 24, 12, 3, '#c8a838'); r(g, 27, 27, 10, 2, '#2f5fa8');   // collar
+}));
+registrar('estatua_obelisco', sprite(g => {
+  r(g, 18, 56, 28, 6, '#6a6458');
+  g.fillStyle = '#8a8270'; g.beginPath(); g.moveTo(24, 56); g.lineTo(40, 56); g.lineTo(37, 12); g.lineTo(27, 12); g.closePath(); g.fill();
+  g.fillStyle = '#d8a838'; g.beginPath(); g.moveTo(27, 12); g.lineTo(37, 12); g.lineTo(32, 3); g.closePath(); g.fill();
+  moteado(g, 227);
+  [0, 3, 1, 4].forEach((n, k) => glifo(g, GLIFOS[n], 30, 16 + k * 9, '#4a4438', 1));
+}));
+registrar('estatua_guerrero', sprite(g => {
+  r(g, 16, 56, 32, 6, '#5e5a52');
+  const piedra = '#8e8a80';
+  r(g, 26, 40, 5, 16, piedra); r(g, 33, 40, 5, 16, piedra);   // piernas
+  g.fillStyle = piedra; g.beginPath(); g.moveTo(22, 22); g.lineTo(42, 22); g.lineTo(40, 42); g.lineTo(24, 42); g.closePath(); g.fill();
+  ovalo(g, 32, 15, 6, 7, piedra); r(g, 25, 9, 14, 4, '#7a766c'); r(g, 31, 10, 2, 9, '#7a766c');   // casco
+  r(g, 44, 4, 3, 52, '#7a766c'); g.fillStyle = '#7a766c'; g.beginPath(); g.moveTo(42, 6); g.lineTo(45.5, -2); g.lineTo(49, 6); g.fill();   // lanza
+  r(g, 41, 24, 5, 4, piedra);
+  r(g, 18, 24, 5, 14, piedra);   // brazo con el escudo
+  ovalo(g, 19, 40, 7, 9, '#6e6a60'); ovalo(g, 19, 40, 2, 2, '#a8a498');   // escudo
+  moteado(g, 229);
+}));
+registrar('estatua_cabeza', sprite(g => {
+  r(g, 10, 58, 44, 5, '#4e4a3e');
+  g.fillStyle = '#7a7460'; g.beginPath(); g.ellipse(32, 36, 22, 23, 0, 0, Math.PI * 2); g.fill();
+  r(g, 10, 14, 44, 10, '#6a6452'); r(g, 12, 22, 4, 26, '#6a6452'); r(g, 48, 22, 4, 26, '#6a6452');   // casco
+  r(g, 18, 28, 12, 5, '#4a4636'); r(g, 34, 28, 12, 5, '#4a4636'); r(g, 21, 29, 5, 3, '#1e1c14'); r(g, 38, 29, 5, 3, '#1e1c14');   // ojos
+  r(g, 27, 34, 10, 9, '#8a846c'); r(g, 25, 42, 14, 3, '#3a3628');   // nariz
+  r(g, 22, 47, 20, 6, '#4a4636'); r(g, 24, 49, 16, 2, '#1e1c14');   // labios
+  moteado(g, 231, 0.24);
+}));
+registrar('estatua_idolo', sprite(g => {
+  r(g, 20, 58, 24, 5, '#4e4a3e');
+  const caras = [['#7a5a3a', 6], ['#6a4a2e', 24], ['#7a5a3a', 42]];
+  for (const [c, y] of caras) {
+    r(g, 20, y, 24, 16, c);
+    r(g, 23, y + 4, 6, 4, '#e8dcc0'); r(g, 35, y + 4, 6, 4, '#e8dcc0'); r(g, 25, y + 5, 2, 2, '#141018'); r(g, 37, y + 5, 2, 2, '#141018');
+    r(g, 25, y + 11, 14, 3, '#2a1a10'); for (let x = 26; x < 39; x += 3) r(g, x, y + 11, 1, 3, '#e8dcc0');
+  }
+  r(g, 16, 4, 32, 3, '#c8301e'); r(g, 14, 26, 6, 4, '#2f8a5a'); r(g, 44, 26, 6, 4, '#2f8a5a');
+  moteado(g, 233, 0.2);
+}));
+registrar('estatua_menhir', sprite(g => {
+  g.fillStyle = '#7e7a72'; g.beginPath(); g.moveTo(20, 62); g.lineTo(44, 62); g.lineTo(42, 18); g.lineTo(36, 4); g.lineTo(26, 6); g.lineTo(22, 20); g.closePath(); g.fill();
+  moteado(g, 235);
+  g.strokeStyle = '#a82a1e'; g.lineWidth = 2.5; g.beginPath();
+  for (let a = 0; a < Math.PI * 4.5; a += 0.15) { const rr = 1 + a * 0.75; const x = 32 + Math.cos(a) * rr, y = 26 + Math.sin(a) * rr; a ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  g.lineWidth = 2;
+  for (const [a, b, c, d] of RUNAS[3]) { g.beginPath(); g.moveTo(26 + a * 1.4, 42 + b); g.lineTo(26 + c * 1.4, 42 + d); g.stroke(); }
+  for (const [a, b, c, d] of RUNAS[0]) { g.beginPath(); g.moveTo(34 + a * 1.4, 42 + b); g.lineTo(34 + c * 1.4, 42 + d); g.stroke(); }
+}));
+
 // ---------- Tesoros ----------
 
 function brillo(g, x, y) { r(g, x, y - 3, 1, 7, '#fff'); r(g, x - 3, y, 7, 1, '#fff'); }

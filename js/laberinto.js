@@ -251,6 +251,9 @@ function camarasNuevas(n, pares, acertijos, def) {
   return camaras;
 }
 
+// Las salas de un bloque tallado, en coordenadas del plano total (para los hitos de js/hitos.js).
+const desplazar = (salas, dx, dy) => salas.map(s => ({ x0: s.x0 + dx, y0: s.y0 + dy, x1: s.x1 + dx, y1: s.y1 + dy }));
+
 // Devuelve una copia de la definición con el laberinto añadido al plano.
 export function conLaberinto(def, azar = Math.random) {
   const L = def.laberinto;
@@ -289,6 +292,7 @@ export function conLaberinto(def, azar = Math.random) {
     luces: [[...rect, luz], ...(def.luces || [])],
     zonas: [...(def.zonas || []), ...(L.zona ? [[...rect, L.zona]] : [])],
     regionLaberinto: rect,
+    salas: desplazar(t.salas, rect[0], rect[1]),
   };
 }
 
@@ -426,5 +430,6 @@ export function conZonas(def, azar = Math.random) {
     luces: [...luces, ...(def.luces || [])],
     zonas: [...(def.zonas || []), ...Z.bloques.filter(b => b.textura).map(b => [b.x, b.y, b.x + b.ancho - 1, b.y + b.alto - 1, b.textura])],
     regiones,
+    salas: talladas.flatMap((t, k) => desplazar(t.salas, Z.bloques[k].x, Z.bloques[k].y)),
   };
 }
