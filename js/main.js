@@ -1073,7 +1073,7 @@ function cuadro(t) {
   ultimo = t;
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
-  if (ent.pulsos.has('mapa') && !pausado) capaMapa.hidden = !capaMapa.hidden;
+  if (ent.pulsos.has('mapa') && !pausado) { capaMapa.hidden = !capaMapa.hidden; if (!capaMapa.hidden) juego.avisoMapa = false; }
   if (!pausado || (actual?.sala && !actual.sala.fin)) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
   else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
@@ -1096,6 +1096,7 @@ function cuadro(t) {
     dibujarAutomapa(ctxMapa, w, h, juego);
   }
   actualizarHUD();
+  $('#t-mapa').classList.toggle('aviso', !!juego.avisoMapa && capaMapa.hidden);
   botonUsar.classList.toggle('listo', juego.puedeUsar());
   recargaAutomatica();
 
