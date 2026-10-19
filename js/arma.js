@@ -179,8 +179,7 @@ function escopeta(fuego) {
   for (const dx of [-8, 8]) { g.fillStyle = ACERO[0]; g.fillRect(cx + dx - 2, 72, 4, 7); g.fillStyle = ACERO[2]; g.fillRect(cx + dx - 2, 72, 1, 6); }
   // culata de nogal y mano
   forma(g, [[cx - 15, 90], [cx + 15, 90], [cx + 21, 114], [cx - 21, 114]], lineal(g, cx - 21, 0, cx + 21, 0, [[0, NOGAL[0]], [0.3, NOGAL[1]], [0.45, NOGAL[2]], [0.65, NOGAL[1]], [1, NOGAL[0]]]));
-  puno(g, cx - 6, 84);
-  manga(g, cx - 18, 110, 64, -0.15);
+  empunar(g, cx, 100, -0.06, false, -0.1);
   if (fuego) {
     // los dos fogonazos, más anchos que el del revólver
     for (const dx of [-5.5, 5.5]) {
