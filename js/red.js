@@ -11,6 +11,7 @@ export const HZ_POSICION = 12;
 const PREFIJO = 'reliquias-';
 const LETRAS = 'ABCDEFGHJKMNPQRSTUVWXYZ';   // sin I, L ni O para que el código no se confunda al dictarlo
 const ESPERA_CONEXION = 12000;
+const ESPERA_ENLACE = 25000;   // negociar WebRTC por relevo desde una red móvil (Android) tarda más que 12 s
 const SILENCIO = 12000;     // sin saber nada del otro lado durante tanto, se da por perdido (cerrar la pestaña no siempre avisa)
 const RECONEXION = 25000;   // lo que se insiste en volver a la sala si se corta la conexión en plena partida
 
@@ -18,6 +19,9 @@ const RECONEXION = 25000;   // lo que se insiste en volver a la sala si se corta
 const ICE_PREDETERMINADOS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+  // Relevos públicos de Open Relay: también por TCP/443, que atraviesa las redes móviles y de oficina más cerradas.
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  { urls: ['turn:global.relay.metered.ca:80', 'turn:global.relay.metered.ca:80?transport=tcp', 'turn:global.relay.metered.ca:443', 'turns:global.relay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 
 export const codigoValido = c => /^[A-Z]{4}$/.test(c);
@@ -34,7 +38,7 @@ function opcionesSenal() {
   const extra = [...SERVIDORES_ICE];
   const [urls, username, credential] = (q.get('turn') || '').split('|');
   if (urls) extra.push({ urls, username, credential });
-  if (extra.length) o.config = { iceServers: [...ICE_PREDETERMINADOS, ...extra] };
+  o.config = { iceServers: [...ICE_PREDETERMINADOS, ...extra], iceCandidatePoolSize: 4 };
   return o;
 }
 
@@ -147,13 +151,20 @@ export class Sala {
   #conectar() {
     return new Promise((ok, mal) => {
       const c = this.peer.connect(PREFIJO + this.codigo, { reliable: true });
-      const fallo = (msg, motivo) => { clearTimeout(plazo); mal(Object.assign(new Error(msg), { motivo })); };
-      const plazo = setTimeout(() => { c.close(); fallo(`No se encontró la sala ${this.codigo}. Revisa el código o pídele al anfitrión que la vuelva a abrir.`); }, ESPERA_CONEXION);
+      const fallo = (msg, motivo) => { clearTimeout(plazo); this.peer.off('error', alErrorPeer); mal(Object.assign(new Error(msg), { motivo })); };
+      const sinSala = () => fallo(`No se encontró la sala ${this.codigo}. Revisa el código o pídele al anfitrión que la vuelva a abrir.`, 'sin-sala');
+      // el código no existe en el servidor de salas: PeerJS lo avisa al instante, no hace falta esperar
+      const alErrorPeer = e => { if (e.type === 'peer-unavailable') { c.close(); sinSala(); } };
+      this.peer.on('error', alErrorPeer);
+      const plazo = setTimeout(() => {
+        c.close();
+        fallo('No se logró la conexión directa con el anfitrión (suele pasar con datos móviles). Prueba con otra red o wifi, o inténtalo de nuevo.', 'tiempo');
+      }, ESPERA_ENLACE);
       let admitido = false;
       c.on('open', () => c.send({ t: 'hola', nombre: this.nombre, ficha: this.ficha }));
       c.on('data', m => {
         if (m.t === 'llena' || m.t === 'iniciada') { fallo(m.t === 'llena' ? 'La sala está llena (hasta 4 cazadores).' : 'La partida de esa sala ya empezó.', m.t); return; }
-        if (m.t === 'sala' && !admitido) { admitido = true; clearTimeout(plazo); this.conexion = c; ok(); }
+        if (m.t === 'sala' && !admitido) { admitido = true; clearTimeout(plazo); this.peer.off('error', alErrorPeer); this.conexion = c; ok(); }
         this.#mensajeDelAnfitrion(m);
       });
       c.on('close', () => { if (!admitido) fallo('No se pudo entrar a la sala.'); else if (this.conexion === c) this.#perdida(); });
