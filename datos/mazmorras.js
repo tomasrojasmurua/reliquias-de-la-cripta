@@ -104,6 +104,12 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-arenas',
+    ampliacion: [
+      { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El obelisco del patio' } },
+      { nombre: 'Los almacenes del templo', tesoros: ['daga_bronce', 'anfora_aceite', 'monedas_plata', 'cetro_bronce'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El inventario del escriba real' } },
+      { nombre: 'La necrópolis de los sacerdotes', tesoros: ['escarabajo_bronce', 'anfora_jade', 'daga_plata', 'amuleto_oro'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La letanía de los sacerdotes' } },
+      { nombre: 'El santuario del primer faraón', tesoros: ['corona_oro'] },
+    ],
     laberinto: { lado: 'abajo', puerta: [14, 16], ancho: 43, alto: 17, tesoros: ['espejo_bronce', 'collar_cornalina'] },
     ambiente: 'desierto',
     nombre: 'El Templo de las Arenas',
@@ -163,6 +169,12 @@ export const MAZMORRAS = [
 
   {
     id: 'glaciar-jarl',
+    ampliacion: [
+      { nombre: 'La fortaleza', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La piedra rúnica del puente' } },
+      { nombre: 'Las criptas de hielo', tesoros: ['fibula_bronce', 'runas_hueso', 'brazalete_plata', 'cuerno_heimdall'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El conjuro de la völva' } },
+      { nombre: 'El túmulo de los guerreros', tesoros: ['plata_corte', 'hacha_barbuda', 'escudo_cuervo', 'yelmo_jarl'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La saga del túmulo' } },
+      { nombre: 'La cámara de Thor', tesoros: ['martillo_mjolnir'] },
+    ],
     laberinto: { lado: 'abajo', puerta: [7, 18], ancho: 43, alto: 17, tesoros: ['broche_plata', 'cuerno_guerra'] },
     ambiente: 'nieve',
     nombre: 'La Fortaleza del Glaciar',
@@ -227,6 +239,12 @@ export const MAZMORRAS = [
   },
   {
     id: 'cueva-drake',
+    ampliacion: [
+      { nombre: 'La cueva', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El diario del contramaestre' } },
+      { nombre: 'La bodega del galeón', tesoros: ['reales_plata', 'sable_abordaje', 'brujula_laton', 'cofrecillo_perlas'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El manifiesto de carga' } },
+      { nombre: 'El camarote del capitán', tesoros: ['ron_anejo', 'catalejo_almirante', 'anillo_esmeralda', 'calavera_bandera'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La carta del capitán' } },
+      { nombre: 'La santabárbara', tesoros: ['corona_galeon'] },
+    ],
     laberinto: { lado: 'abajo', puerta: [4, 18], ancho: 45, alto: 17, tesoros: ['catalejo_grumete', 'collar_perlas'] },
     ambiente: 'mar',
     nombre: 'La Cueva de Drake',
@@ -294,6 +312,12 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-jaguar',
+    ampliacion: [
+      { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La estela del juego de pelota' } },
+      { nombre: 'El juego de pelota', tesoros: ['amuleto_jade', 'semillas_cacao', 'orejeras_jade', 'vasija_pelota'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El marcador de piedra' } },
+      { nombre: 'Los túneles del cenote', tesoros: ['punta_obsidiana', 'espejo_pirita', 'calavera_obsidiana', 'mascara_mosaico'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El glifo del inframundo' } },
+      { nombre: 'La tumba del rey jaguar', tesoros: ['calavera_cristal'] },
+    ],
     laberinto: { lado: 'derecha', puerta: [26, 29], ancho: 23, alto: 33, tesoros: ['figurilla_maiz', 'cuchillo_obsidiana'] },
     ambiente: 'selva',
     nombre: 'El Templo del Jaguar',
@@ -401,6 +425,12 @@ export const MAZMORRAS = [
 
   {
     id: 'templo-maldito',
+    ampliacion: [
+      { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El relieve de la puerta' } },
+      { nombre: 'El patio de las campanas', tesoros: ['campana_templo', 'brazalete_marfil', 'katar_guardian', 'gema_rubi'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El canto de las campanas' } },
+      { nombre: 'Las galerías de la mina', tesoros: ['rupias_mogolas', 'lampara_bronce', 'collar_naga', 'idolo_ganesha'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La maldición del capataz' } },
+      { nombre: 'El santuario de Kali', tesoros: ['ojo_kali'] },
+    ],
     laberinto: { lado: 'derecha', puerta: [26, 20], ancho: 23, alto: 33, tesoros: ['cuenta_rudraksha', 'monedas_maharaja'] },
     ambiente: 'lava',
     nombre: 'El Templo Maldito',
@@ -507,6 +537,12 @@ export const MAZMORRAS = [
   },
   {
     id: 'tumba-cruzado',
+    ampliacion: [
+      { nombre: 'La abadía', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La lápida del claustro' } },
+      { nombre: 'El claustro de los peregrinos', tesoros: ['cruz_peregrino', 'concha_peregrino', 'sello_templario', 'espuelas_caballero'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El libro de horas' } },
+      { nombre: 'La biblioteca secreta', tesoros: ['besantes', 'salterio', 'relicario_plata', 'yelmo_cruzado'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El códice cifrado' } },
+      { nombre: 'La capilla del Gran Maestre', tesoros: ['escudo_gran_maestre'] },
+    ],
     laberinto: { lado: 'derecha', puerta: [26, 20], ancho: 23, alto: 33, tesoros: ['pagina_diario', 'moneda_templaria'] },
     ambiente: 'catacumba',
     nombre: 'La Tumba del Cruzado',
@@ -617,6 +653,54 @@ export const MAZMORRAS = [
     luces: [[15, 15, 25, 17, 0.9], [21, 1, 25, 5, 0.65], [9, 1, 13, 3, 0.3], [7, 24, 18, 30, 0.45], [1, 19, 3, 31, 0.7], [23, 24, 24, 26, 0.85]],
   },
 ];
+
+// Agranda una mazmorra de plano + laberinto a cuatro zonas (como la Cripta): el plano y su laberinto
+// son la zona 1; la zona 2 va pegada al laberinto, la 3 a la derecha de todo y la cámara extra debajo de la 3.
+// La entrada se derrumba a espaldas del jugador y la vieja salida desaparece: la nueva se esconde en la zona 2 o 3.
+function ampliar(m) {
+  const L = m.laberinto, Wp = m.plano[0].length, Hp = m.plano.length;
+  const [z0, ...resto] = m.ampliacion;
+  const bloques = [], pasos = [];
+  let entrada, W1, yZona1;
+  if (L.lado === 'abajo') {
+    let Lw = L.ancho | 1; if (Lw > Wp) Lw -= 2;
+    const Hl = L.alto | 1;
+    bloques.push({ x: 0, y: Hp, ancho: Lw, alto: Hl, zona: 0 });
+    entrada = [L.puerta[0], L.puerta[1] + 1];
+    W1 = Math.max(Wp, Lw) | 1; yZona1 = Hp + Hl;
+    pasos.push([0, 1, Math.floor(Lw / 2), Hp + Hl - 1]);
+  } else {
+    const Wl = L.ancho | 1, Hl = L.alto | 1;
+    bloques.push({ x: Wp, y: 0, ancho: Wl, alto: Hl, zona: 0 });
+    entrada = [Wp, L.puerta[1]];
+    W1 = (Wp + Wl) | 1; yZona1 = Math.max(Hp, Hl);
+    pasos.push([0, 1, Wp + Math.floor(Wl / 2), Hl - 1]);
+  }
+  const alto = yZona1 + 25, alto2 = (alto - 16) | 1;
+  bloques.push({ x: 0, y: yZona1, ancho: W1, alto: 25, zona: 1 });
+  bloques.push({ x: W1, y: 0, ancho: 41, alto: alto2, zona: 2 });
+  bloques.push({ x: W1, y: alto2, ancho: 41, alto: 15, zona: 3, luz: 0.5 });
+  pasos.push([1, 2, W1 - 1, yZona1 + 3], [2, 3, W1 + 20, alto2 - 1]);
+  m.sectores = { bloques, entrada, pasos, salida: [1, 2], zonas: [{ ...z0, tesoros: L.tesoros }, ...resto] };
+  // la entrada: el primer muro detrás del jugador, mirando hacia donde mira al empezar
+  const plano = m.plano.map(f => f.split(''));
+  plano.forEach(f => f.forEach((c, x) => { if (c === 'X') f[x] = '#'; }));
+  const y0 = plano.findIndex(f => f.includes('P')), x0 = plano[y0].indexOf('P');
+  // detrás; si ahí hay una puerta (no se puede tapar el único paso), a un lado
+  const fx = Math.round(Math.cos(m.angulo || 0)), fy = Math.round(Math.sin(m.angulo || 0));
+  for (const [dx, dy] of [[-fx, -fy], [fy, -fx], [-fy, fx]]) {
+    let x = x0, y = y0;
+    while (plano[y + dy]?.[x + dx] === '.' || plano[y + dy]?.[x + dx] === 'P') { x += dx; y += dy; }
+    if (!'#!'.includes(plano[y + dy]?.[x + dx])) continue;
+    plano[y + dy][x + dx] = '%';
+    m.derrumbe = [x + dx, y + dy];
+    break;
+  }
+  m.plano = plano.map(f => f.join(''));
+  delete m.laberinto;
+  delete m.ampliacion;
+}
+for (const m of MAZMORRAS) if (m.ampliacion) ampliar(m);
 
 // Todos los tesoros de una mazmorra: los del plano fijo, los del laberinto y los de sus zonas.
 export function tesorosDe(m) {
