@@ -19,6 +19,7 @@ const LEYENDA_BASE = {
   'R': { tipo: 'suelo', objeto: 'revolver' },
   'b': { tipo: 'suelo', objeto: 'balas' },
   'v': { tipo: 'suelo', objeto: 'vendas' },
+  'w': { tipo: 'suelo', objeto: 'barreta' },
   'm': { tipo: 'suelo', enemigo: 'momia' },
   'k': { tipo: 'suelo', enemigo: 'esqueleto' },
   'g': { tipo: 'suelo', enemigo: 'draugr' },

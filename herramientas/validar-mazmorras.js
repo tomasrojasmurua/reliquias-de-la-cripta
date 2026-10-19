@@ -97,6 +97,11 @@ function revisarMapa(def, m, donde, juego) {
   const revolveres = m.objetos.filter(o => o.tipo === 'revolver');
   if (revolveres.length !== 1) error(donde, `hay ${revolveres.length} revólveres (debe haber uno)`);
   else if (!llega(Math.floor(revolveres[0].x), Math.floor(revolveres[0].z))) error(donde, 'no se puede llegar al revólver');
+  // la palanca de hierro: a lo más una, y si está se llega a ella (nunca hace falta para salir: solo abre sellos)
+  const barretas = m.objetos.filter(o => o.tipo === 'barreta');
+  if (barretas.length > 1) error(donde, `hay ${barretas.length} palancas de hierro (a lo más una)`);
+  else if (!barretas.length) error(donde, 'no tiene palanca de hierro oculta');
+  else if (!llega(Math.floor(barretas[0].x), Math.floor(barretas[0].z))) error(donde, 'no se puede llegar a la palanca de hierro');
   if (m.totalSecretos < 1) error(donde, 'no tiene ningún pasadizo secreto');
 
   // el guardián está en su puesto y se llega a él
