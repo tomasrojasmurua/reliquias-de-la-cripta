@@ -41,7 +41,7 @@ const TAMANOS = {
   grande: { zonas: Infinity, minutos: [8, 12, 16] },
 };
 const RITMOS = ['Corto', 'Normal', 'Largo'];
-const prep = { modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
+const prep = { tesoros: progreso.opciones.tesoros || 'exclusivos', modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
 let elegida = null;   // la mazmorra de la pantalla de preparación
 let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
 const recordDe = (def, tamano, seg) => (progreso.records || {})[`${def.id}:${tamano}:${seg}`] || 0;
@@ -134,7 +134,7 @@ for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventLi
 
 // Sonidos de los menús: al pasar el ratón y al elegir.
 const enMenu = b => b?.closest('.menu, #pausa');
-const ALTERNAR = '[data-sens], [data-calidad], [data-modo], [data-tamano], [data-ritmo], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
+const ALTERNAR = '[data-sens], [data-calidad], [data-modo], [data-tamano], [data-ritmo], [data-tesoros], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
 document.addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!enMenu(b)) return;
@@ -176,6 +176,11 @@ function pintarPreparar() {
     : n === 2 ? `Las dos primeras zonas: ${minuscula(z[0].nombre)} y ${minuscula(z[1].nombre)}.`
     : `Las ${z.length} zonas, con ${minuscula(z.at(-1).nombre)} tras un pasadizo secreto.`;
   $('#prep-tiempo').hidden = !contra;
+  $('#prep-tesoros').hidden = !enSala;
+  for (const b of document.querySelectorAll('[data-tesoros]')) b.classList.toggle('activo', b.dataset.tesoros === prep.tesoros);
+  $('#nota-tesoros').textContent = prep.tesoros === 'exclusivos'
+    ? 'Cada tesoro es del primero que lo toma; los demás encuentran una nota «¡Llegaste tarde!».'
+    : 'Todos pueden recoger cada tesoro. Gana quien más reúna, y al final se ve cómo lo logró cada uno.';
   document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
     b.innerHTML = `${RITMOS[i]}<small>${TAMANOS[tam].minutos[i]} min</small>`;
     b.classList.toggle('activo', i === prep.ritmo);
@@ -191,6 +196,7 @@ function pintarPreparar() {
 const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave] = valor; guardar(); pintarPreparar(); };
 for (const b of document.querySelectorAll('[data-modo]')) b.onclick = () => elegir('modo', b.dataset.modo);
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
+for (const b of document.querySelectorAll('[data-tesoros]')) b.onclick = () => elegir('tesoros', b.dataset.tesoros);
 for (const b of document.querySelectorAll('[data-ritmo]')) b.onclick = () => elegir('ritmo', +b.dataset.ritmo);
 $('#btn-entrar').onclick = () => prep.modo === 'sala' ? crearSala() : empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
 
@@ -471,7 +477,7 @@ async function crearSala() {
   const def = elegida, tamano = tamanoDe(def), limite = limiteDe(def);
   const s = await conectar($('#btn-entrar'), 'Creando sala…', () => Sala.crear(nombreElegido()), m => { $('#nota-modo').textContent = m; });
   if (!s) return;
-  s.ponerConfig({ mazmorra: def.id, tamano, limite });
+  s.ponerConfig({ mazmorra: def.id, tamano, limite, tesoros: prep.tesoros });
   enlazarSala(s);
   mostrar('sala');
   pintarLobby();
@@ -538,7 +544,7 @@ function pintarLobby() {
     ul.appendChild(li);
   }
   const def = c && MAZMORRAS.find(m => m.id === c.mazmorra);
-  $('#sala-config').textContent = def ? `${def.nombre}${def.sectores ? ` · ${TAMANOS[c.tamano] ? ['pequeña', 'mediana', 'grande'][Object.keys(TAMANOS).indexOf(c.tamano)] : ''}` : ''} · ${c.limite / 60} minutos` : '';
+  $('#sala-config').textContent = def ? `${def.nombre}${def.sectores ? ` · ${TAMANOS[c.tamano] ? ['pequeña', 'mediana', 'grande'][Object.keys(TAMANOS).indexOf(c.tamano)] : ''}` : ''} · ${c.limite / 60} minutos · tesoros ${c.tesoros === 'compartidos' ? 'compartidos' : 'exclusivos'}` : '';
   const boton = $('#btn-empezar-sala');
   boton.hidden = !anfitrion;
   boton.disabled = !lista.every(j => j.estado === 'sala') || !$('#cuenta').hidden;
@@ -560,7 +566,7 @@ $('#btn-copiar-enlace').onclick = async () => {
 $('#btn-empezar-sala').onclick = () => {
   if (!sala?.soyAnfitrion) return;
   const c = sala.config;
-  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, cuenta: 3 });
+  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, tesoros: c.tesoros, cuenta: 3 });
 };
 
 // 3, 2, 1 y todos entran a la vez a la misma cripta (la semilla da el mismo mapa, los mismos enemigos y las mismas reliquias).
@@ -577,7 +583,7 @@ function comenzarCuenta(p) {
     if (--n > 0) { num.textContent = n; sonar('menu_alternar'); return; }
     clearInterval(cuentaAtras);
     $('#cuenta').hidden = true;
-    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9) });
+    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9), tesoros: p.tesoros });
   }, 1000);
 }
 
@@ -682,7 +688,8 @@ function resumenSala(puntos, exito) {
     mostrar('sala');
     pintarLobby();
   };
-  if (sala) sala.terminar(puntos, exito);
+  const detalle = { tesoros: juego.tesoros, resueltos: Object.values(juego.mapa.acertijos).filter(a => a.resuelto).map(a => String(a.id)) };
+  if (sala) sala.terminar(puntos, exito, detalle);
   else ultimoMarcador = null;
   pintarMarcador();
 }
@@ -700,10 +707,32 @@ function pintarMarcador() {
     const li = document.createElement('li'), n = document.createElement('span'), pt = document.createElement('b'), est = document.createElement('small');
     li.className = sala && f.id === sala.yo ? 'yo' : '';
     li.insertAdjacentHTML('afterbegin', `<i class="sombrero ${f.color}"></i>`);
-    n.textContent = f.nombre; pt.textContent = `${f.puntos} puntos`; est.textContent = ESTADOS[f.estado] || f.estado;
+    n.textContent = f.nombre; pt.textContent = `${f.puntos} punto${f.puntos === 1 ? '' : 's'}`; est.textContent = ESTADOS[f.estado] || f.estado;
     li.append(n, pt, est);
     ol.appendChild(li);
   }
+  pintarDetalleSala();
+}
+
+// Quién consiguió cada tesoro y quién resolvió cada acertijo, para comentarlo al terminar.
+function pintarDetalleSala() {
+  const jugadores = (ultimoMarcador || []).filter(f => f.estado !== 'jugando' && f.tesoros);
+  const pinta = (ul, filas, clave) => {
+    ul.innerHTML = '';
+    for (const [nombre, id] of filas) {
+      const li = document.createElement('li'), n = document.createElement('span'), q = document.createElement('span');
+      q.className = 'quienes';
+      const los = jugadores.filter(f => f[clave].includes(id));
+      if (los.length) for (const f of los) q.insertAdjacentHTML('beforeend', `<i class="sombrero ${f.color}" title="${f.nombre}"></i>`);
+      else q.textContent = clave === 'tesoros' ? 'nadie lo halló' : 'sin resolver';
+      n.textContent = nombre;
+      li.append(n, q);
+      ul.appendChild(li);
+    }
+  };
+  if (!juego) return;
+  pinta($('#resumen-tesoros'), juego.objetos.filter(o => o.tipo === 'tesoro').map(o => [TESORO[o.tesoro].nombre, o.tesoro]), 'tesoros');
+  pinta($('#resumen-acertijos'), Object.values(juego.mapa.acertijos).map(a => [a.titulo, String(a.id)]), 'resueltos');
 }
 
 // ---------- Partida ----------
@@ -726,10 +755,10 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
       actualizarHUD();
     },
     daño() { destello('rojo'); },
-    reclamar: enSala ? o => reclamarTesoro(o) : undefined,
+    reclamar: enSala && enSala.tesoros !== 'compartidos' ? o => reclamarTesoro(o) : undefined,
     golpear: enSala ? (i, d) => sala?.golpear(i, d) : undefined,
     dañarA: enSala ? (id, n, c) => sala?.danar(id, n, c) : undefined,
-    solto: enSala ? o => sala?.soltar(o.n, o.x, o.z) : undefined,
+    solto: enSala && enSala.tesoros !== 'compartidos' ? o => sala?.soltar(o.n, o.x, o.z) : undefined,
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     reconstruir: () => render.construir(juego.mapa),
@@ -864,7 +893,7 @@ function terminarContrarreloj(r, exito) {
   if (puntos > antes) (progreso.records ||= {})[clave] = puntos;
   guardar();
   const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
-  $('#resumen h2').textContent = exito ? `¡Escapaste con ${puntos} puntos!` : r.causa;
+  $('#resumen h2').textContent = exito ? `¡Escapaste con ${puntos} punto${puntos === 1 ? '' : 's'}!` : r.causa;
   $('#resumen .datos').innerHTML = `
     <li>Puntos: <b>${exito ? puntos : `${r.puntos} → ${puntos}`}</b>${exito ? '' : ' (la mitad, por no escapar)'}</li>
     ${puntos > antes ? '<li>¡Nuevo récord!</li>' : antes && antes < Infinity ? `<li>Récord: <b>${antes}</b></li>` : ''}

@@ -37,14 +37,14 @@ function cargarPeerJS() {
 
 // Una sala, vista desde el anfitrión (`soyAnfitrion`) o desde un invitado. Los avisos llegan por estos ganchos:
 //   alCambiar(jugadores)   la lista cambió: [{ id, nombre, color, estado }]; `id` es el puesto (0 = anfitrión)
-//   alEmpezar(partida)     el anfitrión empezó: { semilla, mazmorra, tamano, limite, cuenta }
+//   alEmpezar(partida)     el anfitrión empezó: { semilla, mazmorra, tamano, limite, cuenta, tesoros }
 //   alPosicion(id, p)      un cazador se movió: { x, y, z, yaw, pt }
 //   alTesoro(i, id)        el tesoro `i` se lo llevó el cazador `id` (puede ser yo, o llegué tarde)
 //   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
 //   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
 //   alGolpe(i, daño)       (anfitrión) un invitado le pegó al enemigo `i`
 //   alDano(n, causa)       (invitado) un enemigo me hirió
-//   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado }]
+//   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado, tesoros, resueltos }]
 //   alPerderse(motivo)     se cayó la conexión con la sala
 export class Sala {
   constructor(peer, soyAnfitrion, codigo) {
@@ -181,7 +181,7 @@ export class Sala {
   empezar(partida) {
     this.enPartida = true;
     this.duenos.clear();
-    for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; }
+    for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; j.tesoros = j.resueltos = null; }
     this.#aviso({ t: 'empezar', ...partida });
     this.alEmpezar(partida);
   }
@@ -191,11 +191,13 @@ export class Sala {
     if (!j) return;
     j.puntos = m.puntos | 0;
     j.fin = m.escapo ? 'escapó' : 'atrapado';
+    const ids = l => (Array.isArray(l) ? l : []).slice(0, 80).map(x => String(x).slice(0, 40));
+    j.tesoros = ids(m.tesoros); j.resueltos = ids(m.resueltos);
     this.#difundirMarcador();
   }
 
   #difundirMarcador() {
-    const lista = this.jugadores.map(({ id, nombre, color, puntos, fin }) => ({ id, nombre, color, puntos, estado: fin || 'jugando' }));
+    const lista = this.jugadores.map(({ id, nombre, color, puntos, fin, tesoros, resueltos }) => ({ id, nombre, color, puntos, estado: fin || 'jugando', tesoros, resueltos }));
     this.#aviso({ t: 'marcador', lista });
     this.alMarcador(lista);
   }
@@ -271,9 +273,11 @@ export class Sala {
   }
 
   // Mi resultado al terminar.
-  terminar(puntos, escapo) {
-    if (this.soyAnfitrion) this.#registrarFin(0, { puntos, escapo });
-    else this.conexion?.open && this.conexion.send({ t: 'fin', puntos, escapo });
+  // `detalle`: los tesoros que reuní y los acertijos que resolví, para el resumen de todos.
+  terminar(puntos, escapo, detalle = {}) {
+    const m = { puntos, escapo, tesoros: detalle.tesoros, resueltos: detalle.resueltos };
+    if (this.soyAnfitrion) this.#registrarFin(0, m);
+    else this.conexion?.open && this.conexion.send({ t: 'fin', ...m });
   }
 
   #caida(motivo) {
