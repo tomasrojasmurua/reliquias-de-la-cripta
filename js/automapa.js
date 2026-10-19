@@ -34,6 +34,8 @@ export function explorar(juego, alcance = 9) {
       if (m.solida(cx, cz)) break;
     }
   }
+  // un sello abierto deja de avisarse en cuanto lo ves
+  if (juego.sellosNuevos) for (const i of juego.sellosNuevos) if (v[i]) juego.sellosNuevos.delete(i);
 }
 
 export function dibujarAutomapa(ctx, w, h, juego) {
@@ -126,6 +128,23 @@ export function dibujarAutomapa(ctx, w, h, juego) {
       ctx.strokeText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
       ctx.fillText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
     }
+  }
+  // sellos recién abiertos que aún no viste: solo el marcador, sin revelar el laberinto
+  if (juego.sellosNuevos?.size) {
+    const fase = (performance.now() % 1400) / 1400, R = Math.max(8, t * 0.9);
+    let sx = 0, sy = 0;
+    for (const i of juego.sellosNuevos) {
+      const x = i % m.ancho, y = Math.floor(i / m.ancho);
+      sx += x + 0.5; sy += y + 0.5;
+      ctx.fillStyle = COLOR.sello; ctx.fillRect(ox + x * t, oy + y * t, t, t);
+    }
+    const n = juego.sellosNuevos.size, px = ox + sx / n * t, py = oy + sy / n * t;
+    ctx.strokeStyle = COLOR.sello; ctx.lineWidth = 3;
+    ctx.globalAlpha = 1 - fase; ctx.beginPath(); ctx.arc(px, py, R + fase * R * 2.5, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(px, py, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.font = `bold ${Math.max(12, Math.round(t * 1.1))}px Georgia, serif`;
+    ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10, 7, 4, .9)'; ctx.fillStyle = COLOR.sello;
+    ctx.strokeText('Puerta abierta', px, py - R * 1.5); ctx.fillText('Puerta abierta', px, py - R * 1.5);
   }
   // los otros cazadores de la sala, con el color de su sombrero: solo donde ya exploraste,
   // o unos segundos tras llevarse un tesoro (entonces, en zona desconocida, sobre un círculo de niebla)

@@ -896,10 +896,19 @@ export class Juego {
     else if (c.tipo === 'salida') this.salir();
   }
 
+  // Abre los sellos de un acertijo y los anota como «aviso»: el botón del mapa pulsa y el automapa los marca
+  // aunque esa zona no esté explorada, hasta que los veas.
+  abrirSellos(a) {
+    const m = this.mapa;
+    this.sellosNuevos ||= new Set();
+    m.celdas.forEach((c, i) => { if (c.tipo === 'sello' && c.acertijo === a.id) { c.abriendo = true; this.sellosNuevos.add(i); } });
+    this.avisoMapa = true;
+  }
+
   resolverAcertijo(a, bono = 0) {
     a.resuelto = true;
     this.bonoAcertijos += bono;
-    for (const c of this.mapa.celdas) if (c.tipo === 'sello' && c.acertijo === a.id) c.abriendo = true;
+    this.abrirSellos(a);
     // la tablilla se agrieta: el hechizo que mantenía cerrada la puerta se disipa
     for (const c of this.mapa.celdas) if (c.tipo === 'tablilla' && c.acertijo === a.id && !c.tex.endsWith('_rota')) c.tex += '_rota';
     this.ev.reconstruir?.();
@@ -911,7 +920,7 @@ export class Juego {
   forzarSello(a) {
     this.j.barreta = 0;
     a.forzado = true;
-    for (const c of this.mapa.celdas) if (c.tipo === 'sello' && c.acertijo === a.id) c.abriendo = true;
+    this.abrirSellos(a);
     sonar('forzar');
     setTimeout(() => sonar('puerta'), 450);
     this.ev.mensaje('Metes la palanca en la juntura y el sello cede. La palanca se parte.', 4);
