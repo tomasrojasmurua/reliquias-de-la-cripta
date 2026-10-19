@@ -188,6 +188,16 @@ function grietas(r, trazos) {
   }
   return m;
 }
+// Las grietas de los pasadizos secretos: más largas y gruesas que las del resto del muro, para que quien
+// mira con atención las vea (un trazo de un píxel se pierde en la penumbra).
+function grietasHondas(r, trazos) {
+  const m = grietas(r, trazos.map(([x, y, pasos]) => [x, y, Math.round(pasos * 1.7)]));
+  const g = m.slice();
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) if (m[y * T + x] === 1) {
+    for (const dx of [-1, 1]) { const j = y * T + envolver(x + dx); g[j] = Math.max(g[j], 0.7); }
+  }
+  return g;
+}
 const unir = (a, b) => !a ? b : !b ? a : a.map((v, i) => Math.max(v, b[i]));
 
 // Una capa añade cosas sobre una superficie: alto(x, y, v, i, B) y color(x, y, v, c, i, B) devuelven el
@@ -259,7 +269,7 @@ function dibujaArenisca(b, r, capa, marcas) {
 }
 
 registrar('piedra', b => dibujaPiedra(b, rng(11)));
-registrar('piedra_grieta', b => dibujaPiedra(b, rng(11), null, grietas(rng(5), [[30, 6, 26], [22, 34, 22]])));
+registrar('piedra_grieta', b => dibujaPiedra(b, rng(11), null, grietasHondas(rng(5), [[30, 6, 26], [22, 34, 22]])));
 registrar('musgo', b => {
   const r = rng(13), m = fbm(semilla(r), 4, 3), mota = ruidoSuave(semilla(r), 64);
   const cuanto = (x, y) => suave((m(x, y) + y / T * 0.7 - 0.78) * 5);
@@ -279,7 +289,7 @@ registrar('derrumbe', b => {
     } });
 });
 registrar('arenisca', b => dibujaArenisca(b, rng(21)));
-registrar('arenisca_grieta', b => dibujaArenisca(b, rng(21), null, grietas(rng(7), [[33, 4, 30], [12, 30, 24]])));
+registrar('arenisca_grieta', b => dibujaArenisca(b, rng(21), null, grietasHondas(rng(7), [[33, 4, 30], [12, 30, 24]])));
 
 // Llama dibujada con capas de color y bordes en trama (sin sombra: se pinta encima tal cual).
 function llama(x, y, cx, arriba, abajo, ancho) {
@@ -435,7 +445,7 @@ function dibujaHielo(b, r, capa, marcas) {
   });
 }
 registrar('hielo', b => dibujaHielo(b, rng(101)));
-registrar('hielo_grieta', b => dibujaHielo(b, rng(101), null, grietas(rng(9), [[28, 3, 30], [40, 30, 24]])));
+registrar('hielo_grieta', b => dibujaHielo(b, rng(101), null, grietasHondas(rng(9), [[28, 3, 30], [40, 30, 24]])));
 registrar('nieve', b => {
   const r = rng(103), duna = fbm(r, 2, 4), chispa = ruidoSuave(semilla(r), 64), pisada = fbm(semilla(r), 4, 2);
   superficie(b, (x, y) => 0.55 + duna(x, y) * 0.45 - suave((pisada(x, y) - 0.72) * 6) * 0.12,
@@ -479,7 +489,7 @@ function dibujaMadera(b, r, capa) {
   });
 }
 registrar('roca', b => dibujaRoca(b, rng(111)));
-registrar('roca_grieta', b => dibujaRoca(b, rng(111), null, grietas(rng(13), [[30, 2, 40], [31, 2, 40]])));
+registrar('roca_grieta', b => dibujaRoca(b, rng(111), null, grietasHondas(rng(13), [[30, 2, 40], [31, 2, 40]])));
 registrar('madera', b => dibujaMadera(b, rng(121)));
 registrar('cubierta', b => {
   const r = rng(123), veta = fbm(semilla(r), 4, 3), gasto = fbm(semilla(r), 2, 2);
@@ -543,7 +553,7 @@ function dibujaSelva(b, r, capa, marcas) {
   });
 }
 registrar('selva', b => dibujaSelva(b, rng(131)));
-registrar('selva_grieta', b => dibujaSelva(b, rng(131), null, grietas(rng(17), [[26, 18, 40], [38, 6, 30]])));
+registrar('selva_grieta', b => dibujaSelva(b, rng(131), null, grietasHondas(rng(17), [[26, 18, 40], [38, 6, 30]])));
 registrar('losa_selva', b => {
   const r = rng(133), hierba = ruidoSuave(semilla(r), 64);
   muro(b, r, [98, 102, 84], { adoquines: 3, junta: 1.4, bisel: 3, mella: 1.5, mortero: [40, 60, 30], variacion: 0.2,
@@ -620,7 +630,7 @@ function dibujaVolcanica(b, r, capa, marcas) {
   });
 }
 registrar('volcanica', b => dibujaVolcanica(b, rng(141)));
-registrar('volcanica_grieta', b => dibujaVolcanica(b, rng(141), null, grietas(rng(19), [[31, 2, 40], [20, 30, 26]])));
+registrar('volcanica_grieta', b => dibujaVolcanica(b, rng(141), null, grietasHondas(rng(19), [[31, 2, 40], [20, 30, 26]])));
 registrar('tablilla_volcanica', b => dibujaVolcanica(b, rng(141), capaTablilla([150, 112, 84])));
 registrar('losa_roja', b => {
   const r = rng(143), hollin = fbm(semilla(r), 4, 3);
@@ -682,7 +692,7 @@ function dibujaCatacumba(b, r, capa, marcas) {
   muro(b, r, [140, 128, 108], { mortero: [70, 62, 52], variacion: 0.2, marcas, capa: componer(capaNicho, capa) });
 }
 registrar('catacumba', b => dibujaCatacumba(b, rng(151)));
-registrar('catacumba_grieta', b => dibujaCatacumba(b, rng(151), null, grietas(rng(23), [[6, 2, 18], [56, 44, 18]])));
+registrar('catacumba_grieta', b => dibujaCatacumba(b, rng(151), null, grietasHondas(rng(23), [[6, 2, 18], [56, 44, 18]])));
 registrar('tablilla_catacumba', b => dibujaCatacumba(b, rng(151), capaTablilla([176, 164, 136])));
 
 

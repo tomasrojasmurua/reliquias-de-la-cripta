@@ -29,6 +29,14 @@ const ENEMIGOS = {
   // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
+// Encuentros más duros: más vida y golpes un poco más fuertes y seguidos (los guardianes ya eran duros).
+const ESCALA_VIDA = 1.5, ESCALA_DAÑO = 1.15, ESCALA_ESPERA = 0.9;
+for (const e of Object.values(ENEMIGOS)) {
+  e.vida = Math.round(e.vida * ESCALA_VIDA);
+  e.daño = e.daño.map(n => Math.round(n * ESCALA_DAÑO));
+  if (e.fuego) e.fuego = e.fuego.map(n => Math.round(n * ESCALA_DAÑO));
+  e.espera = +(e.espera * ESCALA_ESPERA).toFixed(2);
+}
 // Los escondidos salen cuando te acercas a esta distancia; tardan SURGE segundos en salir.
 const ACECHO = 3.6, SURGE = 0.8;
 
@@ -221,6 +229,27 @@ export class Juego {
     this.brasas = this.brasas.filter(b => b.vida > 0);
   }
 
+  // Pistas justas de los pasadizos secretos: a pocos pasos de uno (y mirando hacia él) sale una corriente de
+  // aire que mueve el polvo y avisa una vez; desde entonces el botón «Usar» se ilumina frente a esa pared.
+  sentirCorrientes(dt) {
+    const j = this.j, m = this.mapa;
+    this.secretosCerca ??= m.celdas.map((c, i) => c.tipo === 'secreto' ? { i, x: i % m.ancho, z: Math.floor(i / m.ancho) } : null).filter(Boolean);
+    this.corriente = Math.max(0, (this.corriente || 0) - dt);
+    for (const s of this.secretosCerca) {
+      const c = m.celdas[s.i];
+      if (c.abriendo) continue;
+      const dx = s.x + 0.5 - j.x, dz = s.z + 0.5 - j.z, d = Math.hypot(dx, dz);
+      if (d > 3.2 || d < 0.3) continue;
+      // el polvo se arremolina junto a la grieta
+      if (Math.random() < dt * 6) this.motas.push({ x: s.x + 0.5 - dx / d * 0.7 + (Math.random() - 0.5) * 0.6, z: s.z + 0.5 - dz / d * 0.7 + (Math.random() - 0.5) * 0.6, y: j.y + 0.3 + Math.random() * 0.9, fase: Math.random() * 6 });
+      if (!c.notado && d < 2.4 && (dx * Math.cos(j.yaw) + dz * Math.sin(j.yaw)) / d > 0.4 && this.seVe(j, { x: s.x + 0.5, z: s.z + 0.5 })) {
+        c.notado = true; this.corriente = 1.2;
+        sonar('corriente');
+        this.ev.mensaje('Una corriente de aire frío sale de una grieta del muro…', 4);
+      }
+    }
+  }
+
   // ---------- Física de rejilla ----------
 
   // ¿Choca un cuerpo de radio r con los pies a la altura y? Los escalones altos también frenan.
@@ -340,6 +369,7 @@ export class Juego {
     this.actualizarProyectiles(dt);
     this.actualizarParticulas(dt);
     this.actualizarAmbiente(dt);
+    this.sentirCorrientes(dt);
   }
 
   // ---------- Partículas y proyectiles ----------
@@ -553,7 +583,7 @@ export class Juego {
     const h = this.rayo(j.x, j.z, Math.cos(j.yaw), Math.sin(j.yaw), 1.4);
     if (h.dist >= 1.4) return false;
     const c = this.mapa.celda(h.cx, h.cz);
-    return !!c && (['tablilla', 'aviso', 'salida', 'sello'].includes(c.tipo) || (c.tipo === 'puerta' && !c.abriendo));
+    return !!c && (['tablilla', 'aviso', 'salida', 'sello'].includes(c.tipo) || (c.tipo === 'puerta' && !c.abriendo) || (c.tipo === 'secreto' && c.notado && !c.abriendo));
   }
 
   herir(e, daño) {
@@ -575,7 +605,10 @@ export class Juego {
       const tercio = Math.floor((1 - e.vida / e.vidaMax) * 3);
       if (tercio > e.invocaciones) { e.invocaciones = tercio; this.invocar(e); }
     } else {
-      e.estado = 'dolor'; e.t = 0.25; this.voz(e, 'dolor');
+      // no todos los golpes los frenan: así no se les gana solo a latigazos seguidos
+      if (Math.random() < 0.6 || e.estado === 'dormido' || e.estado === 'oculto') { e.estado = 'dolor'; e.t = 0.25; }
+      else if (e.estado !== 'caza' && e.estado !== 'dolor') e.estado = 'caza';
+      this.voz(e, 'dolor');
     }
   }
 

@@ -22,9 +22,11 @@ const error = (donde, texto) => errores.push(`${donde}: ${texto}`);
 
 // Casillas a las que se llega a pie desde el inicio. Las puertas, pasadizos y sellos cuentan como
 // abiertos (se abren al jugar); el abismo, las estatuas y los escalones altos de subida, no.
-function alcanzables(m) {
+// `abiertos`: si se da, los sellos solo cuentan como abiertos si su acertijo está ahí.
+function alcanzables(m, abiertos = null) {
   const pisable = (x, y) => {
     const c = m.celda(x, y);
+    if (c && c.tipo === 'sello' && abiertos && !abiertos.has(c.acertijo)) return false;
     return c && !SOLIDOS.has(c.tipo) && !c.estatua && c.peligro !== 'abismo';
   };
   const visto = new Uint8Array(m.ancho * m.alto);
@@ -78,6 +80,24 @@ function revisarMapa(def, m, donde, juego) {
   }
   // sellos sin acertijo que los abra
   for (const id of Object.keys(sellos)) if (!m.acertijos[id]) error(donde, `hay sellos del acertijo «${id}», que no existe`);
+
+  // jugando de verdad: cada tablilla se descifra desde donde se llega con los sellos que ya abriste,
+  // así que ninguna puerta puede quedar esperando a una tablilla que está detrás de ella
+  const abiertos = new Set();
+  for (let cambio = true; cambio;) {
+    cambio = false;
+    const llegaAhora = alcanzables(m, abiertos);
+    for (const [id, pos] of Object.entries(tablillas)) {
+      if (!abiertos.has(id) && pos.some(([x, y]) => junto(llegaAhora, x, y))) { abiertos.add(id); cambio = true; }
+    }
+  }
+  for (const id of Object.keys(tablillas)) if (!abiertos.has(id)) error(donde, `la tablilla «${id}» solo se alcanza tras abrir su propia puerta (o una que depende de ella)`);
+
+  // el revólver: uno solo, y se llega a él desde el inicio
+  const revolveres = m.objetos.filter(o => o.tipo === 'revolver');
+  if (revolveres.length !== 1) error(donde, `hay ${revolveres.length} revólveres (debe haber uno)`);
+  else if (!llega(Math.floor(revolveres[0].x), Math.floor(revolveres[0].z))) error(donde, 'no se puede llegar al revólver');
+  if (m.totalSecretos < 1) error(donde, 'no tiene ningún pasadizo secreto');
 
   // el guardián está en su puesto y se llega a él
   if (def.guardian) {

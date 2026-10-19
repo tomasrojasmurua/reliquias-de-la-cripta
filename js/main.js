@@ -1,5 +1,6 @@
 import { crearAtlas, registrarTesoros, miniatura } from './texturas.js';
 import { Render } from './render.js';
+import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
 import { Juego } from './juego.js';
 import { dibujarArma } from './arma.js';
@@ -51,6 +52,7 @@ registrarTesoros(TESOROS);
 const atlas = crearAtlas();
 const vista = $('#vista');
 let render;
+const etiquetas = new Etiquetas($('#etiquetas'), vista);
 try {
   render = new Render(vista);
   render.ponerAtlas(atlas);
@@ -447,6 +449,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null) {
   $('#caja-puntos').hidden = !limite;
   document.body.classList.toggle('contrarreloj', !!limite);
   render.construir(juego.mapa);
+  etiquetas.construir(juego.mapa);
   capaMapa.hidden = true;
   iniciarAmbiente(def.ambiente);
   sonar('entrada');
@@ -643,7 +646,9 @@ function cuadro(t) {
   // la antorcha titila
   const linterna = (juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025)
     * (juego.mods.has('oscuridad') ? 0.5 : 1);
-  render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra() });
+  const cam = juego.camara();
+  render.dibujar(cam, juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra() });
+  etiquetas.actualizar(juego, cam);
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);
