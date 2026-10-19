@@ -43,19 +43,23 @@ const VEL_FUEGO = 5.5;
 
 export class Juego {
   // `opciones.limite`: segundos del contrarreloj (0 = exploración libre, sin reloj).
+  // `opciones.modificadores`: los de la expedición del día (js/diaria.js).
   constructor(def, eventos, semilla, opciones = {}) {
     this.def = def;
     this.limite = opciones.limite || 0;
+    this.mods = new Set(opciones.modificadores || []);
+    this.vidaInicial = this.mods.has('herido') ? 60 : 100;
     this.reloj = 0;
     this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
     const m = this.mapa;
     this.j = {
       x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
-      vida: 100, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
+      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
+    if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
     this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
     this.tesoros = [];
     this.secretos = 0;
@@ -561,7 +565,7 @@ export class Juego {
 
   revivir() {
     const j = this.j, m = this.mapa;
-    Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: 100, muerto: false, quemadura: 0 });
+    Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: this.vidaInicial, muerto: false, quemadura: 0 });
     delete j.cayendo;
   }
 
@@ -587,12 +591,14 @@ export class Juego {
     for (const o of this.objetos) {
       if (o.cogido || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
       if (o.tipo === 'revolver') {
-        o.cogido = true; j.tieneRevolver = true; j.tambor = 6; j.arma = 'revolver'; j.espera = 0.4;
-        sonar('recoger'); this.ev.mensaje('¡Encontraste tu revólver! Cargado con 6 balas.');
+        const n = this.mods.has('escasez') ? 3 : 6;
+        o.cogido = true; j.tieneRevolver = true; j.tambor = n; j.arma = 'revolver'; j.espera = 0.4;
+        sonar('recoger'); this.ev.mensaje(`¡Encontraste tu revólver! Cargado con ${n} balas.`);
       } else if (o.tipo === 'balas') {
         if (j.reserva >= 60) continue;
-        o.cogido = true; j.reserva = Math.min(60, j.reserva + 12);
-        sonar('recoger'); this.ev.mensaje('Una caja de balas (+12).');
+        const n = this.mods.has('escasez') ? 6 : 12;
+        o.cogido = true; j.reserva = Math.min(60, j.reserva + n);
+        sonar('recoger'); this.ev.mensaje(`Una caja de balas (+${n}).`);
       } else if (o.tipo === 'vendas') {
         if (j.vida >= 100) continue;
         o.cogido = true; j.vida = Math.min(100, j.vida + 25);

@@ -134,7 +134,7 @@ body.jugando #escena { display: none; }
   .lema { display: none; }
   .losas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(520px, 92vw); margin-bottom: 1vh; }
   .losas button { font-size: 12px; padding: 9px 8px; letter-spacing: .08em; }
-  .losas button.principal { grid-column: 1 / -1; font-size: 16px; padding: 11px 22px; }
+  .losas button.principal { grid-column: span 2; font-size: 16px; padding: 11px 22px; }
 }
 
 .error { color: #ff8a7a; text-align: center; max-width: 480px; }
@@ -247,6 +247,14 @@ body.jugando #escena { display: none; }
 
 #resumen .datos { list-style: none; margin: 0; width: min(420px, 100%); font-size: 19px; line-height: 1.7; text-align: center; background: rgba(14, 10, 6, .7); border: 1px solid #4a3a26; border-radius: 4px; padding: 10px 28px; }
 #resumen .tesoros { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
+
+/* Expedición del día */
+.losas button.diaria { border-color: #a8761f; color: var(--oro); }
+#diaria .titulo-mazmorra { justify-content: center; padding-right: 0; }
+#diaria-nombre { font-family: Cinzel, Georgia, serif; font-weight: 800; color: var(--oro); font-size: 18px; letter-spacing: .04em; }
+#diaria-mods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+#diaria-mods li { text-align: center; color: #e6d6b4; font-style: italic; font-size: 14px; }
+#diaria-mods b { display: block; font: 700 14px Cinzel, Georgia, serif; font-style: normal; letter-spacing: .08em; color: #ff9a6a; }
 
 /* ---------- Juego ---------- */
 

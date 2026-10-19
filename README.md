@@ -31,6 +31,9 @@ En las últimas mazmorras, cada tablilla abre la cámara donde está la siguient
 ## Contrarreloj
 Al elegir una mazmorra se prepara la expedición: el modo, **Explorar** (sin reloj) o **Contrarreloj**; el tamaño, **Pequeña** (solo la primera zona), **Mediana** (las dos primeras) o **Grande** (todas, con la cámara secreta); y en el contrarreloj el tiempo, que depende del tamaño (pequeña 3, 4 o 6 minutos; mediana 5, 8 u 11; grande 8, 12 o 16). La mazmorra se recorta con `recortarZonas` en `js/laberinto.js`; solo escapar de la grande la marca como completada. Cada tesoro da puntos según su rareza (común 1, raro 3, épico 8, legendario 20). Si escapas antes de que se acabe el tiempo te llevas todos los puntos y los tesoros pasan a tu colección; si se apaga la última antorcha estando adentro, pierdes la mitad de los puntos y ningún tesoro va a la colección. En el último minuto las antorchas de los muros se van apagando. Morir no termina la partida: sueltas tu último tesoro donde caíste y reapareces en el inicio. El reloj sigue corriendo mientras lees una tablilla. Se guarda el récord de cada mazmorra, tamaño y duración, y «Revancha» genera un laberinto nuevo. Es la base del futuro modo multijugador.
 
+## Expedición del día
+Desde la portada, **Expedición del día** lleva a una cripta que es la misma para todos ese día: la mazmorra, los túneles, la salida y las pistas de las tablillas salen de la fecha (`js/diaria.js`), así que no hace falta servidor. Es un contrarreloj de 8 minutos en tamaño mediano, con dos modificadores del día: **Antorcha mojada** (la antorcha alumbra la mitad), **Munición escasa** (3 balas en el revólver y cajas de 6), **La cripta despierta** (los enemigos ven más lejos y corren más), **Herido** (60 de vida) o **Escritura antigua** (pistas un punto más difíciles). Las mazmorras se turnan sin repetirse dos días seguidos. Solo cuenta el primer intento de cada día: queda guardado, suma a la racha de días seguidos y se puede **compartir** como texto (puntos, tiempo y un cuadrito por tesoro según su rareza, sin nombres para no dar pistas). Los intentos siguientes son práctica y no cuentan para los récords del contrarreloj.
+
 ## Controles
 - **Computador:** WASD o flechas para moverte, ratón para mirar (clic para capturarlo), clic para atacar, E o Espacio para usar, R para recargar, 1/2 o Q para cambiar de arma, Tab o M para el mapa, Esc para pausar.
 - **Celular:** joystick en la mitad izquierda para moverse; arrastrar en la derecha para mirar, tocar para disparar y tocar dos veces y mantener para ráfaga. Puntería asistida, la vista vuelve sola al horizonte, el botón de la mano se ilumina cuando hay algo que usar enfrente, vibración al disparar y al recibir daño (Android). En Opciones: sensibilidad, modo zurdo y vibración.
@@ -60,6 +63,7 @@ La **colección** muestra los tesoros en vitrinas, una por rareza: estanterías 
 - `js/automapa.js`: mapa de lo explorado.
 - `js/laberinto.js`: genera los túneles de cada partida.
 - `js/hitos.js`: murales y estatuas que hacen reconocible cada sala.
+- `js/diaria.js`: la expedición del día (mazmorra, semilla y modificadores según la fecha) y el texto para compartir.
 - `datos/mazmorras.js`: las mazmorras (planos de texto, ver abajo).
 - `datos/tesoros.js`: catálogo de tesoros y rarezas.
 - `datos/emblemas.js`: el emblema en pixel art de cada mazmorra (16 × 16, una letra por píxel) que se ve al lado de su nombre al elegirla. Una mazmorra nueva necesita el suyo con la misma `id`.
