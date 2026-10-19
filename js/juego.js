@@ -641,6 +641,9 @@ export class Juego {
   resolverAcertijo(a) {
     a.resuelto = true;
     for (const c of this.mapa.celdas) if (c.tipo === 'sello' && c.acertijo === a.id) c.abriendo = true;
+    // la tablilla se agrieta: el hechizo que mantenía cerrada la puerta se disipa
+    for (const c of this.mapa.celdas) if (c.tipo === 'tablilla' && c.acertijo === a.id && !c.tex.endsWith('_rota')) c.tex += '_rota';
+    this.ev.reconstruir?.();
     sonar('puerta');
     this.ev.mensaje('Se oye un mecanismo antiguo. El sello se abre.');
   }

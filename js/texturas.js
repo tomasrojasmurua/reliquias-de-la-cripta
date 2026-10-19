@@ -395,7 +395,8 @@ registrar('sello_ancla', b => dibujaSello(b, [90, 64, 40], [190, 160, 90], 'ancl
 registrar('sello_sol', b => dibujaSello(b, [80, 96, 70], [230, 180, 50], 'sol'));
 
 // Tablilla: placa en relieve con renglones grabados, encima del muro de cada mazmorra, y su sombra.
-function capaTablilla(placa) {
+// `rota`: la tablilla ya descifrada, agrietada de lado a lado como si el hechizo que cerraba la puerta se hubiera roto.
+function capaTablilla(placa, rota = false) {
   const r = rng(43), m = fbm(r, 4, 3);
   const surco = new Uint8Array(T * T);
   for (let fila = 0; fila < 6; fila++) {
@@ -408,14 +409,15 @@ function capaTablilla(placa) {
     }
   }
   const dentro = (x, y) => x >= 10 && x < 54 && y >= 8 && y < 56;
+  const grietas = rota ? grietasHondas(rng(77), [[22, 8, 48], [40, 8, 48], [12, 30, 40], [30, 24, 30]]) : null;
   return {
     alto: (x, y, v, i) => {
       if (!dentro(x, y)) return v;
       const e = Math.min(x - 10, 53 - x, y - 8, 55 - y);
-      return 1.08 + suave(e / 2.5) * 0.22 - (surco[i] ? 0.26 : 0);
+      return 1.08 + suave(e / 2.5) * 0.22 - (surco[i] ? 0.26 : 0) - (grietas ? grietas[i] * 0.5 : 0);
     },
     color: (x, y, v, c, i) => {
-      if (dentro(x, y)) return escalar(placa, 0.84 + m(x, y) * 0.28);
+      if (dentro(x, y)) return escalar(placa, (0.84 + m(x, y) * 0.28) * (grietas ? 0.75 - grietas[i] * 0.55 : 1));
       if ((x >= 54 && x < 57 && y >= 10 && y < 58) || (y >= 56 && y < 59 && x >= 12 && x < 57)) return escalar(c, 0.6);
       return c;
     },
@@ -423,11 +425,17 @@ function capaTablilla(placa) {
 }
 
 registrar('tablilla', b => dibujaPiedra(b, rng(11), capaTablilla([150, 138, 112])));
+registrar('tablilla_rota', b => dibujaPiedra(b, rng(11), capaTablilla([150, 138, 112], true)));
 registrar('tablilla_arenisca', b => dibujaArenisca(b, rng(21), capaTablilla([196, 170, 120])));
+registrar('tablilla_arenisca_rota', b => dibujaArenisca(b, rng(21), capaTablilla([196, 170, 120], true)));
 registrar('tablilla_hielo', b => dibujaHielo(b, rng(101), capaTablilla([150, 170, 184])));
+registrar('tablilla_hielo_rota', b => dibujaHielo(b, rng(101), capaTablilla([150, 170, 184], true)));
 registrar('tablilla_roca', b => dibujaRoca(b, rng(111), capaTablilla([140, 120, 96])));
+registrar('tablilla_roca_rota', b => dibujaRoca(b, rng(111), capaTablilla([140, 120, 96], true)));
 registrar('tablilla_madera', b => dibujaMadera(b, rng(121), capaTablilla([178, 150, 104])));
+registrar('tablilla_madera_rota', b => dibujaMadera(b, rng(121), capaTablilla([178, 150, 104], true)));
 registrar('tablilla_selva', b => dibujaSelva(b, rng(131), capaTablilla([130, 140, 112])));
+registrar('tablilla_selva_rota', b => dibujaSelva(b, rng(131), capaTablilla([130, 140, 112], true)));
 
 // ---------- Glaciar ----------
 
@@ -632,6 +640,7 @@ function dibujaVolcanica(b, r, capa, marcas) {
 registrar('volcanica', b => dibujaVolcanica(b, rng(141)));
 registrar('volcanica_grieta', b => dibujaVolcanica(b, rng(141), null, grietasHondas(rng(19), [[31, 2, 40], [20, 30, 26]])));
 registrar('tablilla_volcanica', b => dibujaVolcanica(b, rng(141), capaTablilla([150, 112, 84])));
+registrar('tablilla_volcanica_rota', b => dibujaVolcanica(b, rng(141), capaTablilla([150, 112, 84], true)));
 registrar('losa_roja', b => {
   const r = rng(143), hollin = fbm(semilla(r), 4, 3);
   muro(b, r, [112, 70, 56], { alto: 32, ancho: 32, junta: 1, bisel: 3, mella: 0.8, mortero: [36, 20, 16], variacion: 0.18,
@@ -694,6 +703,7 @@ function dibujaCatacumba(b, r, capa, marcas) {
 registrar('catacumba', b => dibujaCatacumba(b, rng(151)));
 registrar('catacumba_grieta', b => dibujaCatacumba(b, rng(151), null, grietasHondas(rng(23), [[6, 2, 18], [56, 44, 18]])));
 registrar('tablilla_catacumba', b => dibujaCatacumba(b, rng(151), capaTablilla([176, 164, 136])));
+registrar('tablilla_catacumba_rota', b => dibujaCatacumba(b, rng(151), capaTablilla([176, 164, 136], true)));
 
 
 // ---------- Sprites (fondo transparente) ----------

@@ -441,6 +441,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null) {
     daño() { destello('rojo'); },
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
+    reconstruir: () => render.construir(juego.mapa),
     salida: r => terminar(r, true),
     muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
     tiempoAgotado: r => terminar(r, false),

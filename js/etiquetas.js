@@ -1,6 +1,6 @@
 // Rótulos flotantes sobre las tablillas y los sellos: se lee el nombre sin tener que apretar «Usar».
 // La tablilla dice cómo se llama su acertijo y la puerta, qué tablilla la abre; las ya resueltas y las
-// puertas ya abiertas quedan marcadas con ✓ y atenuadas, para saber qué abriste antes.
+// puertas ya abiertas quedan atenuadas (y la tablilla resuelta, agrietada), para saber qué abriste antes.
 // Es una capa de HTML sobre el lienzo: proyecta cada casilla con la misma cámara que render.js.
 
 import { ALTO_MURO } from './render.js';
@@ -69,8 +69,8 @@ export class Etiquetas {
       }
       if (!visible) { if (!el.hidden) el.hidden = true; continue; }
       const texto = c.tipo === 'sello'
-        ? `${abierta ? '✓ Abierto' : 'Sello'} · ${a.titulo}`
-        : `${abierta ? '✓ ' : ''}${a.titulo}`;
+        ? `${abierta ? 'Abierto' : 'Sello'} · ${a.titulo}`
+        : a.titulo;
       if (texto !== it.texto) {
         el.textContent = texto; it.texto = texto;
         el.classList.toggle('hecha', abierta);
