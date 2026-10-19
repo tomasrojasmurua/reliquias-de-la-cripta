@@ -5,7 +5,7 @@ import { Juego } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
-import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
+import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { abrirPalancas, crearPalancas } from './palancas.js';
 import { recortarZonas } from './laberinto.js';
@@ -80,6 +80,9 @@ function mostrar(id) {
   animarEscena(id !== 'juego');
   document.body.classList.toggle('adentro', id !== 'portada');
   if (id === 'portada') pintarPortada();
+  // la música: el tema de la aventura en los menús; al preparar una expedición, el de esa mazmorra
+  if (id === 'preparar') tocarMusica(elegida.ambiente);
+  else if (id !== 'juego') tocarMusica('portada');
   // deja una entrada en el historial para que el botón atrás del celular vuelva al menú en vez de cerrar el juego
   if (id !== 'portada' && !history.state?.reliquias) history.pushState({ reliquias: 1 }, '');
 }
@@ -122,6 +125,26 @@ function destello(clase) {
 }
 
 // ---------- Menús ----------
+
+// El navegador deja sonar el audio recién cuando el jugador toca algo.
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventListener(ev, activarAudio, { passive: true });
+
+// Sonidos de los menús: al pasar el ratón y al elegir.
+const enMenu = b => b?.closest('.menu, #pausa');
+const ALTERNAR = '[data-sens], [data-calidad], [data-modo], [data-tamano], [data-ritmo], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
+document.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!enMenu(b)) return;
+  activarAudio();
+  sonar(b.id === 'btn-entrar' ? 'menu_entrar' : b.matches('.atras, .atras-texto, .cerrar') ? 'menu_atras' : b.matches(ALTERNAR) ? 'menu_alternar' : 'menu_elegir');
+}, true);
+let bajoRaton = null;
+document.addEventListener('pointerover', e => {
+  const b = e.target.closest('button');
+  if (e.pointerType !== 'mouse' || b === bajoRaton) return;
+  bajoRaton = b;
+  if (enMenu(b) && !b.disabled) sonar('menu_pasar');
+});
 
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
@@ -426,6 +449,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null) {
   render.construir(juego.mapa);
   capaMapa.hidden = true;
   iniciarAmbiente(def.ambiente);
+  sonar('entrada');
   document.body.classList.add('jugando');
   mostrar('juego');
   reanudar();
@@ -487,6 +511,7 @@ function abrirPanelTablilla(a) {
 
 function terminar(r, exito) {
   pausar();
+  sonar(exito ? 'victoria' : 'derrota');
   $('#panel').hidden = true;
   $('#btn-compartir').hidden = true;
   if (r.limite) return terminarContrarreloj(r, exito);
