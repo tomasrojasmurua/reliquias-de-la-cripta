@@ -1,13 +1,13 @@
 // Guarda los archivos del juego para jugar sin conexión.
 // Pide primero la versión nueva a la red y, si no hay conexión, usa la copia guardada.
 // ARCHIVOS y CACHE los escribe herramientas/cache.js: córrelo después de cambiar cualquier archivo del juego.
-const CACHE = 'reliquias-3417fa1489';
+const CACHE = 'reliquias-a8f85fa681';
 const ARCHIVOS = [
   './', 'index.html', 'css/estilo.css', 'manifest.webmanifest', 'js/acertijos.js', 'js/arma.js',
   'js/audio.js', 'js/automapa.js', 'js/entrada.js', 'js/escena.js', 'js/hitos.js', 'js/juego.js',
-  'js/laberinto.js', 'js/main.js', 'js/mapa.js', 'js/render.js', 'js/texturas.js', 'datos/emblemas.js',
-  'datos/mazmorras.js', 'datos/pistas.js', 'datos/tesoros.js', 'iconos/icono-192.png', 'iconos/icono-512.png',
-  'iconos/idolo.svg',
+  'js/laberinto.js', 'js/main.js', 'js/mapa.js', 'js/musica.js', 'js/render.js', 'js/texturas.js',
+  'datos/emblemas.js', 'datos/mazmorras.js', 'datos/pistas.js', 'datos/tesoros.js', 'iconos/icono-192.png',
+  'iconos/icono-512.png', 'iconos/idolo.svg',
 ];
 
 self.addEventListener('install', e => {
