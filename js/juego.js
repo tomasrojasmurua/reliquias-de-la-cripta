@@ -42,9 +42,9 @@ const SALPICA = { momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: '
 const VEL_FUEGO = 5.5;
 
 export class Juego {
-  constructor(def, eventos) {
+  constructor(def, eventos, semilla) {
     this.def = def;
-    this.mapa = cargarMazmorra(def);
+    this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte}
     const m = this.mapa;
     this.j = {
@@ -64,6 +64,11 @@ export class Juego {
     this.proyectiles = [];
     this.terminado = false;
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
+    // zonas: cuántas reliquias tiene cada una (para el HUD y el automapa)
+    this.zonas = (m.regiones || []).map((r, i) => ({ nombre: r.nombre, total: this.objetos.filter(o => o.tipo === 'tesoro' && o.zona === i).length, halladas: 0 }));
+    this.derrumbe = def.derrumbe ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
+    this.temblor = 0;
+    this.salidaVista = false;
     this.prepararAmbiente();
   }
 
@@ -242,7 +247,9 @@ export class Juego {
     if (ent.disparar) this.atacar();
 
     this.explorado = (this.explorado || 0) - dt;
-    if (this.explorado <= 0) { explorar(this); this.explorado = 0.15; }
+    if (this.explorado <= 0) { explorar(this); this.explorado = 0.15; this.buscarSalida(); }
+    if (this.derrumbe > 0 && (this.derrumbe -= dt) <= 0) this.derrumbar();
+    this.temblor = Math.max(0, this.temblor - dt);
     this.recoger();
     this.peligros(dt);
     this.actualizarEnemigos(dt);
@@ -252,6 +259,42 @@ export class Juego {
   }
 
   // ---------- Partículas y proyectiles ----------
+
+  // La entrada se derrumba a espaldas del jugador: polvo, piedras, temblor y ya no hay vuelta atrás.
+  derrumbar() {
+    const [x, z] = this.def.derrumbe;
+    const j = this.j, cx = x + 0.5, cz = z + 0.5;
+    const dx = j.x - cx, dz = j.z - cz, d = Math.hypot(dx, dz) || 1;
+    const px = cx + dx / d * 0.6, pz = cz + dz / d * 0.6;
+    for (let k = 0; k < 4; k++) setTimeout(() => this.salpicar(px, 0.4 + k * 0.25, pz, 'polvo', 10, 2.2), k * 120);
+    sonar('caida'); setTimeout(() => sonar('golpe'), 180); setTimeout(() => sonar('caida'), 420);
+    this.temblor = 1.2;
+    this.ev.vibrar?.(220);
+    this.ev.mensaje('¡La entrada se derrumba a tus espaldas! Tendrás que encontrar otra salida.', 5);
+  }
+
+  // La salida no tiene antorcha: hay que toparse con ella. Al verla queda marcada en el automapa.
+  buscarSalida() {
+    if (this.salidaVista || !this.def.derrumbe) return;
+    const m = this.mapa;
+    for (let i = 0; i < m.celdas.length; i++) {
+      if (m.celdas[i].tipo !== 'salida' || !this.vistas[i]) continue;
+      const x = i % m.ancho, z = Math.floor(i / m.ancho);
+      if (Math.hypot(x + 0.5 - this.j.x, z + 0.5 - this.j.z) > 4.5) continue;
+      this.salidaVista = true;
+      sonar('acierto');
+      this.ev.mensaje('Encontraste la salida. Ya sabes por dónde salir: puedes seguir buscando reliquias.', 5);
+      return;
+    }
+  }
+
+  // Zona en la que está el jugador, con sus reliquias halladas (null si la mazmorra no tiene zonas).
+  zonaActual() {
+    if (!this.zonas.length) return null;
+    const c = this.mapa.celda(Math.floor(this.j.x), Math.floor(this.j.z));
+    const i = c ? c.zona : 0;
+    return { numero: i + 1, ...this.zonas[i] };
+  }
 
   salpicar(x, y, z, tex, n = 6, fuerza = 1.6) {
     for (let i = 0; i < n; i++) {
@@ -520,6 +563,8 @@ export class Juego {
         this.tesoros.push(t.id);
         sonar('tesoro');
         this.ev.tesoro(t, RAREZAS[t.rareza]);
+        const z = this.zonas[o.zona];
+        if (z && ++z.halladas === z.total) setTimeout(() => this.ev.mensaje(`${z.nombre}: reuniste todas sus reliquias.`, 4), 2200);
       }
     }
   }
@@ -594,7 +639,11 @@ export class Juego {
     const j = this.j;
     const bob = Math.sin(j.paso) * 0.025;
     const caida = j.cayendo !== undefined ? -j.cayendo * j.cayendo * 6 : 0;
-    return { x: j.x, y: j.y + (j.muerto && caida === 0 ? 0.2 : OJO) + bob + caida, z: j.z, yaw: j.yaw, pitch: j.cayendo !== undefined ? 0.5 : j.cabeceo };
+    const tiembla = this.temblor > 0 ? this.temblor * 0.03 : 0;
+    return {
+      x: j.x, y: j.y + (j.muerto && caida === 0 ? 0.2 : OJO) + bob + caida + Math.sin(this.tiempo * 61) * tiembla, z: j.z,
+      yaw: j.yaw + Math.sin(this.tiempo * 47) * tiembla * 0.5, pitch: j.cayendo !== undefined ? 0.5 : j.cabeceo,
+    };
   }
 
   sprites() {

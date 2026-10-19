@@ -7,7 +7,7 @@ import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
-import { MAZMORRAS } from '../datos/mazmorras.js';
+import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 
 const $ = s => document.querySelector(s);
@@ -89,7 +89,7 @@ function pintarMazmorras() {
   const lista = $('#lista-mazmorras');
   lista.innerHTML = '';
   for (const m of MAZMORRAS) {
-    const ids = [...Object.values(m.tesoros), ...(m.laberinto?.tesoros || [])];
+    const ids = tesorosDe(m);
     const tengo = ids.filter(id => progreso.tesoros.includes(id)).length;
     const est = progreso.mazmorras[m.id] || {};
     const b = document.createElement('button');
@@ -110,7 +110,7 @@ const VITRINAS = [
   ['comun', 'Comunes', 'Estanterías de madera del campamento.'],
 ];
 function mazmorraDe(id) {
-  return MAZMORRAS.find(m => Object.values(m.tesoros || {}).includes(id) || m.laberinto?.tesoros?.includes(id));
+  return MAZMORRAS.find(m => tesorosDe(m).includes(id));
 }
 function pintarColeccion() {
   const cont = $('#vitrinas');
@@ -318,6 +318,19 @@ function actualizarHUD() {
   $('#hud-arma').textContent = j.arma === 'revolver' ? 'Revólver' : 'Látigo';
   $('#hud-balas').textContent = j.arma === 'revolver' ? `${j.tambor} | ${j.reserva}` : (j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : '—');
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
+  // en las mazmorras por zonas: «Zona 2 · Las galerías: 1 de 4 reliquias»
+  const z = juego.zonaActual(), hz = $('#hud-zona');
+  hz.hidden = !z;
+  if (z) {
+    const txt = `${z.halladas} de ${z.total} reliquia${z.total === 1 ? '' : 's'}`;
+    if (hz.dataset.clave !== z.numero + txt) {
+      hz.dataset.clave = z.numero + txt;
+      hz.children[0].textContent = `Zona ${z.numero}`;
+      hz.children[1].textContent = `· ${z.nombre}:`;
+      hz.children[2].textContent = txt;
+      hz.classList.toggle('completa', z.halladas === z.total);
+    }
+  }
 }
 
 // ---------- Bucle principal ----------

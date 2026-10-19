@@ -4,6 +4,7 @@ const COLOR = {
   fondo: 'rgba(10, 7, 4, 0.86)',
   muro: '#e8b83a',
   suelo: '#3a2c1c',
+  completa: '#2a3a24',  // suelo de una zona con todas sus reliquias
   alto: '#6e5636',   // el suelo más alto se pinta más claro
   lava: '#c2410c',
   abismo: '#05070a',
@@ -46,6 +47,7 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   const visto = (x, y) => x >= 0 && y >= 0 && x < m.ancho && y < m.alto && v[y * m.ancho + x];
   const abierta = (x, y) => { const c = m.celda(x, y); return c && !m.solida(x, y) || c && c.tipo === 'puerta' || c && c.tipo === 'sello'; };
 
+  const completa = i => juego.zonas?.[i] && juego.zonas[i].halladas === juego.zonas[i].total;
   // suelos (más claros cuanto más altos)
   let pmin = Infinity, pmax = -Infinity;
   for (const c of m.celdas) if (c.piso > -1) { pmin = Math.min(pmin, c.piso); pmax = Math.max(pmax, c.piso); }
@@ -57,7 +59,8 @@ export function dibujarAutomapa(ctx, w, h, juego) {
     else if (c.peligro === 'abismo') col = COLOR.abismo;
     else if (c.tipo === 'puerta') col = COLOR.puerta;
     else if (c.tipo === 'sello') col = c.abierto >= 1 ? COLOR.suelo : COLOR.sello;
-    else if (pmax > pmin) col = mezclar(COLOR.suelo, COLOR.alto, (c.piso - pmin) / (pmax - pmin));
+    else if (pmax > pmin) col = mezclar(c.zona !== undefined && completa(c.zona) ? COLOR.completa : COLOR.suelo, COLOR.alto, (c.piso - pmin) / (pmax - pmin));
+    else if (completa(c.zona)) col = COLOR.completa;
     ctx.fillStyle = col;
     ctx.fillRect(ox + x * t, oy + y * t, t, t);
   }
@@ -91,6 +94,37 @@ export function dibujarAutomapa(ctx, w, h, juego) {
     ctx.beginPath();
     ctx.moveTo(px, py - r); ctx.lineTo(px + r, py); ctx.lineTo(px, py + r); ctx.lineTo(px - r, py);
     ctx.fill();
+  }
+  // nombre de cada zona ya pisada, en el centro de lo explorado; con ✓ si está completa
+  if (juego.zonas?.length) {
+    const suma = juego.zonas.map(() => [0, 0, 0]);
+    for (let y = 0; y < m.alto; y++) for (let x = 0; x < m.ancho; x++) {
+      if (!visto(x, y) || !abierta(x, y)) continue;
+      const s = suma[m.celda(x, y).zona]; s[0] += x; s[1] += y; s[2]++;
+    }
+    ctx.font = `bold ${Math.max(Math.round(Math.min(w, h) / 32), Math.round(t * 1.3))}px Georgia, serif`;
+    ctx.textAlign = 'center';
+    juego.zonas.forEach((z, i) => {
+      const [sx, sy, n] = suma[i];
+      if (n < 12) return;
+      const txt = `Zona ${i + 1}${z.halladas === z.total ? ' ✓' : ''}`;
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10, 7, 4, .9)'; ctx.fillStyle = z.halladas === z.total ? '#7fe0a0' : 'rgba(241, 228, 200, .75)';
+      ctx.strokeText(txt, ox + (sx / n + 0.5) * t, oy + (sy / n + 0.5) * t);
+      ctx.fillText(txt, ox + (sx / n + 0.5) * t, oy + (sy / n + 0.5) * t);
+    });
+  }
+  // la salida, una vez vista, con su letrero
+  if (juego.salidaVista) {
+    for (let i = 0; i < m.celdas.length; i++) {
+      if (m.celdas[i].tipo !== 'salida' || !v[i]) continue;
+      const x = i % m.ancho, y = Math.floor(i / m.ancho);
+      ctx.fillStyle = COLOR.salida;
+      ctx.fillRect(ox + x * t, oy + y * t, t, t);
+      ctx.font = `bold ${Math.max(Math.round(Math.min(w, h) / 32), Math.round(t * 1.2))}px Georgia, serif`;
+      ctx.textAlign = 'center'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10, 7, 4, .9)';
+      ctx.strokeText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
+      ctx.fillText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
+    }
   }
   // jugador
   const px = ox + j.x * t, py = oy + j.z * t, r = Math.max(5, t * 0.55);
