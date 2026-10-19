@@ -513,7 +513,7 @@ function perderSala(motivo) {
   clearInterval(cuentaAtras);
   $('#cuenta').hidden = true;
   const donde = document.querySelector('.pantalla:not([hidden])')?.id;
-  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = true; }
+  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = true; if (juego) juego.rol = null; }   // sin anfitrión, cada enemigo lo simula uno mismo
   else if (donde === 'resumen') pintarMarcador();
   else { abrirUnirse(); $('#unirse-error').textContent = motivo; }
 }
