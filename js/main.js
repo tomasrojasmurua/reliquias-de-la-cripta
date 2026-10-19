@@ -499,6 +499,7 @@ function enlazarSala(s) {
   s.alEnemigos = snap => { if (enPartidaDeSala()) juego.recibirEnemigos(snap); };
   s.alGolpe = (i, daño) => { const e = enPartidaDeSala(true) && juego.enemigos[i]; if (e && e.estado !== 'muerto') juego.herir(e, daño); };
   s.alDano = (n, causa) => { if (enPartidaDeSala()) juego.dañarJugador(n, causa); };
+  s.alForzado = (id, a) => { if (enPartidaDeSala()) mensaje(`${sala.jugadores.find(q => q.id === id)?.nombre || 'Otro cazador'} forzó una puerta`, 3); };
   s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); };
 }
 
@@ -759,6 +760,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
     golpear: enSala ? (i, d) => sala?.golpear(i, d) : undefined,
     dañarA: enSala ? (id, n, c) => sala?.danar(id, n, c) : undefined,
     solto: enSala && enSala.tesoros !== 'compartidos' ? o => sala?.soltar(o.n, o.x, o.z) : undefined,
+    forzo: enSala ? a => sala?.forzar(a) : undefined,
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     reconstruir: () => render.construir(juego.mapa),
@@ -945,6 +947,7 @@ function actualizarHUD() {
   $('#hud-arma').textContent = j.arma === 'revolver' ? 'Revólver' : 'Látigo';
   $('#hud-balas').textContent = j.arma === 'revolver' ? `${j.tambor} | ${j.reserva}` : (j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : '—');
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
+  $('#caja-palanca').hidden = !j.barreta;
   if (juego.limite) {
     const r = Math.ceil(juego.restante()), rel = $('#hud-reloj');
     rel.textContent = `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
