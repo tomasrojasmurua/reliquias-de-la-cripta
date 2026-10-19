@@ -7,7 +7,7 @@ import { dibujarArma } from './arma.js';
 import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica } from './audio.js';
-import { abrirTablilla, elegirPista } from './acertijos.js';
+import { abrirTablilla, elegirPista, pistaPorId, pistasDisponibles, revelar, bonoAcertijo, BONO_PALANCAS, RANGOS, rangoDe } from './acertijos.js';
 import { abrirPalancas, crearPalancas } from './palancas.js';
 import { recortarZonas, azarConSemilla } from './laberinto.js';
 import { Sala, COLORES, HZ_POSICION, codigoValido, normalizarCodigo, enlaceDeSala, enlaceWhatsApp } from './red.js';
@@ -255,6 +255,48 @@ function pintarColeccion() {
   }
   $('#resumen-coleccion').textContent = `${tengo.size} de ${TESOROS.length} tesoros · valor ${valor}`;
 }
+// ---------- Cuaderno del cazador ----------
+// progreso.cuaderno[id de pista] = { n: veces descifrada, mejor: segundos, ayudas: menos ayudas usadas, u: última vez }
+function anotarEnCuaderno(p, segundos, ayudas) {
+  const c = progreso.cuaderno ||= {};
+  const e = c[p.id] ||= { n: 0, mejor: null, ayudas: null, u: 0 };
+  e.n++;
+  e.mejor = e.mejor == null ? Math.round(segundos) : Math.min(e.mejor, Math.round(segundos));
+  e.ayudas = e.ayudas == null ? ayudas : Math.min(e.ayudas, ayudas);
+  e.u = Date.now();
+  guardar();
+}
+const sinAyudas = () => Object.values(progreso.cuaderno || {}).filter(e => e.ayudas === 0).length;
+const tiempoTexto = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+function pintarCuaderno() {
+  const c = progreso.cuaderno || {};
+  const hechas = pistasDisponibles().filter(p => progreso.pistas.includes(p.id) || c[p.id]);
+  const limpias = sinAyudas(), r = rangoDe(limpias);
+  const mejores = Object.values(c).map(e => e.mejor).filter(t => t != null);
+  $('#rango-cuaderno').innerHTML = `<h3>${r.nombre}</h3><p>${r.siguiente ? `${r.faltan} sin ayudas más para ser «${r.siguiente}»` : 'Has alcanzado el rango máximo.'}</p>`
+    + `<div class="barra-rango"><i style="width:${r.siguiente ? Math.round(100 * (limpias - r.desde) / (r.meta - r.desde)) : 100}%"></i></div>`;
+  $('#resumen-cuaderno').textContent = `${hechas.length} de ${pistasDisponibles().length} inscripciones descifradas · ${limpias} sin ayudas${mejores.length ? ` · mejor tiempo ${tiempoTexto(Math.min(...mejores))}` : ''}`;
+  const lista = $('#lista-cuaderno');
+  lista.innerHTML = '';
+  if (!hechas.length) { lista.innerHTML = '<p class="vacio">Aún no descifraste ninguna inscripción. Las tablillas de las mazmorras se anotan aquí.</p>'; return; }
+  hechas.sort((a, b) => (c[b.id]?.u || 0) - (c[a.id]?.u || 0));
+  for (const p of hechas) {
+    const e = c[p.id], d = document.createElement('details');
+    d.className = 'entrada-cuaderno';
+    const marca = !e ? '' : e.ayudas === 0 ? '<span class="sin-ayuda">Sin ayudas</span>' : `<span>${e.ayudas} ayuda${e.ayudas === 1 ? '' : 's'}</span>`;
+    const tiempo = e && e.mejor != null ? `<span>${tiempoTexto(e.mejor)}</span>` : '';
+    const s = document.createElement('summary');
+    s.innerHTML = `<b>${'★'.repeat(p.dificultad)}${'☆'.repeat(5 - p.dificultad)}</b> <span class="resp"></span> ${tiempo}${marca}`;
+    s.querySelector('.resp').textContent = revelar(p._r);
+    const t = document.createElement('p');
+    t.className = 'pista-cuaderno';
+    t.textContent = `${p.pista} ${p.longitud}`;
+    const x = document.createElement('p');
+    x.textContent = revelar(p._e);
+    d.append(s, t, x);
+    lista.appendChild(d);
+  }
+}
 function abrirFicha(t, lo) {
   const f = $('#ficha'), r = RAREZAS[t.rareza], m = mazmorraDe(t.id);
   f.className = 'f-' + t.rareza;
@@ -314,6 +356,7 @@ document.addEventListener('click', e => {
   if (ir === 'mazmorras') pintarMazmorras();
   if (ir === 'diaria') pintarDiaria();
   if (ir === 'coleccion') pintarColeccion();
+  if (ir === 'cuaderno') pintarCuaderno();
   if (ir === 'opciones') pintarOpciones();
   if (ir === 'unirse') abrirUnirse();
   if (sala && (ir === 'mazmorras' || ir === 'portada')) cerrarSala();
@@ -832,16 +875,22 @@ function abrirPanelTablilla(a) {
   if (a.tipo === 'palancas') {
     a.estadoPalancas ||= { titulo: a.titulo, acertijo: crearPalancas(azar) };
     abrirPalancas(panel, a.estadoPalancas, {
-      alResolver() { panel.hidden = true; juego.resolverAcertijo(a); reanudar(); },
+      alResolver() { panel.hidden = true; juego.resolverAcertijo(a, a.estadoPalancas.ayudas ? 0 : BONO_PALANCAS); reanudar(); },
       alCerrar() { panel.hidden = true; reanudar(); },
     });
     return;
   }
+  a.estado.inicio = Date.now();
   abrirTablilla(panel, a.estado, {
     alResolver(p) {
-      if (!progreso.pistas.includes(p.id)) { progreso.pistas.push(p.id); guardar(); }
+      const ayudas = a.estado.ayudas || 0;
+      if (!progreso.pistas.includes(p.id)) progreso.pistas.push(p.id);
+      const antes = rangoDe(sinAyudas()).nombre;
+      anotarEnCuaderno(p, (Date.now() - a.estado.inicio) / 1000, ayudas);
+      const despues = rangoDe(sinAyudas()).nombre;
       panel.hidden = true;
-      juego.resolverAcertijo(a);
+      juego.resolverAcertijo(a, bonoAcertijo(p.dificultad, ayudas));
+      if (despues !== antes) juego.ev.mensaje(`¡Nuevo rango en el cuaderno: ${despues}!`, 5);
       reanudar();
     },
     alCerrar() { panel.hidden = true; reanudar(); },
@@ -849,6 +898,8 @@ function abrirPanelTablilla(a) {
       a.estado.vistas.add(a.estado.pista.id);
       a.estado.pista = elegirPista(dificultad, resueltas, new Set([...a.estado.vistas, ...enUso()]), azar);
       a.estado.nivel = 0;
+      a.estado.ayudas = 0;
+      a.estado.inicio = Date.now();
     },
   });
 }
@@ -898,7 +949,7 @@ function terminarContrarreloj(r, exito) {
     <li>Puntos: <b>${exito ? puntos : `${r.puntos} → ${puntos}`}</b>${exito ? '' : ' (la mitad, por no escapar)'}</li>
     ${puntos > antes ? '<li>¡Nuevo récord!</li>' : antes && antes < Infinity ? `<li>Récord: <b>${antes}</b></li>` : ''}
     <li>Tesoros: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
-    <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>
+    <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b>${r.bonoAcertijos ? ` · sin ayudas: <b>+${r.bonoAcertijos}</b> puntos` : ''}</li>
     <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b> de ${r.limite / 60}:00</li>`;
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre} +${RAREZAS[TESORO[id].rareza].valor}</span>`).join('');
   $('#btn-reintentar').textContent = 'Revancha';

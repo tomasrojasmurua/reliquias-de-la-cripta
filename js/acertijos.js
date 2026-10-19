@@ -6,7 +6,7 @@ import { sonar } from './audio.js';
 
 const CLAVE = new TextEncoder().encode('reliquias-de-la-cripta');
 
-function revelar(b64) {
+export function revelar(b64) {
   const bin = atob(b64);
   const b = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i) ^ CLAVE[i % CLAVE.length];
@@ -25,6 +25,27 @@ export function pistasDisponibles() {
     id: p[0], pista: p[2], longitud: p[3], tipo: p[4], definicion: p[5], indicador: p[6],
     relleno: p[7], dificultad: p[8], _r: p[9], _e: p[10],
   }));
+}
+
+export function pistaPorId(id) { return pistasDisponibles().find(p => p.id === id); }
+
+// Puntos extra por descifrar una inscripción sin pedir ninguna ayuda: tantos como estrellas de dificultad.
+export function bonoAcertijo(dificultad, ayudas) { return ayudas ? 0 : dificultad; }
+export const BONO_PALANCAS = 2;
+
+// Rangos del cuaderno, según cuántas pistas distintas descifraste sin ayudas.
+export const RANGOS = [
+  [0, 'Aprendiz de escriba'],
+  [3, 'Escriba'],
+  [10, 'Erudito'],
+  [25, 'Sabio de la cripta'],
+  [60, 'Gran hierofante'],
+];
+export function rangoDe(n) {
+  let i = 0;
+  while (i + 1 < RANGOS.length && n >= RANGOS[i + 1][0]) i++;
+  const sig = RANGOS[i + 1];
+  return { nombre: RANGOS[i][1], desde: RANGOS[i][0], siguiente: sig ? sig[1] : null, faltan: sig ? sig[0] - n : 0, meta: sig ? sig[0] : RANGOS[i][0] };
 }
 
 export function normalizar(s) {
@@ -155,10 +176,12 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar, nuevaPista }) 
     const a = e.target.dataset.a;
     if (a === 'cerrar') alCerrar();
     if (a === 'ayuda') {
-      if (mostrandoSolucion) { nuevaPista(); mostrandoSolucion = false; input.value = ''; }
-      else if (estado.nivel >= 4) mostrandoSolucion = true;
-      else estado.nivel++;
-      estado.ayudas = (estado.ayudas || 0) + 1;
+      if (mostrandoSolucion) { nuevaPista(); mostrandoSolucion = false; input.value = ''; }   // la inscripción nueva cuenta desde cero
+      else {
+        if (estado.nivel >= 4) mostrandoSolucion = true;
+        else estado.nivel++;
+        estado.ayudas = (estado.ayudas || 0) + 1;
+      }
       pintar();
     }
   });
