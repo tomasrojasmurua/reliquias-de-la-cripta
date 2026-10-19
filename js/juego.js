@@ -22,11 +22,19 @@ const ENEMIGOS = {
   // los sectarios además lanzan bolas de fuego desde lejos (se pueden esquivar)
   sectario: { vida: 40, vel: 1.9, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 13, fuego: [9, 14] },
   caballero: { vida: 95, vel: 1.1, daño: [12, 18], alcance: 1.1, espera: 1.3, vista: 12 },
+  // bestias que se sueltan al azar en cada partida (ver js/fauna.js); `tam`: tamaño del sprite
+  escorpion: { vida: 70, vel: 1.5, daño: [10, 16], alcance: 1.15, espera: 1.1, vista: 12, tam: 1.2 },
+  arana: { vida: 42, vel: 2.6, daño: [6, 11], alcance: 1.0, espera: 0.7, vista: 14, tam: 1.25 },
+  serpiente: { vida: 45, vel: 1.4, daño: [9, 15], alcance: 1.6, espera: 1.0, vista: 12, tam: 1.1 },
+  // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
+  coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
+// Los escondidos salen cuando te acercas a esta distancia; tardan SURGE segundos en salir.
+const ACECHO = 3.6, SURGE = 0.8;
 
 // Guardianes: uno por mazmorra (`guardian` en datos/mazmorras.js), junto a su reliquia más valiosa.
 // Son más grandes (lo que deja el techo), aguantan mucho, embisten desde lejos y al perder un tercio de vida llaman a sus siervos.
-const GUARDIAN = { vida: 380, vel: 1.15, daño: [14, 22], alcance: 1.35, espera: 1.1, vista: 8, jefe: true, escala: 1.2, radio: 0.4 };
+const GUARDIAN = { vida: 380, vel: 1.15, daño: [14, 22], alcance: 1.35, espera: 1.1, vista: 8, jefe: true, tam: 1.2, radio: 0.4 };
 const GUARDIANES = {
   faraon: { invoca: 'momia' }, anubis: { invoca: 'momia' }, jarl: { invoca: 'draugr' }, capitan: { invoca: 'pirata' },
   rey_jaguar: { invoca: 'jaguar', vel: 1.5 }, gran_sectario: { invoca: 'sectario', fuego: [12, 18] }, gran_caballero: { invoca: 'caballero', vida: 460 },
@@ -51,6 +59,7 @@ const azar = ([a, b]) => a + Math.random() * (b - a);
 const SALPICA = {
   momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: 'hueso', jaguar: 'sangre', sectario: 'sangre', caballero: 'chispa',
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
+  escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo',
 };
 const VEL_FUEGO = 5.5;
 
@@ -71,7 +80,7 @@ export class Juego {
       vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
-    this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
+    this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
     this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
     this.guardian = this.colocarGuardian();
     if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
@@ -502,7 +511,7 @@ export class Juego {
     const muro = this.rayo(j.x, j.z, fx, fz, arma.alcance).dist;
     let mejor = null, mejorD = Infinity;
     for (const e of this.enemigos) {
-      if (e.estado === 'muerto') continue;
+      if (e.estado === 'muerto' || e.estado === 'oculto') continue;
       const ex = e.x - j.x, ez = e.z - j.z;
       const a = ex * fx + ez * fz;
       const lat = Math.abs(ex * fz - ez * fx);
@@ -526,7 +535,7 @@ export class Juego {
     const j = this.j;
     let mejor = null, mejorD = 14;
     for (const e of this.enemigos) {
-      if (e.estado === 'muerto' || e.estado === 'dormido') continue;
+      if (e.estado === 'muerto' || e.estado === 'dormido' || e.estado === 'oculto') continue;
       const d = Math.hypot(e.x - j.x, e.z - j.z);
       if (d >= mejorD) continue;
       let dif = Math.atan2(e.z - j.z, e.x - j.x) - j.yaw;
@@ -711,6 +720,17 @@ export class Juego {
         if (d < e.vista && this.seVe(e, j)) { e.estado = 'caza'; sonar('gruñido'); }
         continue;
       }
+      // escondido bajo el suelo o en el techo: sale cuando pasas cerca
+      if (e.estado === 'oculto') {
+        if (d < ACECHO && Math.abs(e.y - j.y) < 1 && this.seVe(e, j)) { e.estado = 'surge'; e.t = SURGE; sonar('surgir'); }
+        continue;
+      }
+      if (e.estado === 'surge') {
+        e.t -= dt;
+        if (e.tipo !== 'arana' && Math.random() < dt * 14) this.salpicar(e.x + (Math.random() - 0.5) * 0.6, e.y + 0.05, e.z + (Math.random() - 0.5) * 0.6, 'polvo', 1, 0.6);
+        if (e.t <= 0) { e.estado = 'caza'; e.espera = 0.3; sonar('gruñido'); }
+        continue;
+      }
       if (e.estado === 'dolor') { e.t -= dt; if (e.t <= 0) e.estado = 'caza'; continue; }
       if (e.estado === 'embiste') {
         // carga en línea recta hacia donde estabas; golpea una sola vez
@@ -760,7 +780,7 @@ export class Juego {
       } else e.visto = null;
       // separación entre enemigos
       for (const o of this.enemigos) {
-        if (o === e || o.estado === 'muerto') continue;
+        if (o === e || o.estado === 'muerto' || o.estado === 'oculto') continue;
         const sx = e.x - o.x, sz = e.z - o.z, sd = Math.hypot(sx, sz);
         if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, e.radio || 0.28, true);
       }
@@ -828,15 +848,27 @@ export class Juego {
       if (c.trampa === 'pinchos' && pinchosArriba(x, this.tiempo)) s.push({ x: x + 0.5, z: z + 0.5, y: c.piso, ancho: 0.95, alto: 0.45, tex: 'pinchos', luz: c.luz });
     }
     for (const e of this.enemigos) {
-      let pose;
-      if (e.estado === 'muerto') pose = e.tMuerte < 0.14 ? 5 : e.tMuerte < 0.3 ? 6 : 4;
+      if (e.estado === 'oculto') continue;
+      const tam = e.tam || 1;
+      let pose, y = e.y;
+      if (e.estado === 'surge') {
+        const falta = Math.max(0, e.t / SURGE);
+        if (e.tipo === 'arana') {
+          // baja del techo colgada de su hilo
+          const techo = m.celda(Math.floor(e.x), Math.floor(e.z))?.techoY ?? e.y + 1.25;
+          y = e.y + (techo - e.y - tam * 0.5) * falta * falta;
+          const largo = techo - (y + tam * 0.8);
+          if (largo > 0.02) s.push({ x: e.x, z: e.z, y: y + tam * 0.8, ancho: 0.06, alto: largo, tex: 'hilo', luz: luzEn(e.x, e.z) });
+        } else y = e.y - tam * 0.95 * falta;   // sale del suelo
+      }
+      if (e.estado === 'surge') pose = 2;
+      else if (e.estado === 'muerto') pose = e.tMuerte < 0.14 ? 5 : e.tMuerte < 0.3 ? 6 : 4;
       else if (e.estado === 'lanza') pose = 7;
       else if (e.estado === 'dolor') pose = 3;
       else if (e.estado === 'ataca' || e.estado === 'embiste') pose = 2;
       else if (e.estado === 'dormido') pose = 0;
       else pose = [0, 8, 1, 8][Math.floor(e.anim * (e.vel * 6)) % 4];
-      const k = e.escala || 1;
-      s.push({ x: e.x, z: e.z, y: e.y, ancho: k, alto: k, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
+      s.push({ x: e.x, z: e.z, y, ancho: tam, alto: tam, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
     for (const f of this.proyectiles) s.push({ x: f.x, z: f.z, y: f.y - 0.15, ancho: 0.3, alto: 0.3, tex: 'fuego_' + (Math.floor(this.tiempo * 12) % 2), luz: 1.3 });
     const parpadeo = this.tiempo * 9;

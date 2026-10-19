@@ -7,6 +7,10 @@
 //   R  revólver         b  balas            v  vendas (vida)
 //   m  momia            k  esqueleto        g  draugr
 //   p  pirata           j  guerrero jaguar  c  sectario        n  caballero cruzado
+//   Los enemigos del plano son los propios de la mazmorra y sus sitios, solo un punto de partida: en cada
+//   partida algunos quedan vacíos, otros cambian de monstruo y otros aparecen en cualquier parte, muchos
+//   escondidos hasta que te acercas (js/fauna.js). `bestias`: cuáles de las bestias gigantes (escorpion,
+//   arana, serpiente) pueden soltarse en la mazmorra (por defecto todas); `coloso: false` quita el coloso.
 //   ^  pinchos (suben y bajan)   ~  lava (quema)   _  abismo (caída mortal)
 //   :  puente oculto (parece abismo, pero se puede pisar)   f  cáliz falso (trampa)
 //   0-9 tesoros (según `tesoros`)
@@ -184,6 +188,7 @@ export const MAZMORRAS = [
     nombre: 'La Fortaleza del Glaciar',
     descripcion: 'Un salón vikingo sepultado bajo el hielo del norte. Sus guerreros nunca dejaron de hacer guardia.',
     muro: 'hielo', suelo: 'nieve', techo: 'techo_hielo',
+    bestias: ['arana', 'serpiente'],
     texTablilla: 'tablilla_hielo', texSello: 'sello_runa',
     tinte: [0.86, 0.95, 1.1],
     luz: 0.72,
@@ -556,6 +561,7 @@ export const MAZMORRAS = [
     nombre: 'La Tumba del Cruzado',
     descripcion: 'Bajo una vieja biblioteca, unas catacumbas llevan a las tres pruebas que protegen el cáliz. Elige con sabiduría.',
     muro: 'catacumba', suelo: 'losa', techo: 'techo',
+    bestias: ['arana', 'serpiente'],
     texTablilla: 'tablilla_catacumba',
     tinte: [1.0, 0.97, 0.9],
     luz: 0.5,
