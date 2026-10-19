@@ -2,7 +2,7 @@
 
 import { cargarMazmorra } from './mapa.js';
 import { ALTO_MURO } from './render.js';
-import { sonar } from './audio.js';
+import { sonar, sonarEnemigo } from './audio.js';
 import { explorar } from './automapa.js';
 import { TESORO, RAREZAS } from '../datos/tesoros.js';
 
@@ -80,7 +80,7 @@ export class Juego {
       vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
-    this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2 }));
+    this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
     this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
     this.guardian = this.colocarGuardian();
     if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
@@ -132,7 +132,7 @@ export class Juego {
       const sitio = junto(Math.floor(meta.x), Math.floor(meta.z));
       if (!sitio) continue;
       const [x, z] = sitio, base = ENEMIGOS[g.tipo];
-      const e = { tipo: g.tipo, nombre: g.nombre, x: x + 0.5, z: z + 0.5, y: m.piso(x, z), ...base, vidaMax: base.vida, estado: 'dormido', t: 0, espera: 0, anim: 0, invocaciones: 0 };
+      const e = { tipo: g.tipo, nombre: g.nombre, x: x + 0.5, z: z + 0.5, y: m.piso(x, z), ...base, vidaMax: base.vida, estado: 'dormido', t: 0, espera: 0, anim: 0, invocaciones: 0, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 };
       this.enemigos.push(e);
       return e;
     }
@@ -148,11 +148,11 @@ export class Juego {
       const x = Math.floor(g.x) + dx, z = Math.floor(g.z) + dz, c = m.celda(x, z);
       if (!c || m.solida(x, z) || c.peligro || !this.seVe(g, { x: x + 0.5, z: z + 0.5, y: c.piso })) continue;
       const base = ENEMIGOS[g.invoca];
-      this.enemigos.push({ tipo: g.invoca, x: x + 0.5, z: z + 0.5, y: c.piso, ...base, vidaMax: base.vida, estado: 'caza', t: 0, espera: 0.8, anim: Math.random() * 2 });
+      this.enemigos.push({ tipo: g.invoca, x: x + 0.5, z: z + 0.5, y: c.piso, ...base, vidaMax: base.vida, estado: 'caza', t: 0, espera: 0.8, anim: Math.random() * 2, sinVerte: 0, alerta: true, tVoz: 3 + Math.random() * 4 });
       this.salpicar(x + 0.5, c.piso + 0.3, z + 0.5, 'polvo', 10);
       n++;
     }
-    if (n) { sonar('gruñido'); this.ev.mensaje(`¡${g.nombre} llama a sus siervos!`, 3); }
+    if (n) { this.voz(g, 'alerta'); this.ev.mensaje(`¡${g.nombre} llama a sus siervos!`, 3); }
   }
 
   // ---------- Ambiente: llamas de las antorchas, decorado, polvo en el aire ----------
@@ -438,10 +438,11 @@ export class Juego {
     return 'piedra';
   }
 
-  // De 0 a 1: cuántos enemigos te persiguen de cerca (para la música).
+  // De 0 a 1: cuántos enemigos te persiguen de cerca y te vieron hace poco (para la música).
+  // Uno que te busca del otro lado de un muro no cuenta: no hay tambores por algo que no está.
   tension() {
     let n = 0;
-    for (const e of this.enemigos) if ((e.estado === 'caza' || e.estado === 'ataca' || e.estado === 'lanza') && Math.hypot(e.x - this.j.x, e.z - this.j.z) < 12) n++;
+    for (const e of this.enemigos) if ((e.estado === 'caza' || e.estado === 'ataca' || e.estado === 'lanza' || e.estado === 'embiste') && e.sinVerte < 3 && Math.hypot(e.x - this.j.x, e.z - this.j.z) < 12) n++;
     return Math.min(1, n / 2.5);
   }
 
@@ -560,7 +561,7 @@ export class Juego {
     e.golpe = 0.12;
     this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
     if (e.vida <= 0) {
-      e.estado = 'muerto'; e.tMuerte = 0; this.abatidos++; sonar('muerteEnemigo');
+      e.estado = 'muerto'; e.tMuerte = 0; this.abatidos++; this.voz(e, 'muerte');
       if (e.jefe) {
         this.ev.mensaje(`¡Derrotaste a ${e.nombre}!`, 4);
         this.temblor = 0.6;
@@ -570,11 +571,11 @@ export class Juego {
       // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
       if (e.estado === 'dormido') e.estado = 'caza';
       if (Math.random() < 0.25 && e.estado !== 'embiste') { e.estado = 'dolor'; e.t = 0.2; }
-      sonar('dolorEnemigo');
+      this.voz(e, 'dolor');
       const tercio = Math.floor((1 - e.vida / e.vidaMax) * 3);
       if (tercio > e.invocaciones) { e.invocaciones = tercio; this.invocar(e); }
     } else {
-      e.estado = 'dolor'; e.t = 0.25; sonar('dolorEnemigo');
+      e.estado = 'dolor'; e.t = 0.25; this.voz(e, 'dolor');
     }
   }
 
@@ -624,7 +625,7 @@ export class Juego {
     const antes = this.restante();
     this.reloj += dt;
     const r = this.restante();
-    if (antes > 60 && r <= 60) { sonar('gruñido'); this.ev.mensaje('¡Queda un minuto! Las antorchas empiezan a apagarse.', 4); }
+    if (antes > 60 && r <= 60) { sonar('campanada'); this.ev.mensaje('¡Queda un minuto! Las antorchas empiezan a apagarse.', 4); }
     if (r <= 0) { this.terminado = true; this.ev.tiempoAgotado(this.resumen('Se apagó la última antorcha.')); }
   }
 
@@ -716,19 +717,20 @@ export class Juego {
       e.anim += dt;
       e.espera = Math.max(0, e.espera - dt);
       const dx = j.x - e.x, dz = j.z - e.z, d = Math.hypot(dx, dz);
+      e.sinVerte += dt;
       if (e.estado === 'dormido') {
-        if (d < e.vista && this.seVe(e, j)) { e.estado = 'caza'; sonar('gruñido'); }
+        if (d < e.vista && this.seVe(e, j)) { e.estado = 'caza'; e.sinVerte = 0; e.alerta = true; this.voz(e, 'alerta'); }
         continue;
       }
       // escondido bajo el suelo o en el techo: sale cuando pasas cerca
       if (e.estado === 'oculto') {
-        if (d < ACECHO && Math.abs(e.y - j.y) < 1 && this.seVe(e, j)) { e.estado = 'surge'; e.t = SURGE; sonar('surgir'); }
+        if (d < ACECHO && Math.abs(e.y - j.y) < 1 && this.seVe(e, j)) { e.estado = 'surge'; e.t = SURGE; this.voz(e, 'surgir'); }
         continue;
       }
       if (e.estado === 'surge') {
         e.t -= dt;
         if (e.tipo !== 'arana' && Math.random() < dt * 14) this.salpicar(e.x + (Math.random() - 0.5) * 0.6, e.y + 0.05, e.z + (Math.random() - 0.5) * 0.6, 'polvo', 1, 0.6);
-        if (e.t <= 0) { e.estado = 'caza'; e.espera = 0.3; sonar('gruñido'); }
+        if (e.t <= 0) { e.estado = 'caza'; e.espera = 0.3; e.alerta = true; e.sinVerte = 0; this.voz(e, 'alerta'); }
         continue;
       }
       if (e.estado === 'dolor') { e.t -= dt; if (e.t <= 0) e.estado = 'caza'; continue; }
@@ -758,14 +760,20 @@ export class Juego {
       }
       // caza
       if (d < e.alcance && e.espera <= 0 && Math.abs(e.y - j.y) < 0.7) {
-        e.estado = 'ataca'; e.t = 0.45; e.espera = 0.45 + 0.8; sonar('ataque');
+        e.estado = 'ataca'; e.t = 0.45; e.espera = 0.45 + 0.8; this.voz(e, 'ataque');
         continue;
       }
       const loVe = this.seVe(e, j);
       if (loVe) e.visto = { x: j.x, z: j.z };
+      const teVe = loVe && d < e.vista * 1.5;
+      if (teVe) {
+        // el que despertó por un disparo avisa recién cuando te encuentra; si te perdió un rato, vuelve a avisar
+        if (!e.alerta || e.sinVerte > 6) { e.alerta = true; e.tVoz = 3 + Math.random() * 4; this.voz(e, 'alerta'); }
+        e.sinVerte = 0;
+      }
       if (e.jefe && loVe && d > 2.5 && d < 8 && e.espera <= 0 && Math.random() < dt * 0.7) {
         e.estado = 'embiste'; e.t = EMBESTIDA.duracion; e.golpeo = false; e.carga = { x: dx / d, z: dz / d };
-        sonar('gruñido'); this.ev.mensaje(`¡${e.nombre} embiste!`, 1.5);
+        this.voz(e, 'ataque'); this.ev.mensaje(`¡${e.nombre} embiste!`, 1.5);
         continue;
       }
       if (e.fuego && loVe && d > 2.2 && d < 11 && e.espera <= 0 && Math.random() < dt * 0.9) {
@@ -785,8 +793,22 @@ export class Juego {
         if (sd > 0 && sd < 0.6) this.mover(e, sx / sd * (0.6 - sd) * 0.5, sz / sd * (0.6 - sd) * 0.5, e.radio || 0.28, true);
       }
       this.apoyar(e, e.radio || 0.28, dt);
-      if (Math.random() < dt * 0.08) sonar('gruñido');
+      // solo se oye mientras te tiene a la vista: nada de gruñidos del otro lado de un muro
+      if (teVe) {
+        e.tVoz -= dt;
+        if (e.tVoz <= 0) { e.tVoz = 4 + Math.random() * 6; this.voz(e, 'voz'); }
+        const paso = Math.floor(e.anim * e.vel * 1.6);
+        if (paso !== e.paso && d < 7) this.voz(e, 'paso');
+        e.paso = paso;
+      }
     }
+  }
+
+  // La voz de un enemigo, con su distancia y de qué lado está.
+  voz(e, momento) {
+    const j = this.j, dx = e.x - j.x, dz = e.z - j.z;
+    const d = Math.hypot(dx, dz);
+    sonarEnemigo(e.tipo, momento, d, d > 0.01 ? (dx * -Math.sin(j.yaw) + dz * Math.cos(j.yaw)) / d : 0);
   }
 
   dañarJugador(n, causa = 'Has caído en la cripta.') {
