@@ -61,8 +61,20 @@ function ruido(b, r, cantidad) {
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) b.tinte(x, y, 1 + (r() - 0.5) * cantidad);
 }
 
+// Ruido suave (interpolado) para manchas grandes dentro de cada pieza, que se repite sin costuras.
+function ruidoSuave(r, celdas = 8) {
+  const v = Array.from({ length: celdas * celdas }, () => r());
+  const at = (i, j) => v[((j + celdas) % celdas) * celdas + ((i + celdas) % celdas)];
+  return (x, y) => {
+    const fx = x / T * celdas, fy = y / T * celdas, i = Math.floor(fx), j = Math.floor(fy);
+    let tx = fx - i, ty = fy - j; tx = tx * tx * (3 - 2 * tx); ty = ty * ty * (3 - 2 * ty);
+    return (at(i, j) * (1 - tx) + at(i + 1, j) * tx) * (1 - ty) + (at(i, j + 1) * (1 - tx) + at(i + 1, j + 1) * tx) * ty;
+  };
+}
+
 function ladrillos(b, r, base, { alto = 16, ancho = 32, mortero = [38, 32, 28], variacion = 0.25 } = {}) {
   b.rect(0, 0, T, T, mortero);
+  const mancha = ruidoSuave(r, 8), grano = ruidoSuave(r, 32);
   for (let fila = 0; fila < T / alto; fila++) {
     const desfase = fila % 2 ? Math.floor(ancho / 2) : 0;
     for (let k = -1; k < T / ancho + 1; k++) {
@@ -71,15 +83,20 @@ function ladrillos(b, r, base, { alto = 16, ancho = 32, mortero = [38, 32, 28], 
       const c = base.map(v => v * f);
       for (let y = y0 + 1; y < y0 + alto - 1; y++) for (let x = x0 + 1; x < x0 + ancho - 1; x++) {
         if (x < 0 || x >= T) continue;
+        // bisel redondeado de 2 píxeles: luz arriba a la izquierda, sombra abajo a la derecha
+        const arriba = y - y0 - 1, izq = x - x0 - 1, abajo = y0 + alto - 2 - y, der = x0 + ancho - 2 - x;
         let s = 1;
-        if (y === y0 + 1 || x === x0 + 1) s = 1.18;           // borde iluminado
-        if (y === y0 + alto - 2 || x === x0 + ancho - 2) s = 0.72; // borde en sombra
+        if (arriba === 0 || izq === 0) s = 1.24; else if (arriba === 1 || izq === 1) s = 1.1;
+        if (abajo === 0 || der === 0) s = 0.66; else if (abajo === 1 || der === 1) s = 0.84;
+        s *= 0.9 + mancha(x, y) * 0.2 + (grano(x, y) - 0.5) * 0.1;
         b.set(x, y, c[0] * s, c[1] * s, c[2] * s);
       }
-      // desconchones
+      // la junta bajo cada ladrillo queda en sombra
+      for (let x = x0; x < x0 + ancho; x++) if (x >= 0 && x < T) { b.tinte(x, y0 + alto - 1, 0.7); }
+      // desconchones con borde iluminado
       for (let n = 0; n < 3; n++) {
         const cx = x0 + 3 + Math.floor(r() * (ancho - 6)), cy = y0 + 3 + Math.floor(r() * (alto - 6));
-        b.tinte(cx, cy, 0.6); b.tinte(cx + 1, cy, 0.7);
+        b.tinte(cx, cy, 0.55); b.tinte(cx + 1, cy, 0.7); b.tinte(cx, cy + 1, 1.15);
       }
     }
   }
@@ -463,26 +480,51 @@ function sprite(fn, opciones = {}) {
   };
 }
 
-// Da volumen a un sprite plano: luz desde arriba a la izquierda, sombra abajo a la derecha,
-// un leve degradado hacia los pies y un contorno oscuro de 1 píxel para que se lea contra el fondo.
+// Da volumen a un sprite plano. Con la distancia al borde se arma un relieve en cúpula y se ilumina
+// con una luz desde arriba a la izquierda; las zonas hundidas reciben algo de sombra, el borde de
+// abajo a la derecha un reflejo tenue, y todo se reduce con trama ordenada para seguir siendo pixel art.
+// Al final, un contorno oscuro de 1 píxel para que se lea contra el fondo.
+const LUZ = (() => { const v = [-0.55, -0.75, 0.9], l = Math.hypot(...v); return v.map(x => x / l); })();
+const TRAMA = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 function relieve(d) {
-  const a = (x, y) => x >= 0 && y >= 0 && x < T && y < T && d[(y * T + x) * 4 + 3] > 0;
   const orig = new Uint8ClampedArray(d);
+  const op = i => orig[i * 4 + 3] > 0;
+  // distancia aproximada al borde (chaflán 3-4), hasta 6 píxeles
+  const MAX = 18;
+  const dist = new Float32Array(T * T);
+  for (let i = 0; i < T * T; i++) dist[i] = op(i) ? MAX : 0;
+  const at = (x, y) => (x < 0 || y < 0 || x >= T || y >= T) ? 0 : dist[y * T + x];
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x; if (!dist[i]) continue;
+    dist[i] = Math.min(dist[i], at(x - 1, y) + 3, at(x, y - 1) + 3, at(x - 1, y - 1) + 4, at(x + 1, y - 1) + 4);
+  }
+  for (let y = T - 1; y >= 0; y--) for (let x = T - 1; x >= 0; x--) {
+    const i = y * T + x; if (!dist[i]) continue;
+    dist[i] = Math.min(dist[i], at(x + 1, y) + 3, at(x, y + 1) + 3, at(x + 1, y + 1) + 4, at(x - 1, y + 1) + 4);
+  }
+  const alto = (x, y) => { const v = at(x, y) / MAX; return Math.sqrt(Math.max(0, v * (2 - v))); }; // cúpula
+  const paso = 255 / 15;
   const borde = [];
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const i = (y * T + x) * 4;
-    if (!orig[i + 3]) {
-      if (a(x - 1, y) || a(x + 1, y) || a(x, y - 1) || a(x, y + 1)) borde.push(i);
+    const i = y * T + x, k = i * 4;
+    if (!op(i)) {
+      if ((x > 0 && op(i - 1)) || (x < T - 1 && op(i + 1)) || (y > 0 && op(i - T)) || (y < T - 1 && op(i + T))) borde.push(k);
       continue;
     }
-    let f = 1.08 - (y / T) * 0.22;
-    if (!a(x - 1, y) || !a(x, y - 1)) f *= 1.28;
-    else if (!a(x - 2, y) || !a(x, y - 2)) f *= 1.1;
-    if (!a(x + 1, y) || !a(x, y + 1)) f *= 0.62;
-    else if (!a(x + 2, y) || !a(x, y + 2)) f *= 0.84;
-    d[i] = orig[i] * f; d[i + 1] = orig[i + 1] * f; d[i + 2] = orig[i + 2] * f;
+    const nx = (alto(x - 1, y) - alto(x + 1, y)) * 1.6, ny = (alto(x, y - 1) - alto(x, y + 1)) * 1.6;
+    const nl = Math.hypot(nx, ny, 1);
+    const difusa = Math.max(0, (nx * LUZ[0] + ny * LUZ[1] + LUZ[2]) / nl);
+    let f = 0.42 + difusa * 0.78;
+    f *= 1.04 - (y / T) * 0.16;                                // un poco más oscuro hacia los pies
+    // reflejo tenue en el borde de abajo a la derecha
+    if (dist[i] <= 3 && (nx > 0.15 || ny > 0.15)) f += 0.1;
+    const umbral = (TRAMA[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
+    for (let c = 0; c < 3; c++) {
+      const v = Math.min(255, orig[k + c] * f) / paso, b = Math.floor(v);
+      d[k + c] = Math.min(255, (b + (v - b > umbral ? 1 : 0)) * paso);
+    }
   }
-  for (const i of borde) { d[i] = 18; d[i + 1] = 12; d[i + 2] = 8; d[i + 3] = 255; }
+  for (const k of borde) { d[k] = 18; d[k + 1] = 12; d[k + 2] = 8; d[k + 3] = 255; }
 }
 
 // Acabado de los tesoros: volumen según la distancia al borde, luz arriba a la izquierda,
@@ -542,62 +584,111 @@ const ESTILOS = {
   caballero: { cuerpo: 'momia', piel: '#a4aab2', sombra: '#5c626a', ojo: '#111111', accesorio: 'yelmo', liso: true },
 };
 
+// Segmento de un miembro: cónico, con los extremos redondeados (hombro-codo, codo-mano...).
+function miembro(g, x0, y0, x1, y1, a0, a1, c) {
+  g.fillStyle = c;
+  const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
+  g.beginPath(); g.moveTo(x0 + nx * a0, y0 + ny * a0); g.lineTo(x1 + nx * a1, y1 + ny * a1); g.lineTo(x1 - nx * a1, y1 - ny * a1); g.lineTo(x0 - nx * a0, y0 - ny * a0); g.fill();
+  g.beginPath(); g.arc(x0, y0, a0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(x1, y1, a1, 0, Math.PI * 2); g.fill();
+}
+function ovalo(g, x, y, rx, ry, c) { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); }
+
+// Cuerpo con carne o vendas (momia, draugr, jaguar, sectario, caballero): hombros redondos,
+// cintura más angosta, miembros que se afinan y manos.
+function cuerpoMacizo(g, e, dy, alza, vaiven, subeI, subeD) {
+  const piel = e.piel, sombra = e.sombra;
+  // piernas y pies
+  miembro(g, 27, 41 + dy, 26, 58 - subeI, 4.6, 3.4, piel); ovalo(g, 25, 60 - subeI, 4.5, 2.6, sombra);
+  miembro(g, 37, 41 + dy, 38, 58 - subeD, 4.6, 3.4, piel); ovalo(g, 39, 60 - subeD, 4.5, 2.6, sombra);
+  g.fillStyle = sombra; g.fillRect(31, 42 + dy, 2, 8); // entrepierna
+  // torso: hombros anchos que bajan a la cintura, y la pelvis
+  g.fillStyle = piel; g.beginPath();
+  g.moveTo(20, 23 + dy); g.quadraticCurveTo(32, 18 + dy, 44, 23 + dy); g.lineTo(41, 40 + dy); g.lineTo(23, 40 + dy); g.closePath(); g.fill();
+  ovalo(g, 21, 24 + dy, 4, 4, piel); ovalo(g, 43, 24 + dy, 4, 4, piel);
+  g.fillStyle = piel; g.beginPath(); g.roundRect(22, 36 + dy, 20, 8, 4); g.fill();
+  g.fillStyle = sombra; g.fillRect(25, 30 + dy, 14, 1); g.fillRect(31, 24 + dy, 2, 10); // pecho y esternón
+  // cuello y cabeza
+  g.fillStyle = sombra; g.fillRect(29, 17 + dy, 6, 5);
+  ovalo(g, 32, 12 + dy, 7.5, 8, piel);
+  g.fillStyle = sombra; g.fillRect(25, 13 + dy, 14, 1);
+  ovalo(g, 29, 12 + dy, 2.4, 1.8, '#1a0e06'); ovalo(g, 35, 12 + dy, 2.4, 1.8, '#1a0e06');
+  r(g, 28, 11 + dy, 2, 2, e.ojo); r(g, 34, 11 + dy, 2, 2, e.ojo);
+  // brazos: hombro, codo y mano
+  const codoI = 33 + dy + alza / 2 + vaiven, manoI = 41 + dy + alza + vaiven;
+  const codoD = 33 + dy + alza / 2 - vaiven, manoD = 41 + dy + alza - vaiven;
+  miembro(g, 19, 25 + dy, 16, codoI, 3.8, 3, piel); miembro(g, 16, codoI, 17, manoI, 3, 2.6, piel); ovalo(g, 17, manoI + 2, 3, 3.2, sombra);
+  miembro(g, 45, 25 + dy, 48, codoD, 3.8, 3, piel); miembro(g, 48, codoD, 47, manoD, 3, 2.6, piel); ovalo(g, 47, manoD + 2, 3, 3.2, sombra);
+  // texturas sobre lo ya pintado: vendas cruzadas o manchas de jaguar
+  g.save(); g.globalCompositeOperation = 'source-atop';
+  if (e.manchas) {
+    for (const [x, y] of [[23, 26], [30, 29], [38, 25], [26, 35], [36, 37], [16, 30], [47, 31], [26, 48], [38, 52], [29, 8], [34, 15]]) { ovalo(g, x, y + dy, 2, 1.4, '#4a2c0c'); r(g, x, y + dy, 1, 1, '#2a1806'); }
+  } else if (!e.liso) {
+    for (let y = 4; y < 64; y += 4) {
+      g.fillStyle = sombra; g.save(); g.translate(32, y + dy); g.rotate((y % 8 ? 1 : -1) * 0.12); g.fillRect(-30, 0, 60, 1); g.fillStyle = 'rgba(255,250,235,.35)'; g.fillRect(-30, 1, 60, 1); g.restore();
+    }
+    g.fillStyle = 'rgba(0,0,0,.18)'; for (let i = 0; i < 40; i++) g.fillRect((i * 37) % 64, (i * 23) % 64, 1, 1); // mugre
+  }
+  g.restore();
+  if (!e.liso && !e.manchas) { g.fillStyle = piel; g.fillRect(15, manoI + 4, 2, 7); g.fillRect(16, manoI + 9, 1, 3); } // tira suelta
+}
+
+// Esqueleto: cráneo con mandíbula, columna, costillas curvas, pelvis y huesos con articulaciones.
+function esqueletoDe(g, e, dy, alza, vaiven, subeI, subeD) {
+  const hueso = e.piel, osc = e.sombra;
+  const art = (x, y) => ovalo(g, x, y, 2.3, 2.3, hueso);
+  // piernas
+  miembro(g, 27, 40 + dy, 26, 50, 1.7, 1.5, hueso); art(26, 50); miembro(g, 26, 50, 26, 59 - subeI, 1.5, 1.4, hueso); ovalo(g, 25, 61 - subeI, 4, 1.8, hueso);
+  miembro(g, 37, 40 + dy, 38, 50, 1.7, 1.5, hueso); art(38, 50); miembro(g, 38, 50, 38, 59 - subeD, 1.5, 1.4, hueso); ovalo(g, 39, 61 - subeD, 4, 1.8, hueso);
+  // pelvis
+  g.fillStyle = hueso; g.beginPath(); g.moveTo(24, 36 + dy); g.lineTo(40, 36 + dy); g.lineTo(37, 42 + dy); g.lineTo(32, 40 + dy); g.lineTo(27, 42 + dy); g.closePath(); g.fill();
+  ovalo(g, 28, 39 + dy, 1.4, 1.4, osc); ovalo(g, 36, 39 + dy, 1.4, 1.4, osc);
+  // columna
+  for (let y = 18; y < 37; y += 3) { r(g, 30, y + dy, 4, 2, hueso); r(g, 31, y + 2 + dy, 2, 1, osc); }
+  // clavículas y costillas curvas
+  g.strokeStyle = hueso; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(21, 22 + dy); g.quadraticCurveTo(32, 19 + dy, 43, 22 + dy); g.stroke();
+  for (let i = 0; i < 4; i++) { g.beginPath(); g.ellipse(32, 23 + i * 4 + dy, 10 - i, 3.2, 0, Math.PI * 0.04, Math.PI * 0.96); g.stroke(); }
+  // brazos
+  const codoI = 32 + dy + alza / 2 + vaiven, manoI = 40 + dy + alza + vaiven;
+  const codoD = 32 + dy + alza / 2 - vaiven, manoD = 40 + dy + alza - vaiven;
+  art(20, 23 + dy); miembro(g, 20, 23 + dy, 18, codoI, 1.6, 1.4, hueso); art(18, codoI); miembro(g, 18, codoI, 18, manoI, 1.4, 1.2, hueso);
+  for (let k = -1; k <= 1; k++) r(g, 17 + k * 1.5, manoI + 1, 1, 4, hueso);
+  art(44, 23 + dy); miembro(g, 44, 23 + dy, 46, codoD, 1.6, 1.4, hueso); art(46, codoD); miembro(g, 46, codoD, 46, manoD, 1.4, 1.2, hueso);
+  for (let k = -1; k <= 1; k++) r(g, 46 + k * 1.5, manoD + 1, 1, 4, hueso);
+  // cráneo
+  ovalo(g, 32, 11 + dy, 7.2, 7.5, hueso);
+  g.fillStyle = hueso; g.beginPath(); g.roundRect(27, 15 + dy, 10, 5, 2); g.fill();
+  ovalo(g, 29, 11 + dy, 2.3, 2.5, '#1a0e06'); ovalo(g, 35, 11 + dy, 2.3, 2.5, '#1a0e06');
+  r(g, 29, 11 + dy, 1, 1, e.ojo === '#2a1a10' ? '#5a4a3a' : e.ojo); r(g, 35, 11 + dy, 1, 1, e.ojo === '#2a1a10' ? '#5a4a3a' : e.ojo);
+  g.fillStyle = '#1a0e06'; g.beginPath(); g.moveTo(32, 13 + dy); g.lineTo(30.5, 16 + dy); g.lineTo(33.5, 16 + dy); g.fill();
+  r(g, 28, 18 + dy, 8, 1, '#1a0e06'); for (let x = 29; x < 36; x += 2) r(g, x, 17 + dy, 1, 3, '#1a0e06');
+}
+
 function humanoide(g, tipo, pose) {
   const e = ESTILOS[tipo];
   const momia = e.cuerpo === 'momia';
   const piel = e.piel, sombra = e.sombra;
-  if (pose === 5 || pose === 6) { caer(g, e, momia, pose); return; }
-  if (pose === 4) {
-    if (momia) { r(g, 8, 52, 48, 9, sombra); r(g, 10, 52, 44, 6, piel); r(g, 48, 50, 10, 9, piel); }
-    else { r(g, 10, 56, 40, 4, piel); r(g, 46, 50, 10, 9, piel); r(g, 20, 54, 4, 4, sombra); r(g, 30, 54, 4, 4, sombra); }
-    if (e.accesorio === 'pañuelo') r(g, 46, 48, 10, 3, '#b02020');
-    if (e.accesorio === 'mascara') r(g, 46, 50, 9, 8, '#e8e0c8');
-    if (e.accesorio === 'yelmo') { r(g, 46, 49, 11, 10, '#8a9098'); r(g, 20, 54, 16, 4, '#eeeae0'); r(g, 26, 53, 3, 6, '#b02020'); }
-    if (e.accesorio === 'cuernos') { r(g, 44, 46, 3, 4, '#e8e0c8'); r(g, 57, 46, 3, 4, '#e8e0c8'); }
-    if (e.accesorio === 'plumas') { r(g, 44, 44, 4, 6, '#2fa860'); r(g, 50, 43, 4, 7, '#d03030'); }
+  // muerte: el mismo cuerpo (en pose de dolor) que se arrodilla, se desploma y queda tendido
+  if (pose === 4 || pose === 5 || pose === 6) {
+    g.save();
+    if (pose === 5) { g.translate(32, 62); g.rotate(0.12); g.scale(1, 0.78); g.translate(-32, -62); }
+    else if (pose === 6) { g.translate(32, 62); g.rotate(0.6); g.scale(0.85, 0.85); g.translate(-32, -62); }
+    else { g.translate(32, 54); g.rotate(Math.PI / 2); g.scale(0.9, 0.9); g.translate(-32, -37); }
+    humanoide(g, tipo, 3);
+    g.restore();
     return;
   }
   const paso = pose === 1 ? 1 : 0;
   const dy = pose === 3 ? 2 : pose === 8 ? -1 : 0;
   const vaiven = pose === 0 ? 2 : pose === 1 ? -2 : 0; // los brazos se balancean al caminar
-  // piernas
-  if (momia) {
-    r(g, 22, 40 + dy, 8, 22 - dy - paso * 2, sombra); r(g, 34, 40 + dy, 8, 22 - dy - (1 - paso) * 2, sombra);
-    r(g, 23, 40 + dy, 6, 20 - dy, piel); r(g, 35, 40 + dy, 6, 20 - dy, piel);
-  } else {
-    r(g, 25, 40 + dy, 3, 22 - dy - paso * 2, piel); r(g, 36, 40 + dy, 3, 22 - dy - (1 - paso) * 2, piel);
-    r(g, 22, 60 - paso * 2, 7, 3, piel); r(g, 34, 60 - (1 - paso) * 2, 7, 3, piel);
-  }
-  // torso
-  if (momia) { r(g, 20, 20 + dy, 24, 22, sombra); r(g, 21, 20 + dy, 22, 21, piel); }
-  else {
-    r(g, 30, 20 + dy, 4, 22, piel);
-    for (let i = 0; i < 4; i++) r(g, 23, 22 + i * 4 + dy, 18, 2, piel);
-    r(g, 24, 38 + dy, 16, 4, piel);
-  }
-  // brazos
   const alza = pose === 2 ? -10 : pose === 7 ? -6 : 0;
-  if (momia) {
-    r(g, 13, 22 + dy + alza + vaiven, 7, 18, sombra); r(g, 44, 22 + dy + alza - vaiven, 7, 18, sombra);
-    r(g, 14, 22 + dy + alza + vaiven, 5, 17, piel); r(g, 45, 22 + dy + alza - vaiven, 5, 17, piel);
-  } else {
-    r(g, 17, 22 + dy + alza + vaiven, 3, 17, piel); r(g, 44, 22 + dy + alza - vaiven, 3, 17, piel);
-  }
+  const subeI = pose === 1 ? 2 : 0, subeD = pose === 0 ? 2 : 0; // pie que se levanta al caminar
+  if (momia) cuerpoMacizo(g, e, dy, alza, vaiven, subeI, subeD);
+  else esqueletoDe(g, e, dy, alza, vaiven, subeI, subeD);
   if (e.accesorio === 'pañuelo') {
     // sable en la mano derecha
-    r(g, 47, 6 + dy + alza, 2, 18, '#d8dde4'); r(g, 44, 23 + dy + alza, 8, 2, '#c8a040');
-  }
-  // cabeza
-  r(g, 24, 6 + dy, 16, 15, momia ? sombra : piel);
-  r(g, 25, 6 + dy, 14, 14, piel);
-  r(g, 27, 11 + dy, 4, 3, e.ojo); r(g, 33, 11 + dy, 4, 3, e.ojo);
-  if (!momia) { r(g, 28, 17 + dy, 8, 2, '#2a1a10'); r(g, 29, 17 + dy, 1, 2, piel); r(g, 32, 17 + dy, 1, 2, piel); }
-  if (e.manchas) {
-    g.fillStyle = '#4a2c0c';
-    for (const [x, y] of [[22, 24], [30, 28], [38, 23], [26, 34], [35, 36], [15, 30], [46, 32], [24, 46], [37, 50]]) g.fillRect(x, y + dy, 3, 2);
-  } else if (momia && !e.liso) {
-    g.fillStyle = sombra;
-    for (let y = 8; y < 60; y += 5) g.fillRect(14, y + dy + (y % 2), 36, 1);
+    r(g, 47, 6 + dy + alza, 2, 18, '#d8dde4'); r(g, 48, 6 + dy + alza, 1, 18, '#ffffff'); r(g, 44, 23 + dy + alza, 8, 2, '#c8a040');
   }
   if (e.accesorio === 'cuernos') {
     r(g, 23, 4 + dy, 18, 5, '#6a6e74'); r(g, 23, 4 + dy, 18, 1, '#9aa0a8');
@@ -623,38 +714,10 @@ function humanoide(g, tipo, pose) {
     r(g, 22, 22 + dy, 20, 19, '#eeeae0'); r(g, 30, 24 + dy, 4, 14, '#b02020'); r(g, 25, 28 + dy, 14, 4, '#b02020'); // sobreveste
     r(g, 50, 4 + dy + alza, 2, 26, '#d8dde4'); r(g, 46, 28 + dy + alza, 10, 2, '#8a6a2a'); // espada
   }
-  if (pose === 3) { r(g, 26, 26, 6, 4, '#7a1010'); }
+  if (pose === 3) { ovalo(g, 29, 28 + dy, 3, 2, '#7a1010'); r(g, 29, 30 + dy, 1, 3, '#7a1010'); }
   if (pose === 7) { // conjuro: fuego entre las manos
     r(g, 26, 12 + alza + 14, 12, 10, '#ff8a1a'); r(g, 28, 14 + alza + 14, 8, 6, '#ffe14a'); r(g, 30, 16 + alza + 14, 4, 2, '#fff8d0');
   }
-}
-
-// Fotogramas intermedios de la muerte: 5 de rodillas, 6 desplomándose.
-function caer(g, e, momia, pose) {
-  const piel = e.piel, sombra = e.sombra;
-  const dy = pose === 5 ? 12 : 26;
-  const inclina = pose === 5 ? 3 : 10;
-  // piernas dobladas
-  if (momia) { r(g, 18, 52, 28, 10, sombra); r(g, 19, 52, 26, 8, piel); }
-  else { r(g, 20, 56, 24, 3, piel); r(g, 22, 52, 3, 6, piel); r(g, 38, 52, 3, 6, piel); }
-  // torso caído hacia delante
-  if (momia) { r(g, 20 + inclina, 20 + dy, 24, 52 - (20 + dy) + 2, sombra); r(g, 21 + inclina, 20 + dy, 22, 52 - (20 + dy), piel); }
-  else { r(g, 30 + inclina, 20 + dy, 4, 52 - (20 + dy), piel); for (let i = 0; i < 3; i++) r(g, 23 + inclina, 22 + i * 4 + dy, 18, 2, piel); }
-  // brazos colgando
-  const brazo = momia ? 6 : 3;
-  r(g, 14 + inclina, 24 + dy, brazo, Math.max(6, 60 - (24 + dy)), piel);
-  r(g, 44 + inclina, 24 + dy, brazo, Math.max(6, 60 - (24 + dy)), piel);
-  // cabeza
-  r(g, 24 + inclina * 1.5, 6 + dy, 16, 15, momia ? sombra : piel);
-  r(g, 25 + inclina * 1.5, 6 + dy, 14, 14, piel);
-  const ojo = pose === 6 ? sombra : e.ojo;
-  r(g, 27 + inclina * 1.5, 11 + dy, 4, 2, ojo); r(g, 33 + inclina * 1.5, 11 + dy, 4, 2, ojo);
-  if (e.accesorio === 'yelmo') r(g, 24 + inclina * 1.5, 4 + dy, 16, 17, '#8a9098');
-  if (e.accesorio === 'mascara') r(g, 26 + inclina * 1.5, 9 + dy, 12, 11, '#e8e0c8');
-  if (e.accesorio === 'pañuelo') r(g, 24 + inclina * 1.5, 5 + dy, 16, 4, '#b02020');
-  if (e.accesorio === 'cuernos') { r(g, 18 + inclina * 1.5, dy, 4, 6, '#e8e0c8'); r(g, 42 + inclina * 1.5, dy, 4, 6, '#e8e0c8'); }
-  if (e.accesorio === 'plumas') r(g, 23 + inclina * 1.5, 2 + dy, 18, 5, '#2fa860');
-  r(g, 26, 26 + dy, 6, 4, '#7a1010');
 }
 
 for (const tipo of Object.keys(ESTILOS)) {
@@ -682,16 +745,40 @@ for (let k = 0; k < 2; k++) registrar('fuego_' + k, sprite(g => {
   for (let i = 0; i < 10; i++) { const a = rnd() * Math.PI * 2; r(g, 32 + Math.cos(a) * 22 - 3, 32 + Math.sin(a) * 22 - 3, 6, 6, i % 2 ? '#ff8a1a' : '#c2410c'); }
 }, { relieve: false }));
 
+function gradV(g, y0, y1, colores) { const d = g.createLinearGradient(0, y0, 0, y1); colores.forEach((c, i) => d.addColorStop(i / (colores.length - 1), c)); return d; }
 registrar('revolver', sprite(g => {
-  r(g, 12, 38, 34, 6, '#3a3a40'); r(g, 12, 38, 34, 2, '#6a6a74');
-  r(g, 30, 34, 12, 14, '#2c2c32'); r(g, 31, 35, 10, 3, '#5a5a62');
-  r(g, 38, 44, 10, 16, '#6b3e1f'); r(g, 40, 46, 6, 12, '#8a5530');
-  r(g, 34, 48, 6, 5, '#2c2c32'); r(g, 12, 35, 2, 3, '#3a3a40');
+  // revólver de lado: cañón largo, tambor estriado, martillo, guardamonte y cachas de nogal
+  g.fillStyle = gradV(g, 36, 43, ['#9aa2b2', '#3a3e48', '#16181e']); g.fillRect(8, 36, 30, 7);
+  g.fillStyle = gradV(g, 43, 46, ['#3a3e48', '#16181e']); g.fillRect(10, 43, 20, 3);  // varilla
+  r(g, 8, 34, 3, 2, '#5a5e68');                                                       // mira
+  g.fillStyle = gradV(g, 34, 50, ['#b0b8c8', '#4a4e5a', '#1a1c22']); g.beginPath(); g.roundRect(34, 34, 14, 16, 3); g.fill();
+  for (let i = 0; i < 3; i++) r(g, 36, 37 + i * 4, 10, 1, '#14161c');
+  g.fillStyle = gradV(g, 32, 50, ['#7a808c', '#2a2d35']); g.fillRect(46, 33, 6, 17);
+  r(g, 48, 29, 4, 5, '#3a3e48'); r(g, 49, 28, 3, 2, '#7a808c');                       // martillo
+  g.strokeStyle = '#2a2d35'; g.lineWidth = 2; g.beginPath(); g.arc(44, 52, 4, 0, Math.PI); g.stroke(); // guardamonte
+  r(g, 44, 50, 1, 4, '#16181e');                                                      // gatillo
+  g.fillStyle = gradV(g, 46, 62, ['#a8683a', '#6a3818', '#3a1a08']);
+  g.beginPath(); g.moveTo(47, 47); g.lineTo(53, 47); g.quadraticCurveTo(58, 56, 56, 62); g.lineTo(48, 62); g.quadraticCurveTo(48, 54, 47, 47); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 1; for (let k = 0; k < 4; k++) { g.beginPath(); g.moveTo(49 + k * 2, 50); g.lineTo(48 + k * 2, 60); g.stroke(); }
+  r(g, 51, 54, 2, 2, '#e8c060');
 }));
 registrar('balas', sprite(g => {
-  r(g, 16, 40, 32, 20, '#6b4a22'); r(g, 16, 40, 32, 4, '#8a6230');
-  for (let i = 0; i < 5; i++) { r(g, 19 + i * 6, 30, 4, 10, '#c89a3a'); r(g, 19 + i * 6, 28, 4, 3, '#9a6a2a'); }
-  r(g, 22, 48, 20, 6, '#d8c08a');
+  // caja de cartón con cartuchos de latón asomando
+  for (let i = 0; i < 6; i++) {
+    const x = 15 + i * 6;
+    g.fillStyle = gradV(g, 26, 40, ['#f0d080', '#c8962e', '#7a5214']); g.fillRect(x, 28, 5, 12);
+    g.fillStyle = gradV(g, 22, 29, ['#d8a080', '#9a5a3a', '#5a2a14']); g.beginPath(); g.ellipse(x + 2.5, 28, 2.5, 4, 0, Math.PI, 0); g.fill();
+  }
+  g.fillStyle = gradV(g, 38, 60, ['#a87a44', '#7a5228', '#4a3014']); g.fillRect(12, 38, 40, 22);
+  g.fillStyle = gradV(g, 36, 40, ['#c89a5a', '#8a6230']); g.fillRect(12, 36, 40, 4);
+  r(g, 18, 45, 28, 9, '#e8d8a8'); r(g, 20, 47, 24, 1, '#7a1a10'); r(g, 20, 50, 16, 1, '#3a2a1a'); r(g, 20, 52, 20, 1, '#3a2a1a');
+}));
+registrar('vendas', sprite(g => {
+  // rollo de vendas con una tira suelta y una cruz roja en la etiqueta
+  g.fillStyle = gradV(g, 32, 58, ['#ffffff', '#e8e0cc', '#a8a08a']); g.beginPath(); g.roundRect(16, 34, 32, 24, 10); g.fill();
+  g.strokeStyle = 'rgba(120,110,90,.5)'; g.lineWidth = 1; for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(32, 46, 13 - k * 3, 9 - k * 2, 0, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = '#f4ecd8'; g.beginPath(); g.moveTo(44, 50); g.quadraticCurveTo(56, 56, 52, 62); g.lineTo(46, 62); g.quadraticCurveTo(48, 56, 42, 54); g.fill();
+  r(g, 29, 38, 6, 16, '#c02020'); r(g, 24, 43, 16, 6, '#c02020'); r(g, 30, 39, 2, 14, '#e84040');
 }));
 registrar('pinchos', sprite(g => {
   for (let i = 0; i < 6; i++) {
