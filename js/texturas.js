@@ -1435,6 +1435,21 @@ registrar('vendas', sprite(g => {
   g.fillStyle = '#f4ecd8'; g.beginPath(); g.moveTo(44, 50); g.quadraticCurveTo(56, 56, 52, 62); g.lineTo(46, 62); g.quadraticCurveTo(48, 56, 42, 54); g.fill();
   r(g, 29, 38, 6, 16, '#c02020'); r(g, 24, 43, 16, 6, '#c02020'); r(g, 30, 39, 2, 14, '#e84040');
 }));
+registrar('barreta', sprite(g => {
+  // palanca de hierro en diagonal: gancho curvo arriba, cuña plana abajo y óxido
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const trazo = (ancho, color, dx = 0) => {
+    g.strokeStyle = color; g.lineWidth = ancho;
+    g.beginPath(); g.moveTo(15 + dx, 56); g.lineTo(43 + dx, 22); g.quadraticCurveTo(48 + dx, 14, 41 + dx, 10); g.quadraticCurveTo(38 + dx, 8, 34 + dx, 12); g.stroke();
+  };
+  trazo(8, '#14161c');
+  trazo(6, '#4a505c');
+  trazo(3, '#8a93a3', -1);
+  g.fillStyle = '#2a2d35'; g.beginPath(); g.moveTo(8, 60); g.lineTo(18, 50); g.lineTo(22, 56); g.lineTo(14, 62); g.closePath(); g.fill();   // cuña
+  g.fillStyle = '#6a7080'; g.beginPath(); g.moveTo(9, 60); g.lineTo(17, 51); g.lineTo(19, 53); g.lineTo(12, 61); g.closePath(); g.fill();
+  r(g, 31, 33, 2, 2, '#8a4a22'); r(g, 24, 42, 3, 2, '#7a3c18'); r(g, 38, 26, 2, 3, '#9a5a2a'); r(g, 20, 48, 2, 2, '#8a4a22');   // óxido
+  r(g, 36, 20, 2, 1, '#c8d0de');
+}));
 registrar('pinchos', sprite(g => {
   for (let i = 0; i < 6; i++) {
     const x = 6 + i * 10;

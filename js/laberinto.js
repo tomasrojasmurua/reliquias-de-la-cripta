@@ -420,6 +420,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
 
   const revolverTrasTablilla = azar() < 0.4;
   const plan = [{ uso: 'revolver', puerta: revolverTrasTablilla ? 'via' : 'S', profundo: true }];
+  plan.push({ uso: 'barreta', puerta: 'S', profundo: true });   // la palanca de hierro: siempre tras un pasadizo secreto
   if (azar() < 0.85) plan.push({ uso: 'botin', puerta: 'via' });
   if (azar() < 0.9) plan.push({ uso: 'botin', puerta: 'S' });
   if (azar() < 0.75) plan.push({ uso: 'trampa', puerta: 'S' });
@@ -430,7 +431,8 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
     const h = buscar(p.profundo);
     if (!h) {
       // sin sitio en la roca, el revólver queda a la vista en uno de los rincones más lejanos
-      if (p.uso === 'revolver') {
+      if (p.uso === 'revolver' || p.uso === 'barreta') {
+        const objeto = p.uso === 'revolver' ? 'R' : 'w';
         // en un plano de salas abiertas se emparedan una o dos casillas junto a una pared: un nicho tras un pasadizo secreto
         const antes = distancias(new Set()).size;
         const candidatas = mezclar([...dist.keys()].map(k => k.split(',').map(Number)).filter(([x, y]) => suelo(x, y) && x > 2 && y > 2 && x < W - 3 && y < H - 3 && dist.get(x + ',' + y) >= 8));
@@ -439,7 +441,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
           const [dx, dy] = elegir(V);
           const [px, py] = [x + dx, y + dy], [zx, zy] = [x + dx * 2, y + dy * 2];
           if (g[py][px] !== '.' || g[zy]?.[zx] !== '.' || nivel(x, y) !== nivel(px, py) || nivel(px, py) !== nivel(zx, zy)) continue;
-          const cambios = [[x, y, 'R'], [px, py, 'S'], ...V.filter(([vx, vy]) => (vx !== dx || vy !== dy) && g[y + vy][x + vx] === '.').map(([vx, vy]) => [x + vx, y + vy, '#'])];
+          const cambios = [[x, y, objeto], [px, py, 'S'], ...V.filter(([vx, vy]) => (vx !== dx || vy !== dy) && g[y + vy][x + vx] === '.').map(([vx, vy]) => [x + vx, y + vy, '#'])];
           if (cambios.some(([cx, cy]) => nivel(cx, cy) !== nivel(x, y))) continue;
           const previo = cambios.map(([cx, cy]) => g[cy][cx]);
           cambios.forEach(([cx, cy, c]) => { g[cy][cx] = c; });
@@ -447,7 +449,8 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
           if (distancias(new Set()).size === antes - (cambios.length - 2)) { revolverPuesto = true; break; }
           cambios.forEach(([cx, cy], i) => { g[cy][cx] = previo[i]; });
         }
-        if (revolverPuesto) continue;
+        if (revolverPuesto) { revolverPuesto = false; continue; }
+        if (p.uso === 'barreta') continue;   // sin nicho posible, esta partida no trae palanca
         const lejanas = [...dist].filter(([k]) => { const [x, y] = k.split(',').map(Number); return suelo(x, y); }).sort((a, b) => b[1] - a[1]);
         const [x, y] = elegir(lejanas.slice(0, Math.max(1, Math.ceil(lejanas.length / 4))))[0].split(',').map(Number);
         g[y][x] = 'R';
@@ -465,6 +468,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
     const libres = mezclar(h.sala.length ? h.sala.map(c => c.slice()) : h.interior.map(c => c.slice()));
     const poner = c => { const k = libres.pop(); if (k) g[k[1]][k[0]] = c; };
     if (p.uso === 'revolver') { poner('R'); poner('b'); }
+    else if (p.uso === 'barreta') { poner('w'); poner('b'); }
     else if (p.uso === 'botin') { poner('b'); poner('v'); if (azar() < 0.5) poner('b'); }
     else if (p.uso === 'trampa') { for (const [x, y] of libres.slice(0, 3)) g[y][x] = '^'; if (azar() < 0.5) poner(elegir(tipos.length ? tipos : ['k'])); }
     else { for (let i = 0; i < 2 + Math.floor(azar() * 2); i++) poner(elegir(tipos.length ? tipos : ['k'])); poner('b'); }

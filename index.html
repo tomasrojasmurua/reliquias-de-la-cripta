@@ -272,12 +272,16 @@
   <button id="btn-pausa" aria-label="Pausa">II</button>
   <div id="hud-zona" hidden><b></b> <span></span> <em></em></div>
   <ul id="hud-sala" hidden></ul>
+  <div id="emotes" hidden>
+    <button data-emote="0">¡Aquí!</button><button data-emote="1">¡Cuidado!</button><button data-emote="2">¡Ayuda!</button><button data-emote="3">¡Es mío!</button>
+  </div>
   <div id="hud-jefe" hidden><b></b><div class="barra"><i></i></div></div>
   <div id="hud-reloj" hidden></div>
   <div id="hud">
     <div class="caja"><small>Vida</small><b id="hud-vida">100</b></div>
     <div class="caja"><small id="hud-arma">Látigo</small><b id="hud-balas">—</b></div>
     <div class="caja"><small>Tesoros</small><b id="hud-tesoros">0/0</b></div>
+    <div class="caja" id="caja-palanca" hidden><small>Palanca</small><b>🔧</b></div>
     <div class="caja" id="caja-puntos" hidden><small>Puntos</small><b id="hud-puntos">0</b></div>
   </div>
   <div id="zona-tactil"></div>
@@ -290,7 +294,7 @@
   </div>
   <div id="pausa" class="capa" hidden>
     <h2>Pausa</h2>
-    <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen.</p>
+    <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen. Mensajes rápidos: Z, X, C y V.</p>
     <button id="btn-continuar" class="principal">Continuar</button>
     <button id="btn-menu-pausa">Salir al menú</button>
   </div>

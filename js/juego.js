@@ -94,7 +94,7 @@ export class Juego {
     const m = this.mapa;
     this.j = {
       x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
-      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tambor: 0, reserva: 0,
+      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, barreta: 0, tambor: 0, reserva: 0,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
@@ -648,8 +648,16 @@ export class Juego {
       this.ev.mensaje('¡Un pasadizo secreto!');
     }
     else if (c.tipo === 'sello' && !c.abriendo) {
-      sonar('sellado');
       const a = m.acertijos[c.acertijo];
+      if (j.barreta) {
+        // forzar gasta la palanca: se pide confirmar para no desperdiciarla en un sello que pensabas descifrar
+        if (this.forzando === a.id && this.tiempo - this.forzandoT < 4) { this.forzarSello(a); return; }
+        this.forzando = a.id; this.forzandoT = this.tiempo;
+        sonar('sellado');
+        this.ev.mensaje(`Un sello antiguo bloquea el paso. Pulsa «Usar» otra vez para forzarlo con la palanca (se gasta), o busca «${a.titulo}».`, 4);
+        return;
+      }
+      sonar('sellado');
       this.ev.mensaje(`Un sello antiguo bloquea el paso. Busca «${a.titulo}».`);
     }
     else if (c.tipo === 'tablilla') {
@@ -670,6 +678,17 @@ export class Juego {
     this.ev.reconstruir?.();
     sonar('puerta');
     this.ev.mensaje(bono ? `Se oye un mecanismo antiguo. El sello se abre. ¡Sin ayudas! +${bono} punto${bono === 1 ? '' : 's'}` : 'Se oye un mecanismo antiguo. El sello se abre.');
+  }
+
+  // Abre el sello con la palanca de hierro. No cuenta como acertijo resuelto: la tablilla sigue sin descifrar.
+  forzarSello(a) {
+    this.j.barreta = 0;
+    a.forzado = true;
+    for (const c of this.mapa.celdas) if (c.tipo === 'sello' && c.acertijo === a.id) c.abriendo = true;
+    sonar('forzar');
+    setTimeout(() => sonar('puerta'), 450);
+    this.ev.mensaje('Metes la palanca en la juntura y el sello cede. La palanca se parte.', 4);
+    this.ev.forzo?.(a.id);
   }
 
   salir() {
@@ -750,6 +769,9 @@ export class Juego {
         const n = this.mods.has('escasez') ? 3 : 6;
         o.cogido = true; j.tieneRevolver = true; j.tambor = n; j.arma = 'revolver'; j.espera = 0.4;
         sonar('recoger'); this.ev.mensaje(`¡Encontraste tu revólver! Cargado con ${n} balas.`);
+      } else if (o.tipo === 'barreta') {
+        o.cogido = true; j.barreta = 1;
+        sonar('palanca'); this.ev.mensaje('¡Una palanca de hierro! Sirve para forzar un sello sin descifrar su tablilla, pero solo una vez.', 5);
       } else if (o.tipo === 'balas') {
         if (j.reserva >= 60) continue;
         const n = this.mods.has('escasez') ? 6 : 12;
