@@ -295,6 +295,10 @@ body.jugando #escena { display: none; }
 #vista, #arma { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 body.retro #vista { image-rendering: pixelated; }
 #arma { pointer-events: none; image-rendering: pixelated; }
+#etiquetas { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.etiqueta { position: absolute; left: 0; top: 0; max-width: min(260px, 62vw); padding: 3px 8px; text-align: center; font: 600 12px/1.25 Cinzel, Georgia, serif; letter-spacing: .04em; color: #9fd0ff; background: rgba(12, 10, 8, .72); border: 1px solid rgba(95, 168, 255, .55); border-radius: 4px; text-shadow: 0 1px 2px #000; will-change: transform; }
+.etiqueta.sello { color: #ffd98a; border-color: rgba(255, 190, 80, .6); }
+.etiqueta.hecha { color: #8fe0a8; border-color: rgba(127, 224, 160, .45); opacity: .85; }
 #automapa { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
 #mira { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255, 240, 200, .7); box-shadow: 0 0 0 1px rgba(0, 0, 0, .6); pointer-events: none; }
 #destello { position: absolute; inset: 0; pointer-events: none; opacity: 0; }

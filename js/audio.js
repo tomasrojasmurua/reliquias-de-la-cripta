@@ -207,6 +207,8 @@ const SONIDOS = {
     [392, 494, 587, 784].forEach((f, i) => tono(f, 0.4, 0.1, 'triangle', 0.5 + i * 0.13));
     INSTRUMENTOS.campana(c(), ctx.currentTime + 1.05, 784, 2, 0.05, salida);
   },
+  // una corriente fría sale de una grieta: un soplo corto que apenas se nota
+  corriente() { ruido(1.4, 900, 1.2, 0.14, 'bandpass', 0, salida, 300); },
   sellado() { tono(110, 0.25, 0.25, 'square'); tono(98, 0.3, 0.25, 'square', 0.15); },
   // el jugador
   dolor() { vocal(240, 170, 0.22, 'u', 0.35, salida, { ataque: 0.01 }); ruido(0.08, 500, 1, 0.25); },

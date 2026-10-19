@@ -1,5 +1,6 @@
 import { crearAtlas, registrarTesoros, miniatura } from './texturas.js';
 import { Render } from './render.js';
+import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
 import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
@@ -52,6 +53,7 @@ registrarTesoros(TESOROS);
 const atlas = crearAtlas();
 const vista = $('#vista');
 let render;
+const etiquetas = new Etiquetas($('#etiquetas'), vista);
 try {
   render = new Render(vista);
   render.ponerAtlas(atlas);
@@ -695,6 +697,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
     daño() { destello('rojo'); },
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
+    reconstruir: () => render.construir(juego.mapa),
     salida: r => terminar(r, true),
     muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
     tiempoAgotado: r => terminar(r, false),
@@ -703,6 +706,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
   $('#caja-puntos').hidden = !limite;
   document.body.classList.toggle('contrarreloj', !!limite);
   render.construir(juego.mapa);
+  etiquetas.construir(juego.mapa);
   capaMapa.hidden = true;
   iniciarPartidaEnSala();
   iniciarAmbiente(def.ambiente);
@@ -909,7 +913,9 @@ function cuadro(t) {
     * (juego.mods.has('oscuridad') ? 0.5 : 1);
   const sprites = juego.sprites();
   if (actual?.sala) cuadroDeSala(t, dt, sprites);
-  render.dibujar(juego.camara(), sprites, { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra(), pinchosArriba: x => pinchosArriba(x, juego.tiempo) });
+  const cam = juego.camara();
+  render.dibujar(cam, sprites, { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra(), pinchosArriba: x => pinchosArriba(x, juego.tiempo) });
+  etiquetas.actualizar(juego, cam);
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);
