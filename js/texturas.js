@@ -697,8 +697,7 @@ function sprite(fn, opciones = {}) {
     fn(g);
     const d = g.getImageData(0, 0, T, T).data;
     for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 128) d[i + 3] = 0; else d[i + 3] = 255; }
-    if (opciones.pulir) pulir(d, opciones.pulir);
-    else if (opciones.relieve !== false) relieve(d);
+    if (opciones.relieve !== false) relieve(d);
     b.d.set(d);
   };
 }
@@ -750,32 +749,7 @@ function relieve(d) {
   for (const k of borde) { d[k] = 18; d[k + 1] = 12; d[k + 2] = 8; d[k + 3] = 255; }
 }
 
-// Acabado de los tesoros: volumen según la distancia al borde, luz arriba a la izquierda,
-// una veta de brillo diagonal (dos en los legendarios) y un contorno del tono oscuro del metal.
 function hexRGB(c) { const n = parseInt(c.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
-function pulir(d, { oscuro, rareza }) {
-  const a = (x, y) => x >= 0 && y >= 0 && x < T && y < T && d[(y * T + x) * 4 + 3] > 0;
-  const orig = new Uint8ClampedArray(d);
-  const borde = [];
-  const vetas = rareza === 'legendario' ? [[50, 53], [62, 63]] : rareza === 'comun' ? [] : [[50, 52]];
-  const linea = hexRGB(oscuro).map(v => v * 0.3);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const i = (y * T + x) * 4;
-    if (!orig[i + 3]) {
-      if (a(x - 1, y) || a(x + 1, y) || a(x, y - 1) || a(x, y + 1)) borde.push(i);
-      continue;
-    }
-    let k = 1;
-    while (k < 4 && a(x - k, y) && a(x + k, y) && a(x, y - k) && a(x, y + k)) k++;
-    let f = 0.8 + k * 0.07;
-    if (!a(x - 1, y) || !a(x, y - 1)) f *= 1.32;
-    if (!a(x + 1, y) || !a(x, y + 1)) f *= 0.58;
-    let c = [orig[i] * f, orig[i + 1] * f, orig[i + 2] * f];
-    if (k >= 2 && vetas.some(([v0, v1]) => x + y >= v0 && x + y <= v1)) c = c.map(v => v + (255 - v) * 0.6);
-    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
-  }
-  for (const i of borde) { d[i] = linea[0]; d[i + 1] = linea[1]; d[i + 2] = linea[2]; d[i + 3] = 255; }
-}
 
 // Trama ordenada 4x4 para degradados con píxeles enteros (los sprites no tienen transparencia parcial).
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
@@ -1124,62 +1098,123 @@ function mano(g, x, y, ang, c, k = 1) {
   g.restore();
 }
 
-// Friso de jeroglíficos pintados entre dos franjas de colores (empalma con el de al lado).
+// Jeroglíficos pintados a color, con contorno negro como en las tumbas. n negro, a azul, r rojo,
+// v verde, o ocre, w blanco hueso.
+const TINTAS = { n: '#1a120a', a: '#2f5fa8', r: '#b8342a', v: '#2f8a5a', o: '#d8a838', w: '#e8dcc0' };
+const GLIFOS_COLOR = {
+  ave: ['...nn...', '..nvwn..', '..nvvvn.', '.nvvvvvn', 'nvvvvvn.', '..nnnn..', '..n..n..'],
+  sol: ['..nnnn..', '.nrrrrn.', 'nrrorrrn', 'nrrrrrrn', '.nrrrrn.', '..nnnn..', '.nnnnnn.'],
+  cobra: ['..nn....', '.nron...', '.nrn....', '..nrn...', '...nrnnn', '..nrrrrn', '.nnnnnn.'],
+  sentado: ['..nnn...', '..nwn...', '..nnn...', '.nrrrn..', '.nrrrnn.', '..nrrrn.', '.nnnnnn.'],
+  agua: ['n.n.n.n.', '.a.a.a.a', '........', 'n.n.n.n.', '.a.a.a.a', '........', 'n.n.n.n.'],
+  ojo: ['........', '.nnnnnn.', 'nwwnnwwn', 'nwwnnwwn', '.nnnnnn.', '...n.n..', '..n...n.'],
+  anj: ['..nnn...', '.no.on..', '.no.on..', 'nnnonnn.', 'noooooon', '..non...', '..nnn...'],
+  junco: ['...nvn..', '..nvvn..', '...nvn..', '...nn...', '...nn...', '...nn...', '..nnnn..'],
+  pan: ['........', '........', '...nn...', '..nvvn..', '.nvvvvn.', 'nnnnnnnn', '........'],
+  vasija: ['..nnnn..', '...nn...', '..naan..', '.naaaan.', '.naaaan.', '..naan..', '...nn...'],
+};
+function glifoColor(g, forma, x0, y0, k = 2) {
+  forma.forEach((fila, j) => [...fila].forEach((ch, i) => { if (TINTAS[ch]) r(g, x0 + i * k, y0 + j * k, k, k, TINTAS[ch]); }));
+}
+
+// Friso de jeroglíficos: columnas de signos a color y un cartucho real en el centro (empalma con el de al lado).
 registrar('hito_jeroglificos', pintura(g => {
   const COL = ['#2f5fa8', '#b8342a', '#d8a838', '#2f8a5a'];
-  for (let x = 0; x < T; x += 8) { r(g, x, 4, 8, 4, COL[(x / 8) % 4]); r(g, x, 56, 8, 4, COL[(x / 8 + 2) % 4]); }
-  r(g, 0, 9, T, 1, '#1a120a'); r(g, 0, 55, T, 1, '#1a120a');
-  for (const xc of [2, 23, 44]) r(g, xc + 17, 12, 1, 41, '#1a120a');   // líneas entre columnas
-  const orden = [[0, 1, 4], [3, 2, 0], [1, 4, 3]];
-  orden.forEach((col, k) => col.forEach((n, j) => glifo(g, GLIFOS[n], 4 + k * 21, 13 + j * 14, ['#1a2a4a', '#8a2418', '#1a120a'][(k + j) % 3])));
-}, 201));
+  for (let x = 0; x < T; x += 4) { r(g, x, 3, 4, 5, COL[(x / 4) % 4]); r(g, x, 56, 4, 5, COL[(x / 4 + 2) % 4]); }
+  r(g, 0, 2, T, 1, '#1a120a'); r(g, 0, 8, T, 1, '#1a120a'); r(g, 0, 55, T, 1, '#1a120a'); r(g, 0, 61, T, 1, '#1a120a');
+  for (const x of [0, 63]) r(g, x, 10, 1, 44, '#1a120a');
+  const G = GLIFOS_COLOR;
+  [G.ave, G.agua, G.sentado].forEach((f, j) => glifoColor(g, f, 3, 12 + j * 14));
+  [G.junco, G.pan, G.cobra].forEach((f, j) => glifoColor(g, f, 45, 12 + j * 14));
+  // cartucho
+  r(g, 22, 10, 20, 44, '#1a120a'); r(g, 23, 11, 18, 42, '#e8dcc0'); r(g, 22, 53, 20, 2, '#1a120a'); r(g, 20, 54, 24, 1, '#1a120a');
+  for (const [x, y] of [[22, 10], [41, 10], [22, 52], [41, 52]]) r(g, x, y, 1, 1, 'rgba(0,0,0,0)');
+  [G.sol, G.ojo, G.anj].forEach((f, j) => glifoColor(g, f, 24, 13 + j * 13));
+}, 201, 0.2));
 
-// Disco solar alado sobre una franja de colores.
+// Disco solar alado: plumas con contorno en tres hileras y las dos cobras que lo custodian.
 registrar('hito_disco_alado', pintura(g => {
-  const plumas = ['#2f5fa8', '#2f8a5a', '#b8342a', '#d8a838'];
-  for (const lado of [-1, 1]) for (let k = 0; k < 4; k++) {
-    const largo = 26 - k * 3;
+  const hileras = [['#2f5fa8', 27, 5], ['#2f8a5a', 23, 4], ['#b8342a', 18, 4]];
+  for (const lado of [-1, 1]) hileras.forEach(([c, largo, alto], k) => {
     for (let p = 0; p < largo; p += 3) {
-      const x = 32 + lado * (8 + p), y = 20 + k * 3 + Math.round(p * p / 120);
-      r(g, lado < 0 ? x - 2 : x, y, 3, 3, plumas[k]);
+      const x = 32 + lado * (9 + p), y = 16 + k * 5 + Math.round(p * p / 110);
+      const x0 = lado < 0 ? x - 3 : x;
+      r(g, x0, y, 3, alto + 1, '#1a120a'); r(g, x0 + (lado < 0 ? 1 : 0), y, 2, alto, c);
+      r(g, x0 + (lado < 0 ? 1 : 0), y, 2, 1, '#e8dcc0');
     }
+  });
+  ovalo(g, 32, 19, 9, 9, '#1a120a'); ovalo(g, 32, 19, 8, 8, '#c8301e'); ovalo(g, 30, 17, 3, 2.5, '#e8603a'); ovalo(g, 29, 16, 1, 1, '#f8c080');
+  for (const s of [-1, 1]) {
+    const x = 32 + s * 10;
+    r(g, x - 2, 22, 4, 10, '#1a120a'); r(g, x - 1, 22, 2, 9, '#d8a838');
+    ovalo(g, x, 21, 3, 2.5, '#1a120a'); ovalo(g, x, 21, 2, 1.6, '#2f8a5a'); r(g, x, 20, 1, 1, '#e8dcc0');
+    r(g, x - 3, 31, 6, 2, '#1a120a');
   }
-  ovalo(g, 32, 20, 8, 8, '#1a120a'); ovalo(g, 32, 20, 7, 7, '#c8301e'); ovalo(g, 30, 18, 2, 2, '#e8603a');
-  r(g, 22, 25, 3, 6, '#d8a838'); r(g, 39, 25, 3, 6, '#d8a838');   // las dos cobras
-  r(g, 21, 23, 4, 3, '#2f8a5a'); r(g, 39, 23, 4, 3, '#2f8a5a');
-  for (let x = 6; x < 58; x += 6) r(g, x, 44, 5, 3, plumas[(x / 6) % 4]);
-  glifo(g, GLIFOS[0], 27, 49, '#1a120a', 2);
-}, 203));
+  for (let x = 4; x < 60; x += 4) { r(g, x, 43, 3, 4, ['#2f5fa8', '#d8a838', '#b8342a', '#2f8a5a'][(x / 4) % 4]); }
+  r(g, 2, 42, 60, 1, '#1a120a'); r(g, 2, 47, 60, 1, '#1a120a');
+  glifoColor(g, GLIFOS_COLOR.anj, 16, 49, 1); glifoColor(g, GLIFOS_COLOR.ojo, 28, 49, 1); glifoColor(g, GLIFOS_COLOR.anj, 40, 49, 1);
+}, 203, 0.2));
 
-// Ojo de Horus grande, en negro y azul.
+// Ojo de Horus: ceja azul, párpado rojo, pupila y las dos marcas de halcón.
 registrar('hito_ojo', pintura(g => {
-  g.fillStyle = '#e8dcc0'; g.beginPath(); g.ellipse(32, 26, 18, 9, 0, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = '#141018'; g.lineWidth = 3; g.beginPath(); g.ellipse(32, 26, 18, 9, 0, 0, Math.PI * 2); g.stroke();
-  ovalo(g, 32, 26, 7, 7, '#2f5fa8'); ovalo(g, 32, 26, 4, 4, '#141018');
-  r(g, 12, 12, 40, 3, '#141018'); r(g, 48, 15, 10, 3, '#141018');            // ceja y cola
-  r(g, 50, 26, 10, 3, '#141018');
-  r(g, 26, 35, 3, 16, '#141018'); r(g, 26, 49, 9, 3, '#141018');            // lágrima
-  g.strokeStyle = '#141018'; g.lineWidth = 3; g.beginPath(); g.moveTo(38, 35); g.lineTo(42, 46); g.arc(46, 46, 4, Math.PI, Math.PI * 2.4); g.stroke();
-  for (let x = 6; x < 60; x += 8) r(g, x, 58, 5, 3, '#b8342a');
+  const N = '#141018';
+  g.fillStyle = N; g.beginPath(); g.moveTo(11, 13); g.quadraticCurveTo(32, 4, 53, 11); g.lineTo(53, 15); g.quadraticCurveTo(32, 9, 11, 17); g.fill();
+  g.fillStyle = '#2f5fa8'; g.beginPath(); g.moveTo(13, 14); g.quadraticCurveTo(32, 7, 51, 12); g.lineTo(51, 13); g.quadraticCurveTo(32, 9, 13, 15.5); g.fill();
+  g.fillStyle = N; g.beginPath(); g.ellipse(32, 27, 19, 10, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#b8342a'; g.beginPath(); g.ellipse(32, 27, 17, 8.5, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#e8dcc0'; g.beginPath(); g.ellipse(32, 28, 15, 6.5, 0, 0, Math.PI * 2); g.fill();
+  ovalo(g, 32, 27, 6.5, 6.5, N); ovalo(g, 32, 27, 5, 5, '#2f5fa8'); ovalo(g, 32, 27, 2.6, 2.6, N); r(g, 30, 25, 2, 2, '#e8dcc0');
+  r(g, 49, 27, 12, 3, N); r(g, 58, 24, 3, 6, N);                                               // cola del ojo
+  g.strokeStyle = N; g.lineWidth = 3; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(26, 37); g.lineTo(26, 52); g.lineTo(31, 54); g.stroke();             // lágrima
+  g.beginPath(); g.moveTo(38, 37); g.quadraticCurveTo(44, 47, 49, 47); g.stroke();
+  g.beginPath(); g.arc(49, 51, 4, -Math.PI / 2, Math.PI * 1.3); g.stroke();                    // espiral del halcón
+  for (let x = 4; x < 60; x += 8) { r(g, x, 59, 5, 3, '#b8342a'); r(g, x + 5, 59, 3, 3, '#2f5fa8'); }
 }, 205));
 
-// Manos en negativo, de ocre y rojo, y unos puntos.
+// Arte rupestre: una mano en negativo (pigmento soplado alrededor), un ciervo y dos cazadores.
 registrar('hito_manos', pintura(g => {
-  mano(g, 19, 30, -0.25, '#b03a1e', 1.5); mano(g, 46, 26, 0.25, '#c8642a', 1.4);
-  for (const [x, y] of [[10, 50], [14, 54], [10, 58], [56, 46], [58, 52]]) ovalo(g, x, y, 1.6, 1.6, '#a8381e');
-}, 207, 0.25));
+  const rnd = rng(208);
+  ovalo(g, 19, 23, 15, 18, '#b03a1e');
+  for (let i = 0; i < 700; i++) {
+    const a = rnd() * Math.PI * 2, d = 13 + rnd() * 6;
+    r(g, 19 + Math.cos(a) * d, 23 + Math.sin(a) * d * 1.2, 1, 1, rnd() < 0.7 ? '#b03a1e' : '#8a2a14');
+  }
+  g.save(); g.globalCompositeOperation = 'destination-out'; mano(g, 19, 25, -0.2, '#000', 1.35); g.restore();
+  mano(g, 47, 20, 0.3, '#c8642a', 0.85);
+  const O = '#a8381e';
+  // ciervo al trote
+  r(g, 34, 42, 14, 5, O); r(g, 47, 38, 3, 6, O); ovalo(g, 50, 37, 3, 2, O); r(g, 52, 37, 2, 1, O);
+  trazo(g, O, 1.4, 49, 35, 47, 30, 45, 29); trazo(g, O, 1.4, 48, 32, 51, 29, 53, 30); trazo(g, O, 1.4, 50, 35, 53, 31);
+  trazo(g, O, 1.6, 36, 46, 33, 52); trazo(g, O, 1.6, 38, 46, 39, 52); trazo(g, O, 1.6, 45, 46, 43, 52); trazo(g, O, 1.6, 46, 46, 49, 51);
+  r(g, 33, 41, 2, 2, O);
+  // cazadores con lanzas
+  for (const [x, s] of [[12, 0], [22, 2]]) {
+    ovalo(g, x, 41 + s, 1.6, 1.6, '#3a1a10'); trazo(g, '#3a1a10', 1.4, x, 43 + s, x, 50 + s);
+    trazo(g, '#3a1a10', 1.2, x, 50 + s, x - 3, 55 + s); trazo(g, '#3a1a10', 1.2, x, 50 + s, x + 3, 55 + s);
+    trazo(g, '#3a1a10', 1.2, x - 3, 47 + s, x + 6, 43 + s); trazo(g, '#3a1a10', 1, x - 4, 50 + s, x + 10, 40 + s);
+  }
+  for (const [x, y] of [[6, 60], [10, 58], [56, 58], [60, 56]]) ovalo(g, x, y, 1.4, 1.4, O);
+}, 207, 0.12));
 
-// Espiral y círculos picados en la piedra, en ocre claro.
+// Petroglifos picados en la piedra: espiral, chamán con cuernos, sol y un camino de puntos.
 registrar('hito_espiral', pintura(g => {
-  g.strokeStyle = '#e0c890'; g.lineWidth = 3; g.beginPath();
-  for (let a = 0; a < Math.PI * 7; a += 0.1) { const rr = 2 + a * 1.05; const x = 28 + Math.cos(a) * rr, y = 30 + Math.sin(a) * rr; a ? g.lineTo(x, y) : g.moveTo(x, y); }
+  const C = '#e0c890', C2 = '#c8a870';
+  g.strokeStyle = C; g.lineWidth = 3; g.beginPath();
+  for (let a = 0; a < Math.PI * 6; a += 0.1) { const rr = 2 + a * 0.95; const x = 22 + Math.cos(a) * rr, y = 24 + Math.sin(a) * rr; a ? g.lineTo(x, y) : g.moveTo(x, y); }
   g.stroke();
-  g.lineWidth = 2; g.strokeStyle = '#c8a870';
-  for (const rr of [3, 7]) { g.beginPath(); g.arc(52, 52, rr, 0, Math.PI * 2); g.stroke(); }
-  for (const [x, y] of [[8, 8], [14, 6], [52, 10], [56, 16], [8, 56]]) ovalo(g, x, y, 1.6, 1.6, '#e0c890');
+  // chamán
+  ovalo(g, 48, 30, 3, 3, C); r(g, 46, 33, 4, 11, C); trazo(g, C, 2, 46, 36, 40, 32, 38, 28); trazo(g, C, 2, 50, 36, 56, 32, 58, 28);
+  trazo(g, C, 2, 47, 44, 44, 52); trazo(g, C, 2, 49, 44, 52, 52); trazo(g, C, 1.5, 46, 28, 43, 22, 41, 22); trazo(g, C, 1.5, 50, 28, 53, 22, 55, 22);
+  trazo(g, C, 1.2, 44, 24, 42, 20); trazo(g, C, 1.2, 52, 24, 54, 20);
+  // sol con rayos
+  g.lineWidth = 2; g.strokeStyle = C2; g.beginPath(); g.arc(50, 9, 4, 0, Math.PI * 2); g.stroke();
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; trazo(g, C2, 1.5, 50 + Math.cos(a) * 6, 9 + Math.sin(a) * 6, 50 + Math.cos(a) * 8.5, 9 + Math.sin(a) * 8.5); }
+  for (let k = 0; k < 9; k++) ovalo(g, 8 + k * 4, 50 + Math.sin(k) * 3, 1.3, 1.3, C2);
+  for (const [x, y] of [[6, 6], [10, 4], [6, 40], [60, 46]]) ovalo(g, x, y, 1.6, 1.6, C);
 }, 209));
 
-// Friso de runas pintadas de rojo entre dos cintas (empalma con el de al lado).
+// Friso de runas talladas y pintadas de rojo dentro de una serpiente-cinta (empalma con el de al lado).
 const RUNAS = [
   [[1, 0, 1, 14], [1, 0, 6, 5], [1, 5, 6, 10]],                  // ᚠ
   [[1, 0, 1, 14], [6, 0, 6, 14], [1, 0, 6, 6]],                  // ᚢ
@@ -1189,196 +1224,709 @@ const RUNAS = [
   [[1, 0, 1, 14], [1, 0, 6, 4], [6, 4, 1, 8]],                   // ᚱ
 ];
 registrar('hito_runas', pintura(g => {
-  g.strokeStyle = '#b02a1e'; g.lineWidth = 3;
-  for (const y of [10, 52]) { g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= T; x += 4) g.lineTo(x, y + Math.sin(x / T * Math.PI * 4) * 3); g.stroke(); }
-  g.lineWidth = 2.5;
-  [0, 3, 1, 5, 2, 4].forEach((n, k) => {
-    const x0 = 3 + (k % 3) * 21, y0 = k < 3 ? 17 : 34;
-    for (const [a, b, c, d] of RUNAS[n]) { g.beginPath(); g.moveTo(x0 + a * 1.4 + 4, y0 + b); g.lineTo(x0 + c * 1.4 + 4, y0 + d); g.stroke(); }
-  });
+  const cinta = (y0, fase) => {
+    for (let x = 0; x < T; x++) {
+      const y = y0 + Math.round(Math.sin((x / T + fase) * Math.PI * 4) * 3);
+      r(g, x, y - 3, 1, 7, '#1a1010'); r(g, x, y - 2, 1, 5, '#b02a1e'); if (x % 3 === 0) r(g, x, y, 1, 1, '#e0b080');
+    }
+  };
+  cinta(9, 0); cinta(55, 0.25);
+  const corte = (x0, y0, n) => {
+    for (const [dx, dy, color] of [[1, 1, '#2a1a14'], [0, 0, '#c8301e']]) {
+      g.strokeStyle = color; g.lineWidth = 2.6; g.lineCap = 'square';
+      for (const [a, b, c, d] of RUNAS[n]) { g.beginPath(); g.moveTo(x0 + a * 1.5 + dx, y0 + b * 1.15 + dy); g.lineTo(x0 + c * 1.5 + dx, y0 + d * 1.15 + dy); g.stroke(); }
+    }
+  };
+  [0, 3, 1, 5, 2, 4].forEach((n, k) => corte(5 + (k % 3) * 21, k < 3 ? 16 : 34, n));
+  for (const x of [17, 38, 59]) for (const y of [24, 42]) ovalo(g, x, y, 1.3, 1.3, '#c8301e');
 }, 211));
 
-// Escudo redondo colgado: tablas pintadas en cuartos y umbo de hierro, con dos hachas detrás.
+// Escudo redondo colgado: tablas pintadas con un remolino, borde remachado y mellado, umbo de hierro,
+// una espada y un hacha cruzadas detrás.
 registrar('hito_escudo', sprite(g => {
   g.save(); g.translate(32, 34);
-  for (const a of [-0.75, 0.75]) {
-    g.save(); g.rotate(a); r(g, -1.5, -28, 3, 54, '#6a4424');
-    g.fillStyle = '#9aa0a6'; g.beginPath(); g.moveTo(1, -28); g.lineTo(11, -30); g.lineTo(11, -16); g.lineTo(1, -20); g.fill(); g.restore();
-  }
+  g.save(); g.rotate(-0.75); r(g, -1.5, -28, 3, 54, '#6a4424');
+  g.fillStyle = '#9aa0a6'; g.beginPath(); g.moveTo(1, -28); g.lineTo(12, -31); g.lineTo(10, -15); g.lineTo(1, -20); g.fill(); g.restore();
+  g.save(); g.rotate(0.75); r(g, -1.5, -30, 3, 44, '#b8bec6'); r(g, -5, 14, 10, 3, '#8a7a5a'); r(g, -1.5, 17, 3, 9, '#5a3418'); ovalo(g, 0, 27, 2.5, 2.5, '#d8a838'); g.restore();
   g.restore();
-  ovalo(g, 32, 34, 21, 21, '#3a2a1a');
+  ovalo(g, 32, 34, 22, 22, '#2a1a0e'); ovalo(g, 32, 34, 21, 21, '#7a7e84');
   g.save(); g.beginPath(); g.arc(32, 34, 19, 0, Math.PI * 2); g.clip();
-  for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#e2d6b8' : '#a82a1e'; g.beginPath(); g.moveTo(32, 34); g.arc(32, 34, 20, k * Math.PI / 2, (k + 1) * Math.PI / 2); g.fill(); }
-  for (let x = 13; x < 52; x += 6) r(g, x, 14, 1, 40, 'rgba(40, 24, 12, 0.5)');
+  r(g, 10, 12, 44, 44, '#e2d6b8');
+  for (let k = 0; k < 3; k++) {
+    g.fillStyle = '#a82a1e'; g.beginPath(); g.moveTo(32, 34);
+    for (let t = 0; t <= 1.001; t += 0.05) { const a = k * Math.PI * 2 / 3 + t * 2.2, rr = 6 + t * 15; g.lineTo(32 + Math.cos(a) * rr, 34 + Math.sin(a) * rr); }
+    for (let t = 1; t >= 0; t -= 0.05) { const a = k * Math.PI * 2 / 3 + t * 2.2 + 0.7 + t * 0.2, rr = 6 + t * 15; g.lineTo(32 + Math.cos(a) * rr, 34 + Math.sin(a) * rr); }
+    g.fill();
+  }
+  for (let x = 13; x < 52; x += 6) r(g, x, 14, 1, 40, 'rgba(40, 24, 12, 0.55)');
   g.restore();
-  ovalo(g, 32, 34, 6, 6, '#5a5e64'); ovalo(g, 31, 33, 3, 3, '#9aa0a6');
+  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; r(g, 32 + Math.cos(a) * 20 - 0.5, 34 + Math.sin(a) * 20 - 0.5, 2, 2, '#c8ccd0'); }
+  ovalo(g, 32, 34, 7, 7, '#2a2a2e'); ovalo(g, 32, 34, 6, 6, '#5a5e64'); ovalo(g, 30.5, 32.5, 3, 3, '#9aa0a6'); r(g, 29, 31, 2, 1, '#e0e4e8');
+  g.clearRect(46, 17, 4, 3); g.clearRect(48, 20, 2, 2); g.clearRect(13, 46, 3, 3);
   moteado(g, 213, 0.12);
 }));
 
-// Calavera con tibias cruzadas, pintada de blanco por los piratas.
+// Bandera pirata pintada: calavera con pañuelo y parche, sables cruzados y la X del tesoro.
 registrar('hito_calavera', pintura(g => {
-  g.save(); g.translate(32, 36);
-  for (const a of [-0.7, 0.7]) { g.save(); g.rotate(a); r(g, -2, -22, 4, 44, '#e8e2d0'); ovalo(g, -2, -22, 3, 3, '#e8e2d0'); ovalo(g, 2, -22, 3, 3, '#e8e2d0'); ovalo(g, -2, 22, 3, 3, '#e8e2d0'); ovalo(g, 2, 22, 3, 3, '#e8e2d0'); g.restore(); }
+  const H = '#e8e2d0', N = '#1a120a';
+  g.save(); g.translate(32, 32);
+  for (const s of [-1, 1]) {
+    g.save(); g.rotate(s * 0.75);
+    g.fillStyle = H; g.beginPath(); g.moveTo(-1.5, -26); g.quadraticCurveTo(s * 5, -6, 1.5, 14); g.lineTo(-1.5, 14); g.closePath(); g.fill();
+    r(g, -5, 14, 10, 2, '#d8a838'); r(g, -1.5, 16, 3, 7, '#8a5530'); ovalo(g, 0, 24, 2, 2, '#d8a838');
+    g.restore();
+  }
   g.restore();
-  ovalo(g, 32, 28, 12, 11, '#e8e2d0'); r(g, 25, 34, 14, 9, '#e8e2d0');
-  ovalo(g, 27, 28, 3.5, 4, '#1a120a'); ovalo(g, 37, 28, 3.5, 4, '#1a120a'); r(g, 31, 34, 2, 3, '#1a120a');
-  for (const x of [27, 31, 35]) r(g, x, 40, 1, 3, '#1a120a');
-  // una marca de flecha raspada debajo: «por aquí»
-  r(g, 14, 57, 30, 2, '#d8d0bc'); r(g, 40, 54, 2, 8, '#d8d0bc'); r(g, 42, 56, 2, 4, '#d8d0bc');
+  ovalo(g, 32, 27, 12, 11, H); r(g, 24, 33, 16, 9, H);
+  g.fillStyle = '#b8241e'; g.beginPath(); g.ellipse(32, 21, 12.5, 7, 0, Math.PI, 0); g.fill(); r(g, 19, 20, 26, 3, '#b8241e');
+  for (const x of [24, 30, 36]) ovalo(g, x, 17, 1.2, 1.2, H);
+  poli(g, '#b8241e', 44, 20, 50, 16, 52, 24); poli(g, '#b8241e', 44, 21, 49, 27, 45, 28);    // nudo
+  r(g, 21, 26, 22, 1, N); ovalo(g, 27, 29, 4, 3.5, N);                                        // parche
+  ovalo(g, 37, 29, 3.2, 3.6, N); r(g, 37, 28, 1, 1, '#c8301e');
+  poli(g, N, 32, 33, 30, 37, 34, 37);
+  r(g, 25, 39, 14, 1, N); for (const x of [27, 30, 33, 36]) r(g, x, 39, 1, 4, N);
+  // la X y la flecha raspadas debajo
+  trazo(g, '#d8d0bc', 2, 46, 52, 52, 58); trazo(g, '#d8d0bc', 2, 52, 52, 46, 58);
+  trazo(g, '#d8d0bc', 1.5, 8, 56, 14, 54, 20, 57, 26, 55, 32, 57, 38, 55, 42, 56);
 }, 215));
 
-// Friso de la serpiente emplumada sobre una greca escalonada (empalma con el de al lado).
+// Friso de la serpiente emplumada: cuerpo con contorno, vientre amarillo, escamas y penacho
+// de plumas, sobre una greca escalonada (empalma con el de al lado).
 registrar('hito_serpiente', pintura(g => {
+  const yDe = x => 26 + Math.round(Math.sin(x / T * Math.PI * 2) * 7);
   for (let x = 0; x < T; x++) {
-    const y = 24 + Math.round(Math.sin(x / T * Math.PI * 2) * 7);
-    r(g, x, y - 5, 1, 11, '#2f7a4a');
-    if ((x + Math.floor(y / 2)) % 4 === 0) r(g, x, y - 2, 1, 3, '#d8b838');   // escamas
-    if (x % 8 === 0) r(g, x, y - 9, 2, 4, ['#2fa8a0', '#c8301e'][(x / 8) % 2]);   // plumas
+    const y = yDe(x);
+    if (x % 6 < 3) { r(g, x, y - 13, 1, 6, ['#2fa8a0', '#c8301e', '#d8a838'][Math.floor(x / 6) % 3]); r(g, x, y - 13, 1, 1, '#1a120a'); }
+    r(g, x, y - 7, 1, 14, '#1a120a'); r(g, x, y - 6, 1, 12, '#2f7a4a'); r(g, x, y + 2, 1, 4, '#d8b838');
+    if ((x + (y >> 1)) % 4 === 0) { r(g, x, y - 4, 1, 2, '#1f5a34'); r(g, x, y - 1, 1, 1, '#4fb07a'); }
+    if (x % 4 === 0) r(g, x, y + 2, 1, 4, '#a88a28');
   }
-  // greca escalonada abajo
   for (let x = 0; x < T; x += 16) {
-    r(g, x, 50, 16, 2, '#b8342a'); r(g, x, 58, 16, 2, '#b8342a');
-    r(g, x + 2, 52, 2, 6, '#b8342a'); r(g, x + 2, 52, 8, 2, '#b8342a'); r(g, x + 8, 52, 2, 4, '#b8342a');
-    r(g, x + 10, 56, 6, 2, '#d8a838');
+    r(g, x, 47, 16, 2, '#1a120a'); r(g, x, 61, 16, 1, '#1a120a');
+    r(g, x, 49, 16, 12, '#d8a838');
+    r(g, x + 2, 51, 2, 8, '#b8342a'); r(g, x + 2, 51, 9, 2, '#b8342a'); r(g, x + 9, 51, 2, 5, '#b8342a'); r(g, x + 6, 54, 5, 2, '#b8342a');
+    r(g, x + 6, 57, 10, 2, '#b8342a'); r(g, x + 13, 51, 2, 6, '#b8342a');
   }
 }, 217));
 
-// Piedra del sol tallada: anillos, rayos y un rostro en el centro.
+// Piedra del sol tallada: rostro del sol con la lengua de pedernal, los cuatro movimientos,
+// anillo de signos y rayos.
 registrar('hito_calendario', sprite(g => {
-  ovalo(g, 32, 32, 27, 27, '#8a8270'); ovalo(g, 32, 32, 22, 22, '#9a927e');
-  g.strokeStyle = '#5a5446'; g.lineWidth = 1.5;
-  for (const rr of [26, 21, 14]) { g.beginPath(); g.arc(32, 32, rr, 0, Math.PI * 2); g.stroke(); }
-  for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2; r(g, 32 + Math.cos(a) * 23.5 - 1, 32 + Math.sin(a) * 23.5 - 1, 2, 2, '#5a5446'); }
-  g.fillStyle = '#8a8270';
-  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + 0.2; g.beginPath(); g.moveTo(32 + Math.cos(a - 0.2) * 14, 32 + Math.sin(a - 0.2) * 14); g.lineTo(32 + Math.cos(a) * 21, 32 + Math.sin(a) * 21); g.lineTo(32 + Math.cos(a + 0.2) * 14, 32 + Math.sin(a + 0.2) * 14); g.fill(); }
-  ovalo(g, 32, 32, 9, 9, '#b0a68c');
-  r(g, 28, 29, 3, 2, '#3a3428'); r(g, 34, 29, 3, 2, '#3a3428'); r(g, 30, 35, 5, 2, '#8a2418'); r(g, 31, 37, 3, 3, '#a8381e');
+  const P = '#8a8270', P2 = '#9a927e', L = '#5a5446';
+  ovalo(g, 32, 32, 28, 28, P); ovalo(g, 32, 32, 22.5, 22.5, P2);
+  g.strokeStyle = L; g.lineWidth = 1.2;
+  for (const rr of [27, 22.5, 17, 11]) { g.beginPath(); g.arc(32, 32, rr, 0, Math.PI * 2); g.stroke(); }
+  for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; r(g, 32 + Math.cos(a) * 24.8 - 1, 32 + Math.sin(a) * 24.8 - 1, 2, 2, L); }
+  for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2 + 0.15; const x = 32 + Math.cos(a) * 19.8, y = 32 + Math.sin(a) * 19.8; r(g, x - 1.5, y - 1.5, 3, 3, L); r(g, x - 0.5, y - 0.5, 1, 1, P2); }
+  g.fillStyle = P;
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; g.beginPath(); g.moveTo(32 + Math.cos(a - 0.22) * 22, 32 + Math.sin(a - 0.22) * 22); g.lineTo(32 + Math.cos(a) * 28, 32 + Math.sin(a) * 28); g.lineTo(32 + Math.cos(a + 0.22) * 22, 32 + Math.sin(a + 0.22) * 22); g.fill(); }
+  for (const [x, y] of [[21, 21], [43, 21], [21, 43], [43, 43]]) { r(g, x - 3, y - 3, 6, 6, L); r(g, x - 2, y - 2, 4, 4, '#a89e86'); r(g, x - 1, y - 1, 2, 2, L); }
+  ovalo(g, 32, 32, 10, 10, '#b0a68c');
+  r(g, 26, 28, 4, 2, '#3a3428'); r(g, 34, 28, 4, 2, '#3a3428'); r(g, 25, 27, 6, 1, L); r(g, 33, 27, 6, 1, L);
+  r(g, 31, 30, 2, 4, '#8e8670'); r(g, 28, 35, 8, 1, '#3a3428');
+  poli(g, '#a8381e', 30, 36, 34, 36, 32, 42); r(g, 31, 36, 1, 2, '#c85a3a');
+  ovalo(g, 22.5, 33, 1.6, 2.2, '#c8a838'); ovalo(g, 41.5, 33, 1.6, 2.2, '#c8a838');   // orejeras
   moteado(g, 219);
 }));
 
-// Máscara de jade colgada, con ojos de concha y orejeras rojas.
+// Máscara de mosaico de jade: teselas con juntas, ojos de concha y obsidiana, nariguera y orejeras.
 registrar('hito_mascara', sprite(g => {
-  g.fillStyle = '#2f8a5a'; g.beginPath(); g.moveTo(18, 14); g.lineTo(46, 14); g.lineTo(48, 36); g.lineTo(40, 52); g.lineTo(24, 52); g.lineTo(16, 36); g.closePath(); g.fill();
-  r(g, 20, 12, 24, 4, '#d8a838');
-  r(g, 21, 26, 9, 5, '#e8e2d0'); r(g, 34, 26, 9, 5, '#e8e2d0'); r(g, 24, 27, 4, 3, '#141018'); r(g, 37, 27, 4, 3, '#141018');
-  r(g, 30, 28, 4, 12, '#3aa06a');
-  r(g, 26, 43, 12, 4, '#1a3a24'); r(g, 28, 44, 8, 2, '#e8e2d0');
-  ovalo(g, 12, 32, 4, 4, '#b8342a'); ovalo(g, 52, 32, 4, 4, '#b8342a');
-  for (let k = 0; k < 6; k++) r(g, 19 + k * 5, 17 + (k % 2) * 3, 3, 3, '#4fb07a');   // teselas
-  moteado(g, 221, 0.22);
+  g.fillStyle = '#2f8a5a'; g.beginPath(); g.moveTo(18, 13); g.lineTo(46, 13); g.lineTo(49, 34); g.lineTo(41, 53); g.lineTo(23, 53); g.lineTo(15, 34); g.closePath(); g.fill();
+  const rnd = rng(222), tonos = ['#2f8a5a', '#3aa06a', '#25784c', '#4fb07a', '#2a7f55'];
+  for (let y = 14; y < 53; y += 4) for (let x = 15 + ((y >> 2) % 2) * 2; x < 49; x += 4) r(g, x, y, 3, 3, tonos[Math.floor(rnd() * tonos.length)]);
+  g.save(); g.globalCompositeOperation = 'destination-in';
+  g.beginPath(); g.moveTo(18, 13); g.lineTo(46, 13); g.lineTo(49, 34); g.lineTo(41, 53); g.lineTo(23, 53); g.lineTo(15, 34); g.closePath(); g.fill(); g.restore();
+  r(g, 18, 10, 28, 5, '#d8a838'); for (let x = 19; x < 45; x += 4) r(g, x, 11, 2, 2, '#b8342a');
+  r(g, 20, 24, 11, 2, '#1a3a24'); r(g, 33, 24, 11, 2, '#1a3a24');
+  r(g, 21, 26, 9, 5, '#f0ead8'); r(g, 34, 26, 9, 5, '#f0ead8'); r(g, 24, 26, 4, 5, '#141018'); r(g, 37, 26, 4, 5, '#141018');
+  r(g, 25, 27, 1, 1, '#9a9aa8'); r(g, 38, 27, 1, 1, '#9a9aa8');
+  r(g, 30, 28, 4, 10, '#4fb07a'); r(g, 29, 37, 6, 2, '#25784c');
+  ovalo(g, 32, 41, 4, 2, '#d8a838'); ovalo(g, 32, 41, 2, 1, '#2a1a0e');                      // nariguera
+  r(g, 25, 45, 14, 4, '#1a3a24'); r(g, 27, 46, 10, 2, '#f0ead8'); for (let x = 28; x < 37; x += 2) r(g, x, 46, 1, 2, '#c8c0a8');
+  for (const x of [11, 53]) { ovalo(g, x, 32, 5, 5, '#b8342a'); ovalo(g, x, 32, 2.5, 2.5, '#2f8a5a'); ovalo(g, x, 32, 1, 1, '#141018'); r(g, x - 1, 37, 2, 6, '#d8a838'); }
+  moteado(g, 221, 0.1);
 }));
 
-// Fresco de la abadía: cruz roja en un medallón claro, con un renglón en latín debajo.
+// Fresco de la abadía: cruz roja en un medallón con alfa y omega, una enredadera y un renglón en latín.
 registrar('hito_cruz', pintura(g => {
-  ovalo(g, 32, 26, 20, 20, '#c8a838'); ovalo(g, 32, 26, 17, 17, '#e8dcc0');
+  ovalo(g, 32, 26, 21, 21, '#c8a838'); ovalo(g, 32, 26, 19, 19, '#8a6a20'); ovalo(g, 32, 26, 18, 18, '#e8dcc0');
+  for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; ovalo(g, 32 + Math.cos(a) * 20, 26 + Math.sin(a) * 20, 1, 1, '#f8ecc0'); }
+  g.fillStyle = '#1a120a';
+  g.beginPath(); g.moveTo(29, 26); g.lineTo(23, 10); g.lineTo(41, 10); g.lineTo(35, 26); g.lineTo(41, 42); g.lineTo(23, 42); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(32, 23); g.lineTo(16, 17); g.lineTo(16, 35); g.lineTo(32, 29); g.lineTo(48, 35); g.lineTo(48, 17); g.closePath(); g.fill();
   g.fillStyle = '#a82020';
-  g.beginPath(); g.moveTo(29, 26); g.lineTo(24, 11); g.lineTo(40, 11); g.lineTo(35, 26); g.lineTo(40, 41); g.lineTo(24, 41); g.closePath(); g.fill();
-  g.beginPath(); g.moveTo(32, 23); g.lineTo(17, 18); g.lineTo(17, 34); g.lineTo(32, 29); g.lineTo(47, 34); g.lineTo(47, 18); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(30, 26); g.lineTo(25, 11); g.lineTo(39, 11); g.lineTo(34, 26); g.lineTo(39, 41); g.lineTo(25, 41); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(32, 24); g.lineTo(17, 19); g.lineTo(17, 33); g.lineTo(32, 28); g.lineTo(47, 33); g.lineTo(47, 19); g.closePath(); g.fill();
+  r(g, 31, 12, 1, 28, '#d84a3a'); r(g, 18, 25, 28, 1, '#d84a3a');
+  ovalo(g, 32, 26, 2.5, 2.5, '#d8a838');
+  glifo(g, ['.#.', '#.#', '###', '#.#'], 19, 38, '#2f5fa8', 1);                                 // A
+  glifo(g, ['.#.', '#.#', '#.#', '##.##'.slice(0, 3)], 43, 38, '#2f5fa8', 1);                  // Ω
+  for (let x = 6; x < 58; x += 1) { const y = 49 + Math.round(Math.sin(x / 3) * 1.5); r(g, x, y, 1, 1, '#2f6a3a'); if (x % 5 === 0) r(g, x, y - 2, 2, 2, '#4f8a4a'); if (x % 10 === 3) r(g, x, y + 1, 2, 2, '#a82020'); }
   const rnd = rng(225);
-  for (const y of [50, 56]) for (let x = 10; x < 54;) { const w = 2 + Math.floor(rnd() * 5); r(g, x, y, Math.min(w, 54 - x), 2, '#3a1a10'); x += w + 2; }
+  for (const y of [55, 60]) for (let x = 8; x < 56;) { const w = 2 + Math.floor(rnd() * 5); r(g, x, y, Math.min(w, 56 - x), 2, '#3a1a10'); x += w + 2; }
+  r(g, 6, 55, 2, 2, '#a82020');
 }, 223));
 
 // Estatuas: se ven siempre de frente, como los enemigos.
+// Anubis echado sobre su arcón dorado, con las orejas en punta y el collar de oro.
 registrar('estatua_chacal', sprite(g => {
-  r(g, 14, 50, 36, 12, '#6a6458'); r(g, 12, 48, 40, 3, '#7a7466');   // pedestal
-  r(g, 20, 52, 24, 3, '#c8a838');
-  g.fillStyle = '#26221e';
-  g.beginPath(); g.moveTo(22, 48); g.lineTo(42, 48); g.lineTo(40, 30); g.lineTo(34, 22); g.lineTo(26, 24); g.closePath(); g.fill();   // cuerpo sentado
-  r(g, 22, 40, 6, 8, '#26221e'); r(g, 36, 40, 6, 8, '#26221e');
-  ovalo(g, 31, 17, 6, 6, '#26221e'); r(g, 22, 15, 6, 4, '#26221e');   // cabeza y hocico
-  r(g, 29, 4, 3, 10, '#26221e'); r(g, 34, 5, 3, 9, '#26221e');   // orejas
-  r(g, 29, 15, 2, 2, '#e8c040');
-  r(g, 26, 24, 12, 3, '#c8a838'); r(g, 27, 27, 10, 2, '#2f5fa8');   // collar
+  const N = '#26221e';
+  r(g, 6, 40, 52, 20, '#c8a838'); r(g, 6, 40, 52, 2, '#e8c860'); r(g, 6, 58, 52, 3, '#8a6a20');
+  for (const x of [10, 54]) r(g, x - 2, 42, 3, 16, '#8a6a20');
+  r(g, 14, 44, 36, 12, '#2f5fa8'); for (let x = 16; x < 48; x += 4) { r(g, x, 46, 2, 2, '#c8a838'); r(g, x + 2, 50, 2, 2, '#c8a838'); }
+  r(g, 14, 44, 36, 1, '#8a6a20'); r(g, 14, 55, 36, 1, '#8a6a20');
+  // cuerpo echado de perfil, mirando a la izquierda
+  ovalo(g, 38, 34, 15, 6, N); r(g, 22, 33, 18, 7, N);
+  r(g, 10, 36, 16, 4, N); r(g, 8, 38, 6, 2, N);                                               // patas delanteras
+  ovalo(g, 50, 37, 5, 3, N); trazo(g, N, 2.5, 53, 36, 57, 38, 56, 39);                            // cola
+  r(g, 18, 20, 7, 15, N);                                                                        // cuello
+  ovalo(g, 20, 17, 6, 5, N); poli(g, N, 16, 15, 7, 19, 7, 21, 16, 21);                            // cabeza y hocico
+  poli(g, N, 19, 13, 20, 2, 23, 13); poli(g, N, 23, 13, 26, 3, 27, 14);                           // orejas
+  r(g, 21, 6, 1, 6, '#5a4a3a'); r(g, 25, 7, 1, 6, '#5a4a3a');
+  r(g, 15, 16, 3, 2, '#e8c040'); r(g, 16, 16, 1, 1, '#ffffff');
+  r(g, 17, 24, 9, 3, '#c8a838'); r(g, 17, 27, 9, 2, '#2f5fa8');                                // collar
+  r(g, 24, 32, 4, 2, '#c8a838');                                                                  // lazo
+  r(g, 7, 20, 3, 1, '#5a4a3a');
 }));
+
+// Obelisco de granito rosa con columna de jeroglíficos, piramidión de oro y una grieta.
 registrar('estatua_obelisco', sprite(g => {
-  r(g, 18, 56, 28, 6, '#6a6458');
-  g.fillStyle = '#8a8270'; g.beginPath(); g.moveTo(24, 56); g.lineTo(40, 56); g.lineTo(37, 12); g.lineTo(27, 12); g.closePath(); g.fill();
-  g.fillStyle = '#d8a838'; g.beginPath(); g.moveTo(27, 12); g.lineTo(37, 12); g.lineTo(32, 3); g.closePath(); g.fill();
-  moteado(g, 227);
-  [0, 3, 1, 4].forEach((n, k) => glifo(g, GLIFOS[n], 30, 16 + k * 9, '#4a4438', 1));
+  r(g, 14, 58, 36, 5, '#5e5850'); r(g, 18, 54, 28, 4, '#6a6458');
+  g.fillStyle = '#9a8478'; g.beginPath(); g.moveTo(23, 54); g.lineTo(41, 54); g.lineTo(38, 12); g.lineTo(26, 12); g.closePath(); g.fill();
+  g.fillStyle = '#e0b040'; g.beginPath(); g.moveTo(26, 12); g.lineTo(38, 12); g.lineTo(32, 2); g.closePath(); g.fill();
+  g.fillStyle = '#b88a20'; g.beginPath(); g.moveTo(32, 2); g.lineTo(38, 12); g.lineTo(33, 12); g.closePath(); g.fill();
+  moteado(g, 227, 0.22);
+  r(g, 28, 15, 8, 37, '#8a7468');
+  [GLIFOS_COLOR.ave, GLIFOS_COLOR.sol, GLIFOS_COLOR.anj, GLIFOS_COLOR.junco, GLIFOS_COLOR.ojo].forEach((f, k) => {
+    f.forEach((fila, j) => [...fila].forEach((ch, i) => { if (ch !== '.') r(g, 28 + i, 16 + k * 7 + j, 1, 1, ch === 'n' ? '#4a3a34' : '#6a564c'); }));
+  });
+  trazo(g, '#4a3a34', 1, 39, 30, 36, 34, 37, 38, 34, 41);
 }));
+
+// Guerrero nórdico de piedra con barba trenzada, yelmo con nasal, escudo y lanza; le crece musgo.
 registrar('estatua_guerrero', sprite(g => {
-  r(g, 16, 56, 32, 6, '#5e5a52');
-  const piedra = '#8e8a80';
-  r(g, 26, 40, 5, 16, piedra); r(g, 33, 40, 5, 16, piedra);   // piernas
-  g.fillStyle = piedra; g.beginPath(); g.moveTo(22, 22); g.lineTo(42, 22); g.lineTo(40, 42); g.lineTo(24, 42); g.closePath(); g.fill();
-  ovalo(g, 32, 15, 6, 7, piedra); r(g, 25, 9, 14, 4, '#7a766c'); r(g, 31, 10, 2, 9, '#7a766c');   // casco
-  r(g, 44, 4, 3, 52, '#7a766c'); g.fillStyle = '#7a766c'; g.beginPath(); g.moveTo(42, 6); g.lineTo(45.5, -2); g.lineTo(49, 6); g.fill();   // lanza
-  r(g, 41, 24, 5, 4, piedra);
-  r(g, 18, 24, 5, 14, piedra);   // brazo con el escudo
-  ovalo(g, 19, 40, 7, 9, '#6e6a60'); ovalo(g, 19, 40, 2, 2, '#a8a498');   // escudo
+  const P = '#8e8a80', P2 = '#7a766c', P3 = '#a6a298';
+  r(g, 14, 57, 36, 6, '#5e5a52');
+  poli(g, P2, 22, 24, 42, 24, 46, 56, 18, 56);                                                    // capa
+  r(g, 26, 42, 5, 15, P); r(g, 33, 42, 5, 15, P); r(g, 25, 54, 7, 3, P2); r(g, 32, 54, 7, 3, P2);
+  poli(g, P, 23, 23, 41, 23, 40, 43, 24, 43); r(g, 24, 38, 16, 3, '#6a665c'); r(g, 30, 38, 4, 3, '#b8a878');   // cinturón
+  ovalo(g, 32, 15, 6.5, 7, P); ovalo(g, 32, 12, 7, 5, P3); r(g, 25, 12, 14, 2, P2); r(g, 31, 11, 2, 9, P2);  // yelmo y nasal
+  r(g, 28, 15, 2, 1, '#3a3630'); r(g, 34, 15, 2, 1, '#3a3630');
+  poli(g, P3, 26, 18, 38, 18, 36, 26, 32, 30, 28, 26); for (const x of [29, 32, 35]) r(g, x, 20, 1, 8, P2);   // barba
+  r(g, 44, 2, 3, 55, '#6e6a60'); poli(g, '#a6a298', 42.5, 7, 45.5, -3, 48.5, 7); r(g, 41, 23, 6, 5, P);
+  r(g, 17, 24, 6, 14, P);
+  ovalo(g, 19, 40, 10, 10, '#5e5a52'); ovalo(g, 19, 40, 9, 9, '#76726a');
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4; trazo(g, '#5e5a52', 1.2, 19, 40, 19 + Math.cos(a) * 9, 40 + Math.sin(a) * 9); }
+  ovalo(g, 19, 40, 3, 3, '#9a968c');
   moteado(g, 229);
+  const rnd = rng(230);
+  for (let i = 0; i < 70; i++) { const x = 14 + rnd() * 36, y = 40 + rnd() * 22; if (g.getImageData(x | 0, y | 0, 1, 1).data[3]) r(g, x, y, 1, 1, rnd() < 0.5 ? '#4f6a34' : '#6a8a44'); }
 }));
+
+// Cabeza colosal de basalto: casco con orejeras, ceño, nariz ancha y labios gruesos, con musgo.
 registrar('estatua_cabeza', sprite(g => {
-  r(g, 10, 58, 44, 5, '#4e4a3e');
+  r(g, 8, 58, 48, 5, '#4e4a3e');
   g.fillStyle = '#7a7460'; g.beginPath(); g.ellipse(32, 36, 22, 23, 0, 0, Math.PI * 2); g.fill();
-  r(g, 10, 14, 44, 10, '#6a6452'); r(g, 12, 22, 4, 26, '#6a6452'); r(g, 48, 22, 4, 26, '#6a6452');   // casco
-  r(g, 18, 28, 12, 5, '#4a4636'); r(g, 34, 28, 12, 5, '#4a4636'); r(g, 21, 29, 5, 3, '#1e1c14'); r(g, 38, 29, 5, 3, '#1e1c14');   // ojos
-  r(g, 27, 34, 10, 9, '#8a846c'); r(g, 25, 42, 14, 3, '#3a3628');   // nariz
-  r(g, 22, 47, 20, 6, '#4a4636'); r(g, 24, 49, 16, 2, '#1e1c14');   // labios
+  r(g, 9, 13, 46, 11, '#6a6452'); for (let x = 12; x < 54; x += 6) r(g, x, 15, 3, 6, '#5a5444');   // casco
+  r(g, 10, 22, 6, 28, '#6a6452'); r(g, 48, 22, 6, 28, '#6a6452'); ovalo(g, 13, 44, 3, 3, '#5a5444'); ovalo(g, 51, 44, 3, 3, '#5a5444');
+  r(g, 18, 26, 12, 2, '#4a4636'); r(g, 34, 26, 12, 2, '#4a4636');                                   // ceño
+  ovalo(g, 24, 31, 5.5, 3, '#8a846c'); ovalo(g, 40, 31, 5.5, 3, '#8a846c');                          // párpados
+  r(g, 21, 31, 7, 2, '#2a2820'); r(g, 37, 31, 7, 2, '#2a2820');
+  poli(g, '#8a846c', 29, 32, 35, 32, 39, 43, 25, 43); ovalo(g, 27, 42, 2, 1.5, '#3a3628'); ovalo(g, 37, 42, 2, 1.5, '#3a3628');
+  ovalo(g, 32, 50, 10, 4, '#8a846c'); r(g, 22, 49, 20, 2, '#2a2820'); ovalo(g, 32, 52, 6, 1.5, '#6a6452');   // labios
+  ovalo(g, 18, 41, 3, 4, '#827c66'); ovalo(g, 46, 41, 3, 4, '#827c66');
   moteado(g, 231, 0.24);
+  const rnd = rng(232);
+  for (let i = 0; i < 90; i++) { const x = 10 + rnd() * 44, y = 12 + rnd() * 14 + (rnd() < 0.3 ? 30 : 0); if (g.getImageData(x | 0, y | 0, 1, 1).data[3]) r(g, x, y, 1 + (rnd() < 0.3), 1, rnd() < 0.5 ? '#4f6a34' : '#6a8a44'); }
 }));
+
+// Tótem de madera: tres caras con su propio humor (enojado, burlón y contento) y alas a los lados.
 registrar('estatua_idolo', sprite(g => {
-  r(g, 20, 58, 24, 5, '#4e4a3e');
-  const caras = [['#7a5a3a', 6], ['#6a4a2e', 24], ['#7a5a3a', 42]];
-  for (const [c, y] of caras) {
-    r(g, 20, y, 24, 16, c);
-    r(g, 23, y + 4, 6, 4, '#e8dcc0'); r(g, 35, y + 4, 6, 4, '#e8dcc0'); r(g, 25, y + 5, 2, 2, '#141018'); r(g, 37, y + 5, 2, 2, '#141018');
-    r(g, 25, y + 11, 14, 3, '#2a1a10'); for (let x = 26; x < 39; x += 3) r(g, x, y + 11, 1, 3, '#e8dcc0');
-  }
-  r(g, 16, 4, 32, 3, '#c8301e'); r(g, 14, 26, 6, 4, '#2f8a5a'); r(g, 44, 26, 6, 4, '#2f8a5a');
+  r(g, 18, 58, 28, 5, '#4e4a3e');
+  poli(g, '#2f8a5a', 20, 24, 8, 20, 6, 28, 20, 32); poli(g, '#2f8a5a', 44, 24, 56, 20, 58, 28, 44, 32);
+  poli(g, '#c8301e', 20, 26, 10, 24, 10, 27, 20, 29); poli(g, '#c8301e', 44, 26, 54, 24, 54, 27, 44, 29);
+  const cara = (y, c, humor) => {
+    r(g, 19, y, 26, 17, c); r(g, 19, y + 16, 26, 1, '#3a2414');
+    r(g, 22, y + 3, 7, 5, '#e8dcc0'); r(g, 35, y + 3, 7, 5, '#e8dcc0');
+    r(g, 24, y + 4, 3, 3, '#141018'); r(g, 37, y + 4, 3, 3, '#141018');
+    r(g, 30, y + 6, 4, 4, '#5a3a20');
+    if (humor === 0) { r(g, 21, y + 2, 9, 2, '#3a2414'); r(g, 34, y + 2, 9, 2, '#3a2414'); poli(g, '#3a2414', 21, y + 2, 30, y + 4, 30, y + 2); poli(g, '#3a2414', 43, y + 2, 34, y + 4, 34, y + 2);
+      r(g, 24, y + 11, 16, 4, '#2a1a10'); for (let x = 25; x < 40; x += 3) { r(g, x, y + 11, 2, 2, '#e8dcc0'); r(g, x + 1, y + 13, 2, 2, '#e8dcc0'); } }
+    if (humor === 1) { r(g, 25, y + 11, 14, 3, '#2a1a10'); r(g, 29, y + 12, 6, 5, '#c8301e'); r(g, 31, y + 13, 2, 3, '#e8603a'); r(g, 35, y + 4, 3, 1, c); }
+    if (humor === 2) { r(g, 23, y + 11, 18, 2, '#2a1a10'); r(g, 22, y + 9, 2, 2, '#2a1a10'); r(g, 40, y + 9, 2, 2, '#2a1a10'); r(g, 26, y + 13, 12, 2, '#2a1a10'); ovalo(g, 22, y + 10, 1.5, 1, '#c8301e'); ovalo(g, 42, y + 10, 1.5, 1, '#c8301e'); }
+  };
+  cara(5, '#7a5a3a', 0); cara(23, '#6a4a2e', 1); cara(41, '#7a5a3a', 2);
+  r(g, 16, 2, 32, 4, '#c8301e'); for (let x = 18; x < 46; x += 5) r(g, x, 0, 2, 3, '#d8a838');
   moteado(g, 233, 0.2);
 }));
+
+// Menhir con espiral y runas pintadas, líquenes y una mancha de musgo al pie.
 registrar('estatua_menhir', sprite(g => {
-  g.fillStyle = '#7e7a72'; g.beginPath(); g.moveTo(20, 62); g.lineTo(44, 62); g.lineTo(42, 18); g.lineTo(36, 4); g.lineTo(26, 6); g.lineTo(22, 20); g.closePath(); g.fill();
+  g.fillStyle = '#7e7a72'; g.beginPath(); g.moveTo(19, 62); g.lineTo(45, 62); g.lineTo(43, 18); g.lineTo(37, 3); g.lineTo(26, 5); g.lineTo(21, 20); g.closePath(); g.fill();
+  g.fillStyle = '#6a665e'; g.beginPath(); g.moveTo(37, 3); g.lineTo(43, 18); g.lineTo(45, 62); g.lineTo(40, 62); g.lineTo(39, 20); g.closePath(); g.fill();
   moteado(g, 235);
+  const rnd = rng(236);
+  for (let i = 0; i < 14; i++) { const x = 22 + rnd() * 20, y = 6 + rnd() * 50; ovalo(g, x, y, 1 + rnd() * 1.5, 1 + rnd(), rnd() < 0.5 ? '#a8a070' : '#c8c090'); }
+  for (let i = 0; i < 60; i++) r(g, 19 + rnd() * 26, 54 + rnd() * 8, 1, 1, rnd() < 0.5 ? '#4f6a34' : '#6a8a44');
   g.strokeStyle = '#a82a1e'; g.lineWidth = 2.5; g.beginPath();
-  for (let a = 0; a < Math.PI * 4.5; a += 0.15) { const rr = 1 + a * 0.75; const x = 32 + Math.cos(a) * rr, y = 26 + Math.sin(a) * rr; a ? g.lineTo(x, y) : g.moveTo(x, y); }
+  for (let a = 0; a < Math.PI * 4.5; a += 0.15) { const rr = 1 + a * 0.75; const x = 32 + Math.cos(a) * rr, y = 25 + Math.sin(a) * rr; a ? g.lineTo(x, y) : g.moveTo(x, y); }
   g.stroke();
   g.lineWidth = 2;
-  for (const [a, b, c, d] of RUNAS[3]) { g.beginPath(); g.moveTo(26 + a * 1.4, 42 + b); g.lineTo(26 + c * 1.4, 42 + d); g.stroke(); }
-  for (const [a, b, c, d] of RUNAS[0]) { g.beginPath(); g.moveTo(34 + a * 1.4, 42 + b); g.lineTo(34 + c * 1.4, 42 + d); g.stroke(); }
+  for (const [a, b, c, d] of RUNAS[3]) { g.beginPath(); g.moveTo(25 + a * 1.4, 40 + b); g.lineTo(25 + c * 1.4, 40 + d); g.stroke(); }
+  for (const [a, b, c, d] of RUNAS[0]) { g.beginPath(); g.moveTo(34 + a * 1.4, 40 + b); g.lineTo(34 + c * 1.4, 40 + d); g.stroke(); }
 }));
 
 // ---------- Tesoros ----------
+// Cada forma se dibuja con pocos tonos: `c` el material, `o` sus líneas grabadas, `k` lo hondo, más
+// gemas y detalles. Después `cincelar` reduce todo a esa paleta y abomba por separado cada zona
+// encerrada por líneas, así lo grabado se lee en relieve y el metal brilla de verdad.
 
-function brillo(g, x, y) { r(g, x, y - 3, 1, 7, '#fff'); r(g, x - 3, y, 7, 1, '#fff'); }
+function mezcla(a, b, t) {
+  const A = hexRGB(a), B = hexRGB(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+function poli(g, c, ...p) { g.fillStyle = c; g.beginPath(); for (let i = 0; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]); g.closePath(); g.fill(); }
+function trazo(g, c, ancho, ...p) {
+  g.strokeStyle = c; g.lineWidth = ancho; g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath();
+  for (let i = 0; i < p.length; i += 2) g.lineTo(p[i], p[i + 1]); g.stroke();
+}
+function aro(g, x, y, rx, ry, c, borde) { ovalo(g, x, y, rx + 1, ry + 1, borde); ovalo(g, x, y, rx, ry, c); }
+
+const RUBI_G = '#d42a44', ZAFIRO_G = '#3370e6', ESMERALDA_G = '#2fb46a', PERLA = '#f2ecd8';
+const NOGAL = '#6b3e1f', NOGAL_O = '#3a200e', CUERO_G = '#6a3a1c', PAPEL = '#e8dcb8', PAPEL_O = '#a8987a';
+const LACRE = '#a82020', ESMALTE = '#1f3f8a', MARFIL_G = '#e8dcc0', NEGRO = '#140d08';
+
+function paletaTesoro(t) {
+  const [cr, cg, cb] = hexRGB(t.color);
+  const rojizo = cr > cg * 1.5 && cr > cb * 1.5, azulado = cb > cr * 1.3;
+  return {
+    c: t.color, o: t.oscuro, k: mezcla(t.oscuro, '#000000', 0.5), m: mezcla(t.color, t.oscuro, 0.5),
+    l: mezcla(t.color, '#ffffff', 0.35), b: mezcla(t.color, '#ffffff', 0.7),
+    gema: rojizo ? ZAFIRO_G : RUBI_G, gema2: azulado ? ESMERALDA_G : rojizo ? ESMERALDA_G : ZAFIRO_G,
+    t,
+  };
+}
 
 const FORMAS = {
-  idolo(g, c, o) { r(g, 22, 22, 20, 30, o); r(g, 24, 22, 16, 28, c); r(g, 26, 30, 4, 3, o); r(g, 34, 30, 4, 3, o); r(g, 28, 40, 8, 2, o); r(g, 20, 52, 24, 8, o); },
-  caliz(g, c, o) { r(g, 18, 22, 28, 4, o); r(g, 20, 24, 24, 12, c); r(g, 24, 36, 16, 4, c); r(g, 30, 40, 4, 12, c); r(g, 22, 52, 20, 6, o); r(g, 24, 52, 16, 4, c); },
-  mascara(g, c, o) { r(g, 18, 18, 28, 36, o); r(g, 20, 18, 24, 34, c); r(g, 24, 28, 6, 3, '#111'); r(g, 34, 28, 6, 3, '#111'); r(g, 30, 34, 4, 8, o); r(g, 26, 46, 12, 2, o); r(g, 14, 22, 4, 20, o); r(g, 46, 22, 4, 20, o); },
-  gema(g, c, o) { g.fillStyle = c; g.beginPath(); g.moveTo(32, 26); g.lineTo(46, 38); g.lineTo(32, 58); g.lineTo(18, 38); g.closePath(); g.fill(); g.fillStyle = o; g.beginPath(); g.moveTo(32, 26); g.lineTo(46, 38); g.lineTo(32, 40); g.closePath(); g.fill(); },
-  corona(g, c, o) { r(g, 16, 40, 32, 14, c); r(g, 16, 50, 32, 4, o); for (let i = 0; i < 4; i++) r(g, 16 + i * 10, 30, 4, 10, c); r(g, 22, 44, 4, 4, '#c02030'); r(g, 38, 44, 4, 4, '#2040c0'); },
-  monedas(g, c, o) { for (let i = 0; i < 6; i++) { r(g, 18 + (i % 3) * 9, 52 - Math.floor(i / 3) * 5, 10, 4, o); r(g, 18 + (i % 3) * 9, 51 - Math.floor(i / 3) * 5, 10, 2, c); } r(g, 26, 38, 12, 4, c); },
-  amuleto(g, c, o) { for (let a = 0; a < 30; a++) { const t = a / 30 * Math.PI; r(g, 32 + Math.cos(t) * 12, 20 + Math.sin(t) * 14 - 14, 2, 2, o); } r(g, 24, 32, 16, 18, o); r(g, 26, 34, 12, 14, c); r(g, 30, 38, 4, 6, '#2a8a4a'); },
-  cetro(g, c, o) { r(g, 30, 22, 4, 38, o); r(g, 31, 22, 2, 38, c); r(g, 26, 14, 12, 10, c); r(g, 29, 17, 6, 4, '#c02030'); },
-  calavera(g, c, o) { r(g, 20, 24, 24, 22, c); r(g, 24, 46, 16, 8, c); r(g, 24, 32, 6, 6, o); r(g, 34, 32, 6, 6, o); r(g, 30, 40, 4, 4, o); r(g, 26, 50, 2, 4, o); r(g, 31, 50, 2, 4, o); r(g, 36, 50, 2, 4, o); },
-  anfora(g, c, o) { r(g, 26, 18, 12, 6, o); r(g, 28, 24, 8, 6, c); r(g, 20, 30, 24, 20, c); r(g, 24, 50, 16, 6, c); r(g, 20, 38, 24, 3, o); r(g, 16, 30, 4, 10, o); r(g, 44, 30, 4, 10, o); },
-  daga(g, c, o) { r(g, 30, 14, 4, 30, c); r(g, 31, 14, 1, 30, '#fff'); r(g, 24, 44, 16, 4, o); r(g, 30, 48, 4, 10, '#6b3e1f'); r(g, 29, 58, 6, 3, o); },
-  brujula(g, c, o) { g.fillStyle = o; g.beginPath(); g.arc(32, 40, 16, 0, Math.PI * 2); g.fill(); g.fillStyle = '#efe6cc'; g.beginPath(); g.arc(32, 40, 12, 0, Math.PI * 2); g.fill(); g.fillStyle = '#c02030'; g.beginPath(); g.moveTo(32, 29); g.lineTo(35, 40); g.lineTo(29, 40); g.fill(); g.fillStyle = '#333'; g.beginPath(); g.moveTo(32, 51); g.lineTo(35, 40); g.lineTo(29, 40); g.fill(); r(g, 29, 21, 6, 4, c); },
-  catalejo(g, c, o) { g.save(); g.translate(32, 40); g.rotate(-0.5); r(g, -22, -4, 16, 8, o); r(g, -6, -5, 14, 10, c); r(g, 8, -6, 12, 12, o); r(g, 9, -5, 10, 3, c); g.restore(); },
-  cofre(g, c, o) { r(g, 14, 34, 36, 24, '#6b3e1f'); r(g, 14, 28, 36, 8, '#8a5530'); r(g, 14, 34, 36, 3, o); r(g, 14, 46, 36, 3, o); r(g, 29, 36, 6, 8, c); r(g, 16, 22, 32, 6, c); r(g, 20, 18, 8, 4, c); r(g, 34, 19, 6, 3, '#c02030'); },
-  cuerno(g, c, o) { g.strokeStyle = o; g.lineWidth = 9; g.beginPath(); g.arc(30, 30, 18, 0.2, 2.6); g.stroke(); g.strokeStyle = c; g.lineWidth = 6; g.beginPath(); g.arc(30, 30, 18, 0.2, 2.6); g.stroke(); r(g, 44, 34, 8, 6, o); },
-  hacha(g, c, o) { r(g, 30, 16, 4, 44, '#6b3e1f'); g.fillStyle = c; g.beginPath(); g.moveTo(34, 18); g.lineTo(50, 12); g.lineTo(50, 40); g.lineTo(34, 32); g.fill(); r(g, 34, 22, 6, 6, o); r(g, 29, 56, 6, 4, o); },
-  disco(g, c, o) { g.fillStyle = o; g.beginPath(); g.arc(32, 38, 20, 0, Math.PI * 2); g.fill(); g.fillStyle = c; g.beginPath(); g.arc(32, 38, 17, 0, Math.PI * 2); g.fill(); g.fillStyle = o; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.fillRect(32 + Math.cos(a) * 12 - 1, 38 + Math.sin(a) * 12 - 1, 3, 3); } g.beginPath(); g.arc(32, 38, 6, 0, Math.PI * 2); g.fill(); },
-  piedra(g, c, o) { g.fillStyle = o; g.beginPath(); g.ellipse(32, 42, 14, 17, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = c; g.beginPath(); g.ellipse(31, 41, 11, 14, 0, 0, Math.PI * 2); g.fill(); r(g, 22, 36, 20, 2, o); r(g, 22, 44, 20, 2, o); r(g, 24, 40, 16, 2, o); },
-  libro(g, c, o) { r(g, 16, 26, 32, 30, o); r(g, 18, 26, 28, 28, c); r(g, 46, 28, 3, 26, '#efe6cc'); r(g, 24, 32, 16, 2, o); r(g, 24, 37, 12, 2, o); r(g, 30, 42, 4, 8, '#b02020'); r(g, 27, 45, 10, 2, '#b02020'); },
-  escudo(g, c, o) { g.fillStyle = o; g.beginPath(); g.moveTo(16, 20); g.lineTo(48, 20); g.lineTo(46, 42); g.lineTo(32, 58); g.lineTo(18, 42); g.closePath(); g.fill(); g.fillStyle = c; g.beginPath(); g.moveTo(19, 23); g.lineTo(45, 23); g.lineTo(43, 41); g.lineTo(32, 54); g.lineTo(21, 41); g.closePath(); g.fill(); r(g, 30, 25, 4, 26, '#b02020'); r(g, 22, 32, 20, 4, '#b02020'); },
-  ankh(g, c, o) { g.strokeStyle = o; g.lineWidth = 7; g.beginPath(); g.ellipse(32, 24, 8, 10, 0, 0, Math.PI * 2); g.stroke(); g.strokeStyle = c; g.lineWidth = 4; g.beginPath(); g.ellipse(32, 24, 8, 10, 0, 0, Math.PI * 2); g.stroke(); r(g, 18, 34, 28, 6, o); r(g, 19, 35, 26, 4, c); r(g, 28, 36, 8, 24, o); r(g, 29, 36, 6, 23, c); },
-  anillo(g, c, o) { g.strokeStyle = o; g.lineWidth = 9; g.beginPath(); g.ellipse(32, 42, 15, 11, 0, 0, Math.PI * 2); g.stroke(); g.strokeStyle = c; g.lineWidth = 5; g.beginPath(); g.ellipse(32, 42, 15, 11, 0, 0, Math.PI * 2); g.stroke(); r(g, 27, 26, 10, 7, '#c02030'); r(g, 29, 27, 4, 2, '#ff8a9a'); },
-  cruz(g, c, o) { r(g, 28, 12, 10, 46, o); r(g, 29, 12, 8, 45, c); r(g, 16, 24, 34, 9, o); r(g, 17, 25, 32, 7, c); r(g, 30, 26, 6, 5, '#c02030'); },
-  escarabajo(g, c, o) { r(g, 22, 28, 20, 26, o); r(g, 24, 30, 16, 22, c); r(g, 31, 30, 2, 22, o); r(g, 26, 22, 12, 7, o); r(g, 18, 34, 4, 2, o); r(g, 42, 34, 4, 2, o); r(g, 18, 44, 4, 2, o); r(g, 42, 44, 4, 2, o); },
+  // ídolo dorado sentado, cabezón, con tocado y una mueca
+  idolo(g, P) {
+    r(g, 19, 55, 26, 5, P.c); r(g, 19, 55, 26, 1, P.o); r(g, 21, 52, 22, 3, P.m);
+    ovalo(g, 25, 49, 6, 4.5, P.c); ovalo(g, 39, 49, 6, 4.5, P.c); r(g, 31, 45, 2, 8, P.o);
+    poli(g, P.c, 23, 34, 41, 34, 43, 48, 21, 48);
+    aro(g, 32, 42, 4.5, 4, P.c, P.o); r(g, 32, 42, 1, 1, P.k);                         // barriga
+    r(g, 19, 34, 4, 12, P.c); r(g, 41, 34, 4, 12, P.c); r(g, 23, 34, 1, 11, P.o); r(g, 40, 34, 1, 11, P.o);
+    ovalo(g, 21, 47, 3, 2.2, P.c); ovalo(g, 43, 47, 3, 2.2, P.c);
+    ovalo(g, 20.5, 25, 2.5, 4, P.c); ovalo(g, 43.5, 25, 2.5, 4, P.c);                // orejas
+    ovalo(g, 32, 24, 10.5, 10, P.o); ovalo(g, 32, 24, 9.5, 9.2, P.c);
+    poli(g, P.c, 19, 18, 45, 18, 41, 8, 32, 5, 23, 8); r(g, 20, 17, 24, 1, P.o);      // tocado
+    for (const x of [24, 28, 36, 40]) r(g, x, 9, 1, 8, P.o);
+    aro(g, 32, 12, 2.6, 2.6, P.gema, P.o);
+    r(g, 25, 21, 6, 1, P.o); r(g, 33, 21, 6, 1, P.o);                                  // cejas
+    r(g, 26, 23, 5, 3, P.k); r(g, 33, 23, 5, 3, P.k); r(g, 27, 24, 2, 1, P.gema); r(g, 35, 24, 2, 1, P.gema);
+    r(g, 31, 25, 2, 4, P.m); r(g, 30, 28, 4, 1, P.o);                                  // nariz
+    r(g, 27, 30, 10, 3, P.k); r(g, 26, 29, 1, 2, P.k); r(g, 37, 29, 1, 2, P.k);       // mueca
+    for (let x = 28; x < 37; x += 2) r(g, x, 30, 1, 1, P.l);
+  },
+  // cáliz con labio, banda de gemas, nudo y pie acampanado
+  caliz(g, P) {
+    poli(g, P.c, 22, 59, 42, 59, 37, 52, 27, 52); r(g, 23, 56, 18, 1, P.o);
+    r(g, 30, 36, 4, 17, P.c); r(g, 29, 36, 1, 17, P.o);
+    aro(g, 32, 44, 4, 2.6, P.c, P.o); aro(g, 32, 38, 3, 1.6, P.c, P.o);
+    poli(g, P.c, 16, 20, 48, 20, 45, 30, 38, 36, 26, 36, 19, 30);
+    ovalo(g, 32, 19, 16, 4, P.c); ovalo(g, 32, 19, 13, 2.4, P.k); r(g, 22, 19, 20, 1, P.m);
+    r(g, 18, 25, 28, 1, P.o); r(g, 19, 30, 26, 1, P.o);
+    for (let x = 22; x < 44; x += 6) r(g, x, 27, 1, 1, P.o);
+    aro(g, 25, 27.5, 1.6, 1.6, P.gema, P.o); aro(g, 32, 27.5, 2, 2, P.gema2, P.o); aro(g, 39, 27.5, 1.6, 1.6, P.gema, P.o);
+    r(g, 27, 33, 10, 1, P.o);
+  },
+  // máscara funeraria con nemes a rayas, cobra, ojos delineados y barba trenzada
+  mascara(g, P) {
+    poli(g, P.c, 15, 16, 49, 16, 53, 34, 51, 54, 40, 52, 40, 32, 24, 32, 24, 52, 13, 54, 11, 34);
+    for (let y = 18; y < 54; y += 4) r(g, 10, y, 44, 2, ESMALTE);
+    poli(g, P.c, 18, 14, 46, 14, 40, 8, 24, 8); r(g, 18, 14, 28, 1, P.o);
+    aro(g, 32, 32, 9.5, 12, P.c, P.o);
+    r(g, 24, 26, 7, 1, P.k); r(g, 33, 26, 7, 1, P.k);
+    r(g, 25, 28, 6, 3, PERLA); r(g, 33, 28, 6, 3, PERLA); r(g, 27, 28, 2, 3, NEGRO); r(g, 35, 28, 2, 3, NEGRO);
+    r(g, 24, 28, 7, 1, P.k); r(g, 33, 28, 7, 1, P.k); r(g, 22, 29, 3, 1, P.k); r(g, 39, 29, 3, 1, P.k);
+    r(g, 31, 30, 2, 6, P.m); r(g, 30, 35, 4, 1, P.o);
+    r(g, 29, 38, 6, 1, P.o); r(g, 30, 39, 4, 1, P.m);
+    r(g, 29, 44, 6, 12, P.o); r(g, 30, 44, 4, 11, P.c); for (let y = 46; y < 55; y += 2) r(g, 30, y, 4, 1, P.o);
+    r(g, 30, 15, 4, 6, P.gema); r(g, 29, 14, 6, 2, P.gema); r(g, 31, 16, 2, 1, NEGRO);   // cobra
+  },
+  // gema tallada: mesa, corona y pabellón con facetas
+  gema(g, P) {
+    poli(g, P.c, 18, 32, 25, 24, 39, 24, 46, 32, 32, 58);
+    poli(g, P.l, 27, 24, 37, 24, 35, 29, 29, 29);
+    poli(g, P.m, 32, 32, 46, 32, 32, 58); poli(g, P.b, 18, 32, 25, 24, 29, 29, 25, 32);
+    trazo(g, P.o, 1, 18, 32, 46, 32); trazo(g, P.o, 1, 25, 32, 32, 57, 39, 32);
+    trazo(g, P.o, 1, 29, 29, 25, 32); trazo(g, P.o, 1, 35, 29, 39, 32); trazo(g, P.o, 1, 29, 29, 35, 29);
+  },
+  // corona con terciopelo, puntas rematadas con perlas y gemas engastadas
+  corona(g, P) {
+    ovalo(g, 32, 38, 14, 10, LACRE); ovalo(g, 32, 33, 6, 5, '#c83040');
+    const puntas = [[16, 32], [24, 27], [32, 22], [40, 27], [48, 32]];
+    for (const [x, y] of puntas) { poli(g, P.c, x - 5, 44, x + 5, 44, x, y); ovalo(g, x, y - 2, 2.4, 2.4, PERLA); }
+    r(g, 15, 42, 34, 11, P.c); r(g, 15, 42, 34, 1, P.o); r(g, 15, 51, 34, 1, P.o);
+    r(g, 14, 52, 36, 4, P.c); r(g, 14, 55, 36, 1, P.o);
+    aro(g, 21, 47, 2.2, 2.2, P.gema2, P.o); aro(g, 32, 47, 3, 3, P.gema, P.o); aro(g, 43, 47, 2.2, 2.2, P.gema2, P.o);
+    for (const x of [26, 37]) { r(g, x, 46, 1, 1, P.o); r(g, x + 1, 47, 1, 1, P.o); r(g, x, 48, 1, 1, P.o); }
+    for (let x = 16; x < 50; x += 3) r(g, x, 53, 1, 1, P.o);
+  },
+  // pilas de monedas y una de canto con un perfil acuñado
+  monedas(g, P) {
+    const pila = (x, base, n) => {
+      for (let i = 0; i < n; i++) { const y = base - i * 3; r(g, x - 6, y, 13, 3, P.c); r(g, x - 6, y + 2, 13, 1, P.o); }
+      const y = base - n * 3 + 1; ovalo(g, x + 0.5, y, 6.5, 2.2, P.l); ovalo(g, x + 0.5, y, 3.5, 1, P.m);
+    };
+    pila(18, 56, 5); pila(29, 57, 8); ovalo(g, 46, 58, 6, 2, P.o); ovalo(g, 46, 57, 6, 2, P.c);
+    aro(g, 43, 45, 9, 9, P.c, P.o); ovalo(g, 43, 45, 6.5, 6.5, P.o); ovalo(g, 43, 45, 5.8, 5.8, P.c);
+    glifo(g, ['..##.', '.####', '.###.', '..##.', '.###.', '####.'], 40, 41, P.o, 1);
+    for (let a = 0; a < 14; a++) { const t = a / 14 * Math.PI * 2; r(g, 43 + Math.cos(t) * 7.8, 45 + Math.sin(t) * 7.8, 1, 1, P.o); }
+  },
+  // collar de cuentas con un colgante en forma de gota
+  amuleto(g, P) {
+    for (let a = 0; a <= 16; a++) {
+      const t = a / 16 * Math.PI, x = 32 - Math.cos(t) * 15, y = 12 + Math.sin(t) * 18;
+      ovalo(g, x, y, 1.6, 1.6, a % 3 ? P.c : P.gema2);
+    }
+    r(g, 30, 30, 4, 4, P.c); r(g, 30, 32, 4, 1, P.o);
+    poli(g, P.o, 32, 32, 42, 44, 40, 52, 32, 56, 24, 52, 22, 44);
+    poli(g, P.c, 32, 34, 41, 44, 39, 51, 32, 55, 25, 51, 23, 44);
+    aro(g, 32, 46, 4, 5, P.gema, P.o); r(g, 30, 44, 1, 2, '#ffffff');
+    for (const x of [26, 32, 38]) { r(g, x, 55, 1, 3, P.o); ovalo(g, x + 0.5, 59, 1.4, 1.6, P.c); }
+  },
+  // cetro con bandas en espiral, orbe con gema y remate
+  cetro(g, P) {
+    r(g, 30, 26, 4, 31, P.c); r(g, 29, 26, 1, 31, P.o);
+    for (let y = 28; y < 54; y += 4) { r(g, 30, y, 2, 1, P.o); r(g, 32, y + 1, 2, 1, P.o); }
+    aro(g, 32, 41, 3.5, 1.8, P.c, P.o); aro(g, 32, 57, 3, 2.4, P.c, P.o);
+    poli(g, P.c, 22, 12, 26, 16, 26, 22, 21, 18); poli(g, P.c, 42, 12, 38, 16, 38, 22, 43, 18);   // alas
+    aro(g, 32, 19, 7, 7, P.c, P.o); r(g, 25, 19, 14, 1, P.o); r(g, 32, 12, 1, 7, P.o);
+    aro(g, 32, 20, 3, 3, P.gema, P.o); r(g, 31, 19, 1, 1, '#ffffff');
+    r(g, 31, 8, 2, 4, P.c); ovalo(g, 32, 7, 2, 2, PERLA);
+    aro(g, 32, 26, 3, 1.4, P.c, P.o);
+  },
+  // calavera con pómulos, dientes, una grieta y ojos de gema que brillan
+  calavera(g, P) {
+    ovalo(g, 32, 29, 13, 13, P.c); poli(g, P.c, 21, 32, 43, 32, 41, 45, 23, 45);
+    r(g, 25, 44, 14, 8, P.c); r(g, 25, 44, 14, 1, P.o);
+    r(g, 26, 41, 12, 3, P.l); for (let x = 28; x < 38; x += 2) r(g, x, 41, 1, 3, P.o);
+    r(g, 26, 47, 12, 2, P.l); for (let x = 27; x < 38; x += 2) r(g, x, 47, 1, 2, P.o);
+    poli(g, P.k, 22, 30, 31, 29, 30, 36, 24, 36); poli(g, P.k, 42, 30, 33, 29, 34, 36, 40, 36);
+    ovalo(g, 27, 33, 1.6, 1.6, P.gema); ovalo(g, 37, 33, 1.6, 1.6, P.gema);
+    poli(g, P.k, 32, 36, 30, 40, 34, 40);
+    trazo(g, P.o, 1, 36, 17, 37, 21, 40, 23, 40, 26); trazo(g, P.o, 1, 22, 37, 25, 39);
+    r(g, 23, 28, 8, 1, P.o); r(g, 33, 28, 8, 1, P.o);
+  },
+  // ánfora con asas, cuello, banda pintada con una greca y pie en punta
+  anfora(g, P) {
+    trazo(g, P.c, 3, 27, 19, 20, 20, 20, 29); trazo(g, P.c, 3, 37, 19, 44, 20, 44, 29);
+    r(g, 27, 15, 10, 10, P.c); r(g, 26, 26, 1, 1, P.o);
+    ovalo(g, 32, 14, 7, 2.4, P.c); ovalo(g, 32, 14, 4.5, 1.2, P.k);
+    ovalo(g, 32, 36, 13, 13, P.c);
+    poli(g, P.c, 23, 44, 41, 44, 35, 56, 29, 56); ovalo(g, 32, 57, 3.5, 1.6, P.c);
+    g.save(); g.beginPath(); g.ellipse(32, 36, 13, 13, 0, 0, Math.PI * 2); g.clip();
+    r(g, 18, 31, 28, 7, P.k); r(g, 18, 29, 28, 1, P.o); r(g, 18, 40, 28, 1, P.o);
+    for (let x = 19; x < 46; x += 6) { r(g, x, 33, 4, 1, P.c); r(g, x + 3, 33, 1, 3, P.c); r(g, x, 35, 4, 1, P.c); r(g, x, 34, 1, 1, P.c); }
+    g.restore();
+    r(g, 28, 24, 8, 1, P.o);
+  },
+  // daga en diagonal con canal, guarda curva, mango envuelto y pomo con gema
+  daga(g, P) {
+    g.save(); g.translate(32, 35); g.rotate(-0.62);
+    poli(g, P.c, -3.5, 3, 3.5, 3, 2.5, -18, 0, -26, -2.5, -18);
+    r(g, -0.5, -18, 1, 19, P.o);
+    trazo(g, P.c, 3, -10, 1, -8, 5, 0, 5, 8, 5, 10, 1);
+    aro(g, 0, 5, 1.8, 1.8, P.gema, P.o);
+    r(g, -2, 8, 4, 10, CUERO_G); for (let y = 9; y < 18; y += 2) r(g, -2, y, 4, 1, NOGAL_O);
+    aro(g, 0, 20, 3, 3, P.c, P.o); r(g, -1, 19, 2, 2, P.gema2);
+    g.restore();
+  },
+  // brújula con tapa abierta grabada y rosa de los vientos
+  brujula(g, P) {
+    aro(g, 32, 17, 13, 6, P.c, P.o); ovalo(g, 32, 17, 10, 4, P.m);
+    poli(g, P.o, 32, 14, 33, 17, 32, 20, 31, 17); poli(g, P.o, 28, 17, 32, 16, 36, 17, 32, 18);
+    r(g, 29, 22, 6, 4, P.c); r(g, 31, 23, 2, 2, P.o);
+    aro(g, 32, 42, 15, 15, P.c, P.o); ovalo(g, 32, 42, 12, 12, P.o); ovalo(g, 32, 42, 11, 11, '#efe6cc');
+    for (let a = 0; a < 16; a++) { const t = a / 16 * Math.PI * 2; r(g, 32 + Math.cos(t) * 9.5, 42 + Math.sin(t) * 9.5, 1, 1, a % 4 ? '#b8a880' : NEGRO); }
+    poli(g, '#8a7a5a', 23, 42, 32, 40, 41, 42, 32, 44);
+    poli(g, LACRE, 32, 32, 34.5, 42, 29.5, 42); poli(g, NEGRO, 32, 52, 34.5, 42, 29.5, 42);
+    ovalo(g, 32, 42, 1.5, 1.5, P.c);
+  },
+  // catalejo de tres tramos, con funda de cuero y lente que brilla
+  catalejo(g, P) {
+    g.save(); g.translate(32, 38); g.rotate(-0.45);
+    r(g, -26, -3, 11, 6, P.c); r(g, -27, -3.5, 2, 7, P.o);
+    r(g, -15, -4.5, 12, 9, P.c); r(g, -16, -5, 2, 10, P.o);
+    r(g, -3, -6, 15, 12, CUERO_G); for (let x = 0; x < 12; x += 3) r(g, x, -6, 1, 12, NOGAL_O);
+    r(g, -4, -6.5, 2, 13, P.o); r(g, 12, -7, 6, 14, P.c); r(g, 12, -7, 1, 14, P.o);
+    r(g, 18, -5.5, 2, 11, '#9ad4ff'); r(g, 18, -5, 1, 3, '#ffffff');
+    g.restore();
+  },
+  // cofre abierto que rebosa de monedas, gemas y un collar de perlas
+  cofre(g, P) {
+    poli(g, '#4a2a12', 14, 36, 50, 36, 47, 18, 17, 18); r(g, 17, 18, 30, 3, P.c);
+    r(g, 20, 21, 2, 15, NOGAL_O); r(g, 42, 21, 2, 15, NOGAL_O);
+    ovalo(g, 32, 36, 17, 7, P.c);
+    for (const [x, y] of [[22, 33], [28, 31], [35, 30], [41, 33], [26, 36], [38, 35], [32, 34]]) ovalo(g, x, y, 2.5, 1.2, P.o);
+    aro(g, 24, 31, 2, 2, P.gema, P.o); aro(g, 40, 30, 2.2, 2.2, P.gema2, P.o); aro(g, 32, 29, 1.6, 1.6, ESMERALDA_G, P.o);
+    r(g, 13, 37, 38, 21, NOGAL); r(g, 13, 44, 38, 1, NOGAL_O); r(g, 13, 51, 38, 1, NOGAL_O);
+    r(g, 13, 37, 38, 3, P.c); r(g, 13, 39, 38, 1, P.o);
+    r(g, 17, 40, 4, 18, P.c); r(g, 43, 40, 4, 18, P.c); r(g, 21, 40, 1, 18, P.o); r(g, 47, 40, 1, 18, P.o);
+    for (const y of [43, 49, 55]) { r(g, 18, y, 1, 1, P.k); r(g, 44, y, 1, 1, P.k); }
+    r(g, 28, 40, 8, 9, P.c); r(g, 28, 48, 8, 1, P.o); r(g, 31, 42, 2, 2, P.k); r(g, 31.5, 44, 1, 3, P.k);
+    for (let i = 0; i < 9; i++) ovalo(g, 22 + i * 1.6, 38 + Math.sin(i / 8 * Math.PI) * 5, 1, 1, PERLA);
+    ovalo(g, 54, 57, 3, 1.4, P.c); ovalo(g, 9, 58, 2.5, 1.2, P.c);
+  },
+  // cuerno para beber con boca y punta de metal y bandas grabadas
+  cuerno(g, P) {
+    const metal = P.t.color === '#c27a3a' ? '#e8b83a' : '#c27a3a';
+    const pt = s => { const u = 1 - s; return [u * u * 47 + 2 * u * s * 18 + s * s * 14, u * u * 24 + 2 * u * s * 18 + s * s * 50]; };
+    for (let i = 0; i <= 60; i++) { const s = i / 60, [x, y] = pt(s), rr = 7.5 - s * 6; ovalo(g, x, y, rr, rr, i % 12 === 6 && s < 0.8 ? P.o : P.c); }
+    for (const [s, ancho] of [[0, 2], [0.4, 1]]) for (let i = 0; i <= ancho * 3; i++) { const [x, y] = pt(s + i * 0.01), rr = 7.7 - (s + i * 0.01) * 6; ovalo(g, x, y, rr, rr, metal); }
+    for (let i = 0; i <= 5; i++) { const s = 0.92 + i * 0.016, [x, y] = pt(s); ovalo(g, x, y, 2.4 - i * 0.2, 2.4 - i * 0.2, metal); }
+    ovalo(g, 48, 24, 3.2, 7, mezcla(metal, '#000000', 0.5)); ovalo(g, 48.5, 24, 1.8, 5.2, NEGRO);
+    trazo(g, CUERO_G, 1.5, 44, 32, 36, 40, 26, 44);
+  },
+  // hacha barbuda con runas en la hoja y mango envuelto
+  hacha(g, P) {
+    r(g, 30, 12, 4, 46, NOGAL); r(g, 30, 12, 1, 46, NOGAL_O);
+    r(g, 30, 44, 4, 12, CUERO_G); for (let y = 45; y < 56; y += 2) r(g, 30, y, 4, 1, NOGAL_O);
+    aro(g, 32, 59, 2.6, 2, P.c, P.o);
+    poli(g, P.c, 34, 17, 42, 14, 50, 9, 53, 22, 50, 35, 44, 42, 41, 30, 34, 27);
+    poli(g, P.c, 30, 18, 23, 20, 22, 24, 30, 25);
+    r(g, 29, 15, 6, 13, P.c); r(g, 29, 18, 6, 1, P.o); r(g, 29, 24, 6, 1, P.o);
+    trazo(g, P.o, 1, 51, 11, 54, 22, 51, 35, 45, 41);
+    glifo(g, ['#..', '###', '#.#', '#..', '#..'], 41, 18, P.o, 1); glifo(g, ['.#.', '#.#', '.#.', '#.#'], 45, 25, P.o, 1);
+  },
+  // disco solar con cara sonriente y rayos largos y cortos
+  disco(g, P) {
+    for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2, l = k % 2 ? 19 : 23, s = 0.16;
+      poli(g, P.c, 32 + Math.cos(a - s) * 13, 38 + Math.sin(a - s) * 13, 32 + Math.cos(a) * l, 38 + Math.sin(a) * l, 32 + Math.cos(a + s) * 13, 38 + Math.sin(a + s) * 13);
+    }
+    aro(g, 32, 38, 14, 14, P.c, P.o); aro(g, 32, 38, 10, 10, P.c, P.o);
+    for (let k = 0; k < 20; k++) { const a = k / 20 * Math.PI * 2; r(g, 32 + Math.cos(a) * 12.5, 38 + Math.sin(a) * 12.5, 1, 1, P.o); }
+    r(g, 26, 33, 5, 1, P.o); r(g, 33, 33, 5, 1, P.o);
+    r(g, 27, 35, 3, 2, P.k); r(g, 34, 35, 3, 2, P.k); r(g, 28, 35, 1, 1, P.b); r(g, 35, 35, 1, 1, P.b);
+    r(g, 31, 36, 2, 5, P.m); r(g, 30, 40, 4, 1, P.o);
+    r(g, 27, 43, 10, 1, P.k); r(g, 26, 42, 1, 1, P.k); r(g, 37, 42, 1, 1, P.k); r(g, 29, 44, 6, 1, P.k);
+    ovalo(g, 25.5, 40, 1.4, 1, P.gema); ovalo(g, 38.5, 40, 1.4, 1, P.gema);
+  },
+  // piedra en bruto: el ámbar guarda un mosquito; las demás, facetas
+  piedra(g, P) {
+    poli(g, P.c, 21, 41, 25, 31, 34, 26, 42, 30, 46, 41, 41, 54, 29, 57, 20, 50);
+    if (P.t.color === '#f0a830') {
+      ovalo(g, 30, 34, 5, 3, P.l);
+      ovalo(g, 26, 39, 5, 3, '#ffe0a0'); ovalo(g, 40, 39, 5, 3, '#ffe0a0');                  // alas
+      trazo(g, '#4a2a10', 2, 27, 44, 38, 44); ovalo(g, 25.5, 44, 2.2, 2, '#4a2a10');
+      trazo(g, '#4a2a10', 1, 24, 44, 19, 47);                                               // aguijón
+      for (const x of [29, 33, 37]) { trazo(g, '#4a2a10', 1, x, 45, x - 2, 51); trazo(g, '#4a2a10', 1, x, 44, x + 1, 38); }
+    } else {
+      poli(g, P.l, 25, 31, 34, 26, 33, 38);
+      poli(g, P.m, 46, 41, 41, 54, 33, 38);
+      trazo(g, P.o, 1, 25, 31, 33, 38, 42, 30); trazo(g, P.o, 1, 33, 38, 46, 41); trazo(g, P.o, 1, 33, 38, 29, 56); trazo(g, P.o, 1, 21, 41, 33, 38);
+    }
+  },
+  // libro grueso con cantoneras, broche, medallón y cinta
+  libro(g, P) {
+    r(g, 18, 25, 30, 32, PAPEL); for (let y = 27; y < 56; y += 2) r(g, 45, y, 3, 1, PAPEL_O);
+    r(g, 14, 23, 32, 34, P.c); r(g, 14, 23, 5, 34, P.m); r(g, 19, 23, 1, 34, P.o);
+    for (const y of [28, 40, 52]) r(g, 14, y, 5, 2, P.o);
+    r(g, 22, 27, 21, 1, P.o); r(g, 22, 53, 21, 1, P.o); r(g, 22, 27, 1, 27, P.o); r(g, 42, 27, 1, 27, P.o);
+    const oro = '#d8a838';
+    for (const [x, y, sx, sy] of [[46, 23, -1, 1], [46, 57, -1, -1]]) poli(g, oro, x, y, x + sx * 7, y, x, y + sy * 7);
+    aro(g, 32, 40, 6, 7, oro, '#7a5a10'); aro(g, 32, 40, 2.6, 3.2, P.gema, '#7a5a10');
+    r(g, 44, 37, 6, 6, oro); r(g, 49, 38, 1, 4, '#7a5a10');
+    poli(g, LACRE, 26, 56, 29, 56, 29, 62, 27.5, 60, 26, 62);
+  },
+  // escudo con borde remachado; el legendario lleva campo rojo y cruz del metal
+  escudo(g, P) {
+    const campo = P.t.rareza === 'legendario' ? LACRE : '#e8e2d0', cruz = P.t.rareza === 'legendario' ? P.c : LACRE;
+    poli(g, P.c, 15, 17, 49, 17, 48, 38, 32, 59, 16, 38);
+    poli(g, P.o, 19, 21, 45, 21, 44, 37, 32, 54, 20, 37);
+    poli(g, campo, 20, 22, 44, 22, 43, 37, 32, 53, 21, 37);
+    r(g, 29, 22, 6, 30, cruz); r(g, 21, 30, 22, 6, cruz);
+    for (const [x, y] of [[18, 19], [32, 19], [46, 19], [17, 30], [47, 30], [19, 41], [45, 41], [25, 49], [39, 49]]) r(g, x, y, 1, 1, P.k);
+    g.clearRect(42, 17, 3, 2); g.clearRect(43, 19, 1, 1);
+  },
+  // anj con aro grabado, brazos y tallo acampanados y una gema en el cruce
+  ankh(g, P) {
+    trazo(g, P.c, 6, 32, 32, 24, 26, 24, 16, 32, 10, 40, 16, 40, 26, 32, 32);
+    trazo(g, P.o, 1, 32, 30, 26, 25, 26, 17, 32, 12, 38, 17, 38, 25, 32, 30);
+    poli(g, P.c, 14, 31, 50, 31, 50, 39, 14, 39); poli(g, P.c, 12, 29, 15, 32, 15, 38, 12, 41); poli(g, P.c, 52, 29, 49, 32, 49, 38, 52, 41);
+    poli(g, P.c, 28, 38, 36, 38, 39, 58, 25, 58); r(g, 24, 57, 16, 3, P.c);
+    r(g, 16, 35, 32, 1, P.o); r(g, 32, 40, 1, 16, P.o);
+    for (let y = 43; y < 56; y += 4) { r(g, 30, y, 1, 2, P.o); r(g, 34, y + 1, 1, 2, P.o); }
+    aro(g, 32, 35, 3, 3, P.gema, P.o); r(g, 31, 34, 1, 1, '#ffffff');
+  },
+  // anillo visto en perspectiva con una gema grande en garras
+  anillo(g, P) {
+    ovalo(g, 32, 46, 17, 11, P.o); ovalo(g, 32, 46, 16, 10, P.c);
+    g.save(); g.globalCompositeOperation = 'destination-out'; ovalo(g, 32, 47, 11, 6, '#000'); g.restore();
+    ovalo(g, 32, 43, 11, 3, P.k); g.save(); g.globalCompositeOperation = 'destination-out'; ovalo(g, 32, 47.5, 11, 5.5, '#000'); g.restore();
+    for (let a = 0; a < 7; a++) { const t = 0.3 + a / 6 * (Math.PI - 0.6); r(g, 32 + Math.cos(t) * 13.5, 46 + Math.sin(t) * 8.5, 1, 1, P.o); }
+    poli(g, P.c, 25, 38, 39, 38, 36, 32, 28, 32);
+    r(g, 24, 25, 2, 9, P.c); r(g, 38, 25, 2, 9, P.c); r(g, 31, 22, 2, 4, P.c);
+    poli(g, P.gema, 25, 28, 29, 24, 35, 24, 39, 28, 32, 35);
+    poli(g, mezcla(P.gema, '#ffffff', 0.5), 29, 24, 35, 24, 33, 27, 31, 27);
+    trazo(g, mezcla(P.gema, '#000000', 0.45), 1, 25, 28, 39, 28); trazo(g, mezcla(P.gema, '#000000', 0.45), 1, 29, 28, 32, 34, 35, 28);
+  },
+  // cruz patada con borde grabado y gemas
+  cruz(g, P) {
+    const brazo = (...p) => poli(g, P.c, ...p);
+    brazo(26, 9, 38, 9, 35, 28, 29, 28); brazo(29, 36, 35, 36, 39, 59, 25, 59);
+    brazo(13, 26, 13, 38, 29, 35, 29, 29); brazo(51, 26, 51, 38, 35, 35, 35, 29); r(g, 28, 27, 8, 10, P.c);
+    trazo(g, P.o, 1, 28, 12, 36, 12, 34, 27); trazo(g, P.o, 1, 28, 12, 30, 27);
+    trazo(g, P.o, 1, 30, 38, 27, 56, 37, 56, 34, 38);
+    trazo(g, P.o, 1, 16, 28, 16, 36, 28, 34); trazo(g, P.o, 1, 48, 28, 48, 36, 36, 34);
+    aro(g, 32, 32, 3, 3, P.gema, P.o); r(g, 31, 31, 1, 1, '#ffffff');
+    if (P.t.rareza !== 'comun') for (const [x, y] of [[32, 15], [32, 52], [19, 32], [45, 32]]) aro(g, x, y, 1.6, 1.6, P.gema2, P.o);
+  },
+  // escarabajo sagrado con alas de esmalte, empujando un sol
+  escarabajo(g, P) {
+    for (const s of [-1, 1]) {
+      poli(g, ESMALTE, 32 + s * 9, 36, 32 + s * 26, 34, 32 + s * 28, 44, 32 + s * 20, 50, 32 + s * 9, 48);
+      for (let k = 0; k < 4; k++) trazo(g, '#0f2048', 1, 32 + s * 11, 38 + k * 3, 32 + s * (26 - k * 2), 36 + k * 4);
+      r(g, 32 + s * 8 - (s < 0 ? 2 : 0), 51, 2, 6, P.c); trazo(g, P.c, 2, 32 + s * 8, 56, 32 + s * 12, 59);
+      trazo(g, P.c, 2, 32 + s * 5, 24, 32 + s * 7, 18, 32 + s * 5, 14);
+    }
+    aro(g, 32, 10, 5, 5, RUBI_G, P.o);
+    poli(g, P.c, 26, 25, 38, 25, 36, 19, 28, 19); for (const x of [28, 31, 34]) r(g, x, 19, 2, 1, P.o);
+    aro(g, 32, 29, 9, 4.5, P.c, P.o);
+    aro(g, 32, 43, 10, 10, P.c, P.o); r(g, 32, 34, 1, 19, P.o);
+    r(g, 26, 38, 1, 1, P.k); r(g, 38, 38, 1, 1, P.k);
+  },
 };
 
+// Reduce el dibujo a su paleta y abomba cada zona por separado: luz arriba a la izquierda,
+// rampa de tonos con trama ordenada y contorno del tono más oscuro. Las `lineas` se quedan planas.
+function cincelar(d, paleta, lineas, contorno, rampaDe) {
+  const cols = paleta.map(hexRGB), N = T * T, idx = new Int16Array(N).fill(-1);
+  for (let i = 0; i < N; i++) {
+    if (!d[i * 4 + 3]) continue;
+    let mejor = 0, md = 1e9;
+    cols.forEach((c, j) => { const e = (c[0] - d[i * 4]) ** 2 + (c[1] - d[i * 4 + 1]) ** 2 + (c[2] - d[i * 4 + 2]) ** 2; if (e < md) { md = e; mejor = j; } });
+    idx[i] = mejor;
+  }
+  const plano = j => lineas.includes(paleta[j]);
+  // los píxeles sueltos que dejó el suavizado del lienzo se suman a la zona vecina más grande
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x, j = idx[i];
+    if (j < 0 || plano(j)) continue;
+    const vec = [x > 0 ? idx[i - 1] : -1, x < T - 1 ? idx[i + 1] : -1, y > 0 ? idx[i - T] : -1, y < T - 1 ? idx[i + T] : -1];
+    if (vec.includes(j)) continue;
+    const cuenta = {};
+    for (const v of vec) if (v >= 0 && !plano(v)) cuenta[v] = (cuenta[v] || 0) + 1;
+    const mas = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0];
+    if (mas) idx[i] = +mas[0];
+  }
+  const MAX = 15, dist = new Float32Array(N);
+  for (let i = 0; i < N; i++) dist[i] = idx[i] >= 0 && !plano(idx[i]) ? MAX : 0;
+  const igual = (i, x, y) => x >= 0 && y >= 0 && x < T && y < T && idx[y * T + x] === idx[i];
+  const at = (i, x, y) => igual(i, x, y) ? dist[y * T + x] : 0;
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x; if (!dist[i]) continue;
+    dist[i] = Math.min(dist[i], at(i, x - 1, y) + 3, at(i, x, y - 1) + 3, at(i, x - 1, y - 1) + 4, at(i, x + 1, y - 1) + 4);
+  }
+  for (let y = T - 1; y >= 0; y--) for (let x = T - 1; x >= 0; x--) {
+    const i = y * T + x; if (!dist[i]) continue;
+    dist[i] = Math.min(dist[i], at(i, x + 1, y) + 3, at(i, x, y + 1) + 3, at(i, x + 1, y + 1) + 4, at(i, x - 1, y + 1) + 4);
+  }
+  const rampas = paleta.map(rampaDe);
+  const luz = new Float32Array(N);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x, k = i * 4;
+    if (idx[i] < 0) continue;
+    let c = cols[idx[i]];
+    if (dist[i]) {
+      const h = (xx, yy) => { const v = at(i, xx, yy) / MAX; return Math.sqrt(Math.max(0, v * (2 - v))); };
+      const nx = (h(x - 1, y) - h(x + 1, y)) * 2, ny = (h(x, y - 1) - h(x, y + 1)) * 2, nl = Math.hypot(nx, ny, 1);
+      const lam = (nx * LUZ[0] + ny * LUZ[1] + LUZ[2]) / nl;
+      const rampa = rampas[idx[i]], centro = rampa.centro;
+      const v = centro + (lam - LUZ[2]) * 5 + (0.4 - y / T) * 0.6 + ((TRAMA[(y % 4) * 4 + (x % 4)] + 0.5) / 16 - 0.5) * 0.45;
+      const j = Math.max(0, Math.min(rampa.tonos.length - 1, Math.round(v)));
+      c = rampa.tonos[j]; luz[i] = j - centro + (dist[i] >= 6 ? 0.5 : 0);
+    }
+    d[k] = c[0]; d[k + 1] = c[1]; d[k + 2] = c[2];
+  }
+  const borde = hexRGB(contorno);
+  const fuera = [];
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x;
+    if (idx[i] >= 0) continue;
+    if ((x > 0 && idx[i - 1] >= 0) || (x < T - 1 && idx[i + 1] >= 0) || (y > 0 && idx[i - T] >= 0) || (y < T - 1 && idx[i + T] >= 0)) fuera.push(i);
+  }
+  for (const i of fuera) { d[i * 4] = borde[0]; d[i * 4 + 1] = borde[1]; d[i * 4 + 2] = borde[2]; d[i * 4 + 3] = 255; }
+  return luz;
+}
+function rampaGeneral(c) {
+  const t = [mezcla(c, '#000000', 0.55), mezcla(c, '#000000', 0.3), c, mezcla(c, '#ffffff', 0.35), mezcla(c, '#ffffff', 0.7)];
+  return { tonos: t.map(hexRGB), centro: 2 };
+}
+
+// Destellos: una estrella blanca en el punto más iluminado (dos en los legendarios) y, en épicos y
+// legendarios, chispitas del color de la rareza alrededor.
+function destellos(d, luz, t, colorRareza) {
+  const n = { comun: 0, raro: 1, epico: 1, legendario: 2 }[t.rareza] ?? 0;
+  const puntos = [];
+  for (let k = 0; k < n; k++) {
+    let mejor = -1, mv = -1e9;
+    for (let y = 2; y < T - 2; y++) for (let x = 2; x < T - 2; x++) {
+      const i = y * T + x; if (luz[i] < 2) continue;
+      const lejos = puntos.reduce((m, [px, py]) => Math.min(m, Math.hypot(px - x, py - y)), 99);
+      if (lejos < 14) continue;
+      const v = luz[i] - (x + y) * 0.01 + (k ? lejos * 0.05 : 0);
+      if (v > mv) { mv = v; mejor = i; }
+    }
+    if (mejor >= 0) puntos.push([mejor % T, Math.floor(mejor / T)]);
+  }
+  const pon = (x, y, c) => { if (x < 0 || y < 0 || x >= T || y >= T) return; const i = (y * T + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255; };
+  const blanco = [255, 255, 255], suave = [255, 246, 214];
+  for (const [x, y] of puntos) {
+    pon(x, y, blanco);
+    for (let l = 1; l <= 3; l++) { const c = l === 1 ? blanco : suave; pon(x - l, y, c); pon(x + l, y, c); pon(x, y - l, c); pon(x, y + l, c); }
+  }
+  if (t.rareza === 'epico' || t.rareza === 'legendario') {
+    const c = hexRGB(mezcla(colorRareza, '#ffffff', 0.35)), rnd = rng([...t.id].reduce((s, ch) => s * 31 + ch.charCodeAt(0), 7));
+    const vacio = (x, y) => x > 1 && y > 1 && x < T - 2 && y < T - 2 && !d[(y * T + x) * 4 + 3];
+    let puestos = 0;
+    for (let intento = 0; intento < 400 && puestos < (t.rareza === 'legendario' ? 5 : 3); intento++) {
+      const x = 6 + Math.floor(rnd() * 52), y = 6 + Math.floor(rnd() * 50);
+      let cerca = false;
+      for (let dy = -4; dy <= 4 && !cerca; dy++) for (let dx = -4; dx <= 4; dx++) if (!vacio(x + dx, y + dy)) { cerca = true; break; }
+      if (cerca) continue;
+      let junto = false;
+      for (let dy = -8; dy <= 8 && !junto; dy++) for (let dx = -8; dx <= 8; dx++) if (x + dx >= 0 && y + dy >= 0 && x + dx < T && y + dy < T && d[((y + dy) * T + x + dx) * 4 + 3]) { junto = true; break; }
+      if (!junto) continue;
+      pon(x, y, c); if (puestos % 2 === 0) { pon(x - 1, y, c); pon(x + 1, y, c); pon(x, y - 1, c); pon(x, y + 1, c); }
+      puestos++;
+    }
+  }
+}
+
+const COLOR_RAREZA = { raro: '#5fa8ff', epico: '#c77dff', legendario: '#ffb627' };
 export function registrarTesoros(catalogo) {
   for (const t of catalogo) {
     if (casillas['tesoro_' + t.id]) continue;
-    registrar('tesoro_' + t.id, sprite(g => {
-      FORMAS[t.forma](g, t.color, t.oscuro);
-      brillo(g, 40, 26);
-      if (t.rareza !== 'comun') brillo(g, 24, 46);
-    }, { pulir: { oscuro: t.oscuro, rareza: t.rareza } }));
+    registrar('tesoro_' + t.id, b => {
+      const c = document.createElement('canvas');
+      c.width = c.height = T;
+      const g = c.getContext('2d');
+      const P = paletaTesoro(t);
+      FORMAS[t.forma](g, P);
+      const d = g.getImageData(0, 0, T, T).data;
+      for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 128 ? 0 : 255;
+      const paleta = [...new Set([P.c, P.o, P.k, P.m, P.l, P.b, P.gema, P.gema2, RUBI_G, ZAFIRO_G, ESMERALDA_G, PERLA, NOGAL, NOGAL_O,
+        CUERO_G, PAPEL, PAPEL_O, LACRE, ESMALTE, NEGRO, '#ffffff', '#efe6cc', '#b8a880', '#8a7a5a', '#4a2a12', '#9ad4ff', '#d8a838', '#7a5a10',
+        '#c83040', '#e8e2d0', '#ffe0a0', '#0f2048', '#4a2a10', '#6a4a20', '#e8b83a', '#c27a3a', mezcla('#e8b83a', '#000000', 0.5), mezcla('#c27a3a', '#000000', 0.5),
+        mezcla(P.gema, '#ffffff', 0.5), mezcla(P.gema, '#000000', 0.45)])];
+      const material = { tonos: [P.k, P.o, P.m, P.c, P.l, P.b].map(hexRGB), centro: 3 };
+      const lineas = [P.o, P.k, NEGRO, NOGAL_O, '#4a2a10', '#0f2048', '#7a5a10', PAPEL_O, mezcla(P.gema, '#000000', 0.45), '#ffffff'];
+      const luz = cincelar(d, paleta, lineas, mezcla(t.oscuro, '#000000', 0.6), col => col === P.c ? material : rampaGeneral(col));
+      destellos(d, luz, t, COLOR_RAREZA[t.rareza] || '#ffffff');
+      b.d.set(d);
+    });
   }
 }
 
