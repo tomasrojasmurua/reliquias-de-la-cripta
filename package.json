@@ -1,0 +1,15 @@
+{
+  "name": "reliquias-de-la-cripta",
+  "private": true,
+  "type": "module",
+  "description": "Herramientas para revisar el juego. El juego en sí no necesita instalar nada.",
+  "scripts": {
+    "validar": "node herramientas/validar-mazmorras.js",
+    "cache": "node herramientas/cache.js",
+    "probar": "node herramientas/probar-mazmorras.js",
+    "revisar": "node herramientas/validar-mazmorras.js && node herramientas/cache.js --revisar && node herramientas/probar-mazmorras.js"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
+}
