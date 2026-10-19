@@ -432,7 +432,7 @@ let sala = null;                 // la conexión con la sala (js/red.js), mientr
 const cazadores = new Map();     // los otros cazadores en la cripta: puesto -> { nombre, x, y, z, yaw, pt, rx, rz }
 let ultimoMarcador = null;
 let cuentaAtras = 0;
-let envioT = 0, hudSalaT = 0, hudSalaClave = '';
+let envioT = 0, enemigosT = 0, hudSalaT = 0, hudSalaClave = '';
 
 const nombreElegido = () => (progreso.opciones.nombre || '').trim();
 function guardarNombreSala(n) {
@@ -490,6 +490,9 @@ function enlazarSala(s) {
   };
   s.alPerderse = motivo => perderSala(motivo);
   s.alTesoro = (i, id) => tesoroDeSala(i, id);
+  s.alEnemigos = snap => { if (enPartidaDeSala()) juego.recibirEnemigos(snap); };
+  s.alGolpe = (i, daño) => { const e = enPartidaDeSala(true) && juego.enemigos[i]; if (e && e.estado !== 'muerto') juego.herir(e, daño); };
+  s.alDano = (n, causa) => { if (enPartidaDeSala()) juego.dañarJugador(n, causa); };
   s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); };
 }
 
@@ -574,7 +577,9 @@ function comenzarCuenta(p) {
     if (--n > 0) { num.textContent = n; sonar('menu_alternar'); return; }
     clearInterval(cuentaAtras);
     $('#cuenta').hidden = true;
-    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9) });
+    // la mazmorra es la misma, pero cada cazador recibe sus propias pistas: lo que uno resuelve no le sirve a otro
+    const azarPistas = azarConSemilla((p.semilla ^ 0x9e3779b9) ^ Math.imul(sala.yo + 1, 0x85ebca6b));
+    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas });
   }, 1000);
 }
 
@@ -600,6 +605,9 @@ function tesoroDeSala(i, id) {
   mensaje(`${j?.nombre || 'Otro cazador'} se llevó ${TESORO[o.tesoro].nombre}`, 3);
 }
 
+// ¿Hay una partida de sala en curso? (`aunqueTermine`: el anfitrión sigue simulando a los enemigos para los demás)
+const enPartidaDeSala = (aunqueTermine = false) => !!juego && !!actual?.sala && (aunqueTermine || !actual.sala.fin);
+
 function posicionDeCazador(id, p) {
   if (!sala || id === sala.yo) return;
   if (!p) {
@@ -613,7 +621,7 @@ function posicionDeCazador(id, p) {
     c = { nombre: sala.jugadores.find(j => j.id === id)?.nombre || 'Un cazador', rx: p.x, rz: p.z, ry: p.y };
     cazadores.set(id, c);
   }
-  Object.assign(c, { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pt: p.pt });
+  Object.assign(c, { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pt: p.pt, m: p.m });
 }
 
 // Cada cuadro: mando mi posición unas veces por segundo y dibujo a los demás, suavizando sus saltos.
@@ -623,8 +631,15 @@ function cuadroDeSala(t, dt, sprites) {
     if (envioT >= 1 / HZ_POSICION) {
       envioT = 0;
       const j = juego.j;
-      sala.enviarPosicion({ x: j.x, y: j.y, z: j.z, yaw: j.yaw, pt: juego.puntos() });
+      sala.enviarPosicion({ x: j.x, y: j.y, z: j.z, yaw: j.yaw, pt: juego.puntos(), m: j.muerto });
     }
+  }
+  // el anfitrión es quien mueve a los enemigos: persiguen al más cercano de todos y reparte cómo están
+  if (sala?.soyAnfitrion) {
+    juego.blancos = [...cazadores].map(([id, c]) => ({ id, x: c.x, y: c.y, z: c.z, muerto: !!c.m }));
+    if (actual.sala.fin && cazadores.size) juego.simularRemotos(dt);   // yo ya terminé, ellos siguen
+    enemigosT += dt;
+    if (enemigosT >= 0.1) { enemigosT = 0; sala.enviarEnemigos(juego.instantanea()); }
   }
   const k = 1 - Math.exp(-dt * 14), m = juego.mapa;
   for (const [id, c] of cazadores) {
@@ -714,6 +729,8 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
     },
     daño() { destello('rojo'); },
     reclamar: enSala ? o => reclamarTesoro(o) : undefined,
+    golpear: enSala ? (i, d) => sala?.golpear(i, d) : undefined,
+    dañarA: enSala ? (id, n, c) => sala?.danar(id, n, c) : undefined,
     solto: enSala ? o => sala?.soltar(o.n, o.x, o.z) : undefined,
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
@@ -721,7 +738,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
     salida: r => terminar(r, true),
     muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
     tiempoAgotado: r => terminar(r, false),
-  }, (diaria || enSala)?.semilla, { limite, modificadores: diaria?.modificadores, real: !!enSala });
+  }, (diaria || enSala)?.semilla, { limite, modificadores: diaria?.modificadores, real: !!enSala, rol: enSala ? (sala?.soyAnfitrion ? 'anfitrion' : 'invitado') : null });
   $('#hud-reloj').hidden = !limite;
   $('#caja-puntos').hidden = !limite;
   document.body.classList.toggle('contrarreloj', !!limite);
@@ -968,4 +985,4 @@ if (invitacion) {
   const q = new URLSearchParams(location.search); q.delete('sala');
   history.replaceState(history.state, '', location.pathname + (q.size ? `?${q}` : ''));
 }
-window.__reliquias = { get juego() { return juego; }, get sala() { return sala; }, get cazadores() { return cazadores; }, empezar, MAZMORRAS };
+window.__reliquias = { get juego() { return juego; }, get actual() { return actual; }, get sala() { return sala; }, get cazadores() { return cazadores; }, empezar, MAZMORRAS };
