@@ -389,3 +389,15 @@ body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-i
   .ficha-pieza { grid-row: 1 / span 6; }
   .ficha .cerrar { justify-self: start; }
 }
+
+/* Acertijo de palancas */
+.palancas .nota-palancas { text-align: center; color: var(--suave); font-style: italic; margin: 6px 0; }
+.pistas-palancas { margin: 8px 0 12px; padding: 0 0 0 20px; font-size: clamp(16px, 3vw, 19px); line-height: 1.5; font-style: italic; }
+.secuencia { display: flex; justify-content: center; gap: 8px; margin: 6px 0 12px; }
+.secuencia .hueco { display: grid; place-items: center; width: 42px; height: 42px; border: 2px dashed #8a7048; border-radius: 6px; color: var(--suave); font-size: 15px; }
+.secuencia .hueco.lleno { border-style: solid; border-color: var(--oro); font-size: 24px; background: rgba(232, 184, 58, .12); }
+.mecanismo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.menu .mecanismo .palanca, .mecanismo .palanca { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; text-transform: none; letter-spacing: normal; }
+.palanca b { font-size: 28px; line-height: 1; font-weight: normal; }
+.palanca span { font-size: 12px; }
+.palanca.bajada { opacity: .45; transform: translateY(4px); }

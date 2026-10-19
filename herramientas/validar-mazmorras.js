@@ -9,6 +9,8 @@ import { PISTAS } from '../datos/pistas.js';
 import { cargarMazmorra } from '../js/mapa.js';
 import { recortarZonas } from '../js/laberinto.js';
 import { Juego } from '../js/juego.js';
+import { crearPalancas } from '../js/palancas.js';
+import { azarConSemilla } from '../js/laberinto.js';
 
 const SEMILLAS = Number(process.argv[2]) || 25;
 const PASO = 0.45 + 1e-6;   // el escalón más alto que se sube caminando (PASO en js/juego.js)
@@ -135,6 +137,12 @@ for (const def of MAZMORRAS) {
       if (s === 1 && firma(cargarMazmorra(variante, s)) !== firma(m)) error(donde, 'la misma semilla da mazmorras distintas');
     }
   }
+}
+
+// Los acertijos de palancas tienen una sola solución: se prueban todos los órdenes contra las pistas.
+for (let s = 1; s <= 300; s++) {
+  const p = crearPalancas(azarConSemilla(s));
+  if (!p.unica) error('palancas', `con la semilla ${s} las pistas no dejan un solo orden`);
 }
 
 // El mismo error suele repetirse en muchas semillas: se muestra una vez con el número de veces.

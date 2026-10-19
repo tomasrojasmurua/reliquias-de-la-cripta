@@ -236,15 +236,21 @@ function paresLibres(def) {
   const usados = new Set([...def.plano.join(''), ...Object.keys(def.acertijos || {}), ...Object.values(def.acertijos || {}).map(a => a.sello), ...Object.keys(def.leyenda || {}), 'R']);
   return CARACTERES_ACERTIJO.filter(([a, b]) => !usados.has(a) && !usados.has(b));
 }
+const TITULOS_PALANCAS = ['El mecanismo de los símbolos', 'Las palancas del relicario', 'La cerradura del constructor', 'El cerrojo de los cuatro signos'];
 const TITULOS_CAMARA = ['La inscripción del nicho', 'La placa del guardián', 'El grabado del relicario', 'Las palabras del constructor', 'La marca del saqueador', 'El acertijo de la cámara', 'La plegaria del sepulturero', 'El verso del umbral'];
 
 // Prepara `n` cámaras selladas con sus acertijos; después de poblar, `cerrar` quita las que no cupieron.
+// Una de cada dos se abre con palancas (js/palancas.js) en vez de una pista críptica.
 function camarasNuevas(n, pares, acertijos, def) {
   const camaras = [];
   for (let k = 0; k < n && pares.length; k++) {
     const [tablilla, sello] = pares.shift();
     const num = Object.values(acertijos).filter(a => a.camara).length;
-    acertijos[tablilla] = { id: `${def.id}-camara${num + 1}`, tipo: 'pista', dificultad: [2, 3], sello, titulo: TITULOS_CAMARA[num % TITULOS_CAMARA.length], camara: true };
+    const palancas = num % 2 === 1;
+    acertijos[tablilla] = {
+      id: `${def.id}-camara${num + 1}`, tipo: palancas ? 'palancas' : 'pista', dificultad: [2, 3], sello, camara: true,
+      titulo: palancas ? TITULOS_PALANCAS[(num >> 1) % TITULOS_PALANCAS.length] : TITULOS_CAMARA[num % TITULOS_CAMARA.length],
+    };
     camaras.push({ tablilla, sello });
   }
   camaras.cerrar = () => { for (const c of camaras) if (!c.puesta) delete acertijos[c.tablilla]; };

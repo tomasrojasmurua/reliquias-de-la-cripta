@@ -7,6 +7,7 @@ import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
+import { abrirPalancas, crearPalancas } from './palancas.js';
 import { recortarZonas } from './laberinto.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
@@ -399,8 +400,16 @@ function abrirPanelTablilla(a) {
   const dificultad = juego.mods.has('escritura') ? a.dificultad.map(d => Math.min(5, d + 1)) : a.dificultad;
   // con tantas tablillas por mazmorra, ninguna repite la pista que ya muestra otra
   const enUso = () => new Set(Object.values(juego.mapa.acertijos).filter(o => o !== a && o.estado).map(o => o.estado.pista.id));
-  if (!a.estado) a.estado = { titulo: a.titulo, pista: elegirPista(dificultad, resueltas, enUso(), azar), nivel: 0, vistas: new Set() };
+  if (!a.estado && a.tipo !== 'palancas') a.estado = { titulo: a.titulo, pista: elegirPista(dificultad, resueltas, enUso(), azar), nivel: 0, vistas: new Set() };
   const panel = $('#panel');
+  if (a.tipo === 'palancas') {
+    a.estadoPalancas ||= { titulo: a.titulo, acertijo: crearPalancas(azar) };
+    abrirPalancas(panel, a.estadoPalancas, {
+      alResolver() { panel.hidden = true; juego.resolverAcertijo(a); reanudar(); },
+      alCerrar() { panel.hidden = true; reanudar(); },
+    });
+    return;
+  }
   abrirTablilla(panel, a.estado, {
     alResolver(p) {
       if (!progreso.pistas.includes(p.id)) { progreso.pistas.push(p.id); guardar(); }

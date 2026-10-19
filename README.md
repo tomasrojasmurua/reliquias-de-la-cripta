@@ -28,6 +28,8 @@ Cada mazmorra tiene además un **ala nueva con alturas**, con su propia tablilla
 
 En las últimas mazmorras, cada tablilla abre la cámara donde está la siguiente, más difícil: dificultad 1–2, luego 3, luego 4–5, con un tesoro legendario al final. Cada mazmorra tiene además un pasadizo secreto con un tesoro escondido.
 
+Una de cada dos cámaras selladas no se abre con una pista críptica sino con un **mecanismo de palancas** (`js/palancas.js`): cuatro palancas con símbolos (el sol, la luna, la serpiente, el escarabajo…) y unas pistas de lógica sobre el orden en que se bajan, como «La del sol va justo antes que la de la luna» o «La palanca de la serpiente no va al final». Las pistas se eligen al azar hasta que solo un orden las cumple. Si te equivocas, las palancas vuelven a subir; «Pedir ayuda» revela la primera, luego la segunda.
+
 ## Guardianes
 Cada mazmorra tiene un guardián que vigila su reliquia más valiosa (la que no está escondida en un nicho): Jepri, el faraón escarabajo; el sacerdote de Anubis; el Jarl de hielo; el capitán del galeón; el Rey Jaguar; el sumo sacerdote del culto y el Caballero Negro. Son más grandes que los demás enemigos, llevan corona o tocado, aguantan unos diez balazos y no se frenan con cada golpe. Cuando te ven a media distancia **embisten** en línea recta (hay que hacerse a un lado), y al perder cada tercio de vida **llaman a dos siervos**. Mientras pelean se ve su barra de vida arriba, y al caer dejan vendas. Se declaran con `guardian: { tipo, nombre }` en `datos/mazmorras.js`; sus valores están en `GUARDIANES` (`js/juego.js`) y su dibujo en `ESTILOS` (`js/texturas.js`).
 
@@ -62,6 +64,7 @@ La **colección** muestra los tesoros en vitrinas, una por rareza: estanterías 
 - `js/entrada.js`: teclado, ratón y pantalla táctil.
 - `js/arma.js`: revólver y látigo en primera persona.
 - `js/acertijos.js`: tablillas con pistas crípticas y ayudas progresivas.
+- `js/palancas.js`: el acertijo de palancas de las cámaras selladas.
 - `js/audio.js`: efectos, ambiente, música y eco sintetizados.
 - `js/automapa.js`: mapa de lo explorado.
 - `js/laberinto.js`: genera los túneles de cada partida.
