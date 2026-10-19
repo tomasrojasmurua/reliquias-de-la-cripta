@@ -610,12 +610,13 @@ export function conZonas(def, azar = Math.random) {
 
   // un acertijo por zona que abre el paso a la siguiente
   const ultima = Z.extra ?? Z.zonas.length - 1;   // la cámara extra (-1 si se recortó)
-  const selloDe = {};
+  const selloDe = {}, tablillaDe = {};
   Z.zonas.forEach((z, i) => {
     if (!z.acertijo || i === ultima) return;
     const [car, sello] = pares.shift();
     acertijos[car] = { id: `${def.id}-zona${i + 1}`, tipo: 'pista', dificultad: z.acertijo.dificultad, sello, titulo: z.acertijo.titulo };
     selloDe[i + 1] = sello;
+    tablillaDe[i] = car;
     z.caracterTablilla = car;
   });
 
@@ -625,6 +626,12 @@ export function conZonas(def, azar = Math.random) {
 
   // la salida va a una de las zonas posibles
   const zonaSalida = elegir(Z.salida);
+  // las tablillas que hay que descifrar sí o sí para llegar a la salida (las de las zonas anteriores a ella)
+  // son fáciles: las que esconden zonas o tesoros pueden ser más duras
+  for (let i = 0; i < zonaSalida; i++) {
+    const a = acertijos[tablillaDe[i]];
+    if (a) a.dificultad = [Math.min(a.dificultad[0], 1), Math.min(a.dificultad[1], 2)];
+  }
   const talladas = Z.bloques.map((b, k) => {
     const loc = entradas[k].map(([x, y]) => [x - b.x, y - b.y]);
     // las casillas donde van los sellos se abren hacia dentro desde el bloque: son entradas también

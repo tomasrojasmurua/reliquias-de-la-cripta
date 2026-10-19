@@ -32,6 +32,7 @@
     <button data-ir="diaria" class="diaria">Expedición del día</button>
     <button data-ir="unirse">Unirse a una sala</button>
     <button data-ir="coleccion">Tesoros</button>
+    <button data-ir="cuaderno">Cuaderno</button>
     <button data-ir="ayuda">Cómo jugar</button>
     <button data-ir="opciones">Opciones</button>
   </nav>
@@ -193,6 +194,16 @@
   </div>
 </section>
 
+<section id="cuaderno" class="pantalla menu" hidden>
+  <header class="cabecera">
+    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>Cuaderno del cazador</h2>
+  </header>
+  <div id="rango-cuaderno"></div>
+  <p id="resumen-cuaderno"></p>
+  <div id="lista-cuaderno"></div>
+</section>
+
 <section id="ayuda" class="pantalla menu" hidden>
   <header class="cabecera">
     <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -200,7 +211,7 @@
   </header>
   <div class="texto">
     <p>Las mazmorras están a oscuras: tu <b>antorcha</b> ilumina solo lo que tienes cerca. Explora cada mazmorra y reúne sus tesoros. Empiezas solo con tu látigo: busca el <b>revólver</b> y sus <b>balas</b>.</p>
-    <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro.</p>
+    <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro. Si la descifras <b>sin pedir ayuda</b> ganas tantos puntos extra como estrellas tenga, y el <b>Cuaderno</b> de la portada guarda cada inscripción que resuelves y te da un rango.</p>
     <p>Algunos muros tienen grietas. Empújalos: cada mazmorra esconde al menos un <b>pasadizo secreto</b>.</p>
     <p>Cada mazmorra tiene además un <b>laberinto de túneles</b> que cambia cada vez que entras: callejones sin salida, salas llenas de monstruos y unos pocos tesoros escondidos en lo más hondo, a veces tras un muro agrietado o en una <b>cámara sellada</b> que se abre con el acertijo de alguna tablilla del laberinto.</p>
     <p>Cada mazmorra es grande: tiene <b>cuatro zonas</b>. Al entrar, la entrada se derrumba a tus espaldas, y la salida está escondida en algún ramal de las zonas del fondo, cada vez en otro lugar. Para pasar de una zona a la siguiente hay que descifrar la tablilla de la zona. Arriba a la izquierda ves cuántas reliquias de la zona llevas, y el automapa marca las zonas completas. Encontrar la salida no termina la partida: sales cuando quieras.</p>

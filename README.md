@@ -30,6 +30,11 @@ En las últimas mazmorras, cada tablilla abre la cámara donde está la siguient
 
 Una de cada dos cámaras selladas no se abre con una pista críptica sino con un **mecanismo de palancas** (`js/palancas.js`): cuatro palancas con símbolos (el sol, la luna, la serpiente, el escarabajo…) y unas pistas de lógica sobre el orden en que se bajan, como «La del sol va justo antes que la de la luna» o «La palanca de la serpiente no va al final». Las pistas se eligen al azar hasta que solo un orden las cumple. Si te equivocas, las palancas vuelven a subir; «Pedir ayuda» revela la primera, luego la segunda.
 
+## Cuaderno del cazador
+Cada inscripción que descifras se anota en el **Cuaderno** de la portada (`progreso.cuaderno`, en `js/main.js`): su respuesta y explicación, tu mejor tiempo y con cuántas ayudas la resolviste. Descifrar una tablilla **sin pedir ninguna ayuda** da puntos extra, tantos como estrellas de dificultad (1 a 5; 2 en el mecanismo de palancas), que suman al botín del contrarreloj, de la expedición del día y de las salas. El número de pistas distintas resueltas sin ayudas da el rango: Aprendiz de escriba, Escriba (3), Erudito (10), Sabio de la cripta (25) y Gran hierofante (60).  La solución nunca se muestra: la ayuda máxima es la primera letra.
+
+**Los acertijos que hay que resolver para salir son fáciles.** Las tablillas que abren el paso hacia la zona de la salida (y cualquier otra sin la que no se pueda llegar a ella) tienen dificultad 1–2; las que esconden tesoros, cámaras o zonas ocultas pueden ser más duras y quedar sin resolver. `npm run validar` lo comprueba en cada mazmorra y semilla.
+
 ## La palanca de hierro
 Cada cripta esconde una **palanca de hierro** (`barreta` en el código), siempre en una sala oculta tras un pasadizo secreto (`variarPlano` en `js/laberinto.js`; en un plano de salas abiertas, en un nicho emparedado). Con ella en la mano aparece una casilla «Palanca» en el HUD. Frente a un sello, «Usar» pide confirmar con una segunda pulsación y entonces lo **fuerza**: el sello se abre sin descifrar su tablilla y la palanca se rompe, así que sirve una sola vez. Un sello forzado no cuenta como acertijo resuelto (no da puntos de acertijo ni entra al cuaderno) y la tablilla sigue disponible. Nunca hace falta para salir: solo abre sellos que de todos modos se pueden abrir con su tablilla.
 
@@ -145,6 +150,6 @@ python3 herramientas/generar-pistas.py
 
 Respuesta y explicación quedan ofuscadas para que no se vean mirando el código. El juego usa las pistas Extras y las pistas del día de Críptico 51 cuya fecha ya pasó; las futuras se suman solas cuando llega su fecha.
 
-Ayudas en cada tablilla, en el orden de la guía: tipo de pista, definición resaltada, indicador y relleno resaltados, primera letra. Si el jugador pide ver la solución, la tablilla cambia a otra pista y el sello sigue cerrado.
+Ayudas en cada tablilla, en el orden de la guía: tipo de pista, definición resaltada, indicador y relleno resaltados, primera letra. La solución nunca se muestra al jugador; solo aparece en el cuaderno después de resolverla.
 
 Si agregas un archivo que el juego necesita, súmalo a `ARCHIVOS` en `sw.js` y sube el número de `CACHE`.

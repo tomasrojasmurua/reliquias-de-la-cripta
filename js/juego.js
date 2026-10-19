@@ -106,6 +106,7 @@ export class Juego {
     this.secretos = 0;
     this.abatidos = 0;
     this.ayudas = 0;
+    this.bonoAcertijos = 0;   // puntos por descifrar tablillas sin ayuda
     this.tiempo = 0;
     this.fogonazo = 0;
     this.particulas = [];
@@ -668,14 +669,15 @@ export class Juego {
     else if (c.tipo === 'salida') this.salir();
   }
 
-  resolverAcertijo(a) {
+  resolverAcertijo(a, bono = 0) {
     a.resuelto = true;
+    this.bonoAcertijos += bono;
     for (const c of this.mapa.celdas) if (c.tipo === 'sello' && c.acertijo === a.id) c.abriendo = true;
     // la tablilla se agrieta: el hechizo que mantenía cerrada la puerta se disipa
     for (const c of this.mapa.celdas) if (c.tipo === 'tablilla' && c.acertijo === a.id && !c.tex.endsWith('_rota')) c.tex += '_rota';
     this.ev.reconstruir?.();
     sonar('puerta');
-    this.ev.mensaje('Se oye un mecanismo antiguo. El sello se abre.');
+    this.ev.mensaje(bono ? `Se oye un mecanismo antiguo. El sello se abre. ¡Sin ayudas! +${bono} punto${bono === 1 ? '' : 's'}` : 'Se oye un mecanismo antiguo. El sello se abre.');
   }
 
   // Abre el sello con la palanca de hierro. No cuenta como acertijo resuelto: la tablilla sigue sin descifrar.
@@ -711,8 +713,8 @@ export class Juego {
   // En el último minuto las antorchas de los muros se apagan poco a poco (1 = luz normal).
   penumbra() { return this.limite ? 0.35 + 0.65 * Math.min(1, this.restante() / 60) : 1; }
 
-  // Puntos según la rareza de cada tesoro (común 1, raro 3, épico 8, legendario 20).
-  puntos() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0); }
+  // Puntos según la rareza de cada tesoro (común 1, raro 3, épico 8, legendario 20), más el bono de los acertijos sin ayuda.
+  puntos() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0) + this.bonoAcertijos; }
 
   // En el contrarreloj morir no termina la partida: sueltas tu último tesoro y reapareces en el inicio.
   caer() {
@@ -743,7 +745,7 @@ export class Juego {
       secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
       abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,
       acertijos: Object.values(this.mapa.acertijos).filter(a => a.resuelto).length,
-      totalAcertijos: Object.keys(this.mapa.acertijos).length,
+      totalAcertijos: Object.keys(this.mapa.acertijos).length, bonoAcertijos: this.bonoAcertijos,
     };
   }
 

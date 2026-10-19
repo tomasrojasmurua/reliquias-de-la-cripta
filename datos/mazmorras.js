@@ -575,7 +575,7 @@ export const MAZMORRAS = [
     },
     acertijos: {
       T: { id: 'lapida-hermanos', tipo: 'pista', dificultad: [1, 2], sello: 'Z', titulo: 'La lápida de los tres hermanos' },
-      V: { id: 'vitral', tipo: 'pista', dificultad: [3, 3], sello: 'Y', titulo: 'El vitral de la biblioteca' },
+      V: { id: 'vitral', tipo: 'pista', dificultad: [1, 2], sello: 'Y', titulo: 'El vitral de la biblioteca' },
       U: { id: 'palabra', tipo: 'pista', dificultad: [4, 5], sello: 'W', titulo: 'La palabra del guardián' },
       L: { id: 'osario', tipo: 'pista', dificultad: [3, 4], sello: 'Q', titulo: 'El epitafio del osario' },
     },

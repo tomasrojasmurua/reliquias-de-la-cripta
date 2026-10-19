@@ -93,6 +93,18 @@ function revisarMapa(def, m, donde, juego) {
   }
   for (const id of Object.keys(tablillas)) if (!abiertos.has(id)) error(donde, `la tablilla «${id}» solo se alcanza tras abrir su propia puerta (o una que depende de ella)`);
 
+  // los acertijos sin los que no se llega a la salida no pueden ser difíciles (los demás, que esconden tesoros o
+  // zonas, sí)
+  if (salidas.length) {
+    const todos = Object.keys(m.acertijos);
+    for (const id of todos) {
+      const sin = alcanzables(m, new Set(todos.filter(o => o !== id)));
+      if (salidas.some(([x, y]) => junto(sin, x, y))) continue;
+      const max = m.acertijos[id].dificultad[1];
+      if (max > 2) error(donde, `el acertijo «${id}» es necesario para salir y tiene dificultad hasta ${max} (máximo 2)`);
+    }
+  }
+
   // el revólver: uno solo, y se llega a él desde el inicio
   const revolveres = m.objetos.filter(o => o.tipo === 'revolver');
   if (revolveres.length !== 1) error(donde, `hay ${revolveres.length} revólveres (debe haber uno)`);
