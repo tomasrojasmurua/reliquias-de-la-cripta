@@ -1,5 +1,5 @@
 // Controles: teclado + ratón (con bloqueo de puntero) y pantalla táctil
-// (joystick a un lado, arrastrar al otro para mirar y tocar para disparar, botones de acción).
+// (joystick a un lado, arrastrar al otro para mirar; el botón de atacar también mira al arrastrarlo).
 
 const TECLAS = {
   KeyW: 'adelante', ArrowUp: 'adelante', KeyS: 'atras', ArrowDown: 'atras',
@@ -16,15 +16,17 @@ export class Entrada {
     this.pulsos = new Set();
     this.giro = 0; this.cabeceo = 0;
     this.raton = false;
-    this.joy = null; this.mirar = null;
+    this.joy = null; this.mirar = null; this.mirarBoton = null;
     this.mov = { x: 0, y: 0 };
     this.botonDisparo = false;
     this.activa = false;
     this.sensRaton = 0.0024;
     this.sensTactil = 0.006;
     this.zurdo = false;
-    this.disparoHasta = 0;   // un toque rápido en la zona de mirar dispara
-    this.ráfaga = false;     // tocar y mantener dispara mientras se mira
+    this.giroPend = 0; this.cabeceoPend = 0;   // giro táctil aún por aplicar (suavizado)
+    this.ultimoMirar = 0;    // la vista se nivela sola un rato después de dejar de mirar
+    this.ultimoAtaque = 0;
+    this.tLeer = performance.now();
 
     addEventListener('keydown', e => {
       if (!this.activa) return;
@@ -55,9 +57,7 @@ export class Entrada {
   iniciarTactil() {
     const zona = this.tactil.zona;
     const base = this.tactil.base, palanca = this.tactil.palanca;
-    const R = 64;
-    const TOQUE = 260, QUIETO = 14, DOBLE = 280;
-    let ultimoToque = 0;
+    const R = 64, MUERTA = 0.15;
     const opts = { passive: false };
     zona.addEventListener('touchstart', e => {
       e.preventDefault();
@@ -70,10 +70,7 @@ export class Entrada {
           palanca.style.transform = `translate(${t.clientX - 24}px, ${t.clientY - 24}px)`;
           base.hidden = palanca.hidden = false;
         } else if (!this.mirar) {
-          const ahora = performance.now();
-          this.mirar = { id: t.identifier, x: t.clientX, y: t.clientY, ox: t.clientX, oy: t.clientY, t0: ahora };
-          // segundo toque seguido: se mantiene el disparo mientras el dedo siga apoyado
-          if (ahora - ultimoToque < DOBLE) this.ráfaga = true;
+          this.mirar = { id: t.identifier, x: t.clientX, y: t.clientY };
         }
       }
     }, opts);
@@ -84,12 +81,12 @@ export class Entrada {
           let dx = t.clientX - this.joy.ox, dy = t.clientY - this.joy.oy;
           const d = Math.hypot(dx, dy);
           if (d > R) { dx *= R / d; dy *= R / d; }
-          this.mov.x = dx / R; this.mov.y = -dy / R;
+          // zona muerta: un roce no mueve; fuera de ella la respuesta empieza desde cero
+          const m = Math.min(d, R) / R, k = m < MUERTA ? 0 : (m - MUERTA) / (1 - MUERTA) / (m || 1);
+          this.mov.x = dx / R * k; this.mov.y = -dy / R * k;
           palanca.style.transform = `translate(${this.joy.ox + dx - 24}px, ${this.joy.oy + dy - 24}px)`;
         } else if (this.mirar && t.identifier === this.mirar.id) {
-          this.giro += (t.clientX - this.mirar.x) * this.sensTactil;
-          this.cabeceo -= (t.clientY - this.mirar.y) * this.sensTactil * 0.6;
-          this.mirar.x = t.clientX; this.mirar.y = t.clientY;
+          this.arrastrar(this.mirar, t);
         }
       }
     }, opts);
@@ -99,35 +96,58 @@ export class Entrada {
           this.joy = null; this.mov.x = this.mov.y = 0;
           base.hidden = palanca.hidden = true;
         }
-        if (this.mirar && t.identifier === this.mirar.id) {
-          const m = this.mirar, ahora = performance.now();
-          if (ahora - m.t0 < TOQUE && Math.hypot(t.clientX - m.ox, t.clientY - m.oy) < QUIETO && !this.ráfaga) {
-            this.disparoHasta = ahora + 120; ultimoToque = ahora;
-          }
-          this.mirar = null; this.ráfaga = false;
-        }
+        if (this.mirar && t.identifier === this.mirar.id) { this.mirar = null; this.ultimoMirar = performance.now(); }
       }
     };
     zona.addEventListener('touchend', fin);
     zona.addEventListener('touchcancel', fin);
 
-    // Botones: disparo se mantiene; el resto son pulsos.
+    // Botones: disparo se mantiene y, al arrastrarlo, también mueve la vista; el resto son pulsos.
     for (const [boton, accion] of this.tactil.botones) {
       boton.addEventListener('touchstart', e => {
         e.preventDefault(); e.stopPropagation();
         document.body.classList.add('tactil');
-        if (accion === 'disparar') this.botonDisparo = true; else this.pulsos.add(accion);
+        if (accion === 'disparar') {
+          this.botonDisparo = true;
+          const t = e.changedTouches[0];
+          if (!this.mirarBoton) this.mirarBoton = { id: t.identifier, x: t.clientX, y: t.clientY };
+        } else this.pulsos.add(accion);
         boton.classList.add('pulsado');
       }, opts);
-      const soltar = e => { e.preventDefault(); if (accion === 'disparar') this.botonDisparo = false; boton.classList.remove('pulsado'); };
+      if (accion === 'disparar') boton.addEventListener('touchmove', e => {
+        e.preventDefault(); e.stopPropagation();
+        for (const t of e.changedTouches) if (this.mirarBoton && t.identifier === this.mirarBoton.id) this.arrastrar(this.mirarBoton, t);
+      }, opts);
+      const soltar = e => {
+        e.preventDefault();
+        if (accion === 'disparar') { this.botonDisparo = false; this.mirarBoton = null; this.ultimoMirar = performance.now(); }
+        boton.classList.remove('pulsado');
+      };
       boton.addEventListener('touchend', soltar, opts);
       boton.addEventListener('touchcancel', soltar, opts);
       boton.addEventListener('click', () => { if (accion !== 'disparar') this.pulsos.add(accion); });
     }
   }
 
+  // Arrastre de un dedo que mira: curva de respuesta (lento = preciso, rápido = gira más).
+  arrastrar(m, t) {
+    const dx = t.clientX - m.x, dy = t.clientY - m.y;
+    const curva = d => d * (0.85 + Math.min(Math.abs(d), 40) / 40);
+    this.giroPend += curva(dx) * this.sensTactil;
+    this.cabeceoPend -= curva(dy) * this.sensTactil * 0.6;
+    m.x = t.clientX; m.y = t.clientY;
+  }
+
   // Lee y vacía la entrada acumulada desde el último cuadro.
   leer() {
+    const ahora = performance.now(), dt = Math.min(0.1, (ahora - this.tLeer) / 1000);
+    this.tLeer = ahora;
+    // suavizado: el giro táctil pendiente se aplica en unos 40 ms, sin el temblor del dedo
+    const f = 1 - Math.exp(-dt * 25);
+    const g = this.giroPend * f, c = this.cabeceoPend * f;
+    this.giroPend -= g; this.cabeceoPend -= c;
+    this.giro += g; this.cabeceo += c;
+    const mirando = this.mirar || this.mirarBoton;
     const k = this.teclas;
     let adelante = (k.has('adelante') ? 1 : 0) - (k.has('atras') ? 1 : 0) + this.mov.y;
     let lado = (k.has('der') ? 1 : 0) - (k.has('izq') ? 1 : 0) + this.mov.x;
@@ -137,20 +157,22 @@ export class Entrada {
       lado: Math.max(-1, Math.min(1, lado)),
       giroTeclas,
       giro: this.giro, cabeceo: this.cabeceo,
-      disparar: this.raton || this.botonDisparo || this.ráfaga || k.has('disparar') || performance.now() < this.disparoHasta,
-      // en pantalla táctil la vista vuelve sola al horizonte cuando no se está mirando
-      nivelar: document.body.classList.contains('tactil') && !this.mirar,
+      disparar: this.raton || this.botonDisparo || k.has('disparar'),
+      // en pantalla táctil la vista vuelve sola al horizonte un momento después de dejar de mirar
+      nivelar: document.body.classList.contains('tactil') && !mirando && ahora - this.ultimoMirar > 900,
       asistir: document.body.classList.contains('tactil'),
       pulsos: this.pulsos,
     };
+    if (r.disparar) this.ultimoAtaque = ahora;
     this.giro = 0; this.cabeceo = 0;
     this.pulsos = new Set();
     return r;
   }
 
   soltarTodo() {
-    this.teclas.clear(); this.raton = false; this.botonDisparo = false; this.ráfaga = false; this.disparoHasta = 0;
-    this.joy = null; this.mirar = null; this.mov.x = this.mov.y = 0;
+    this.teclas.clear(); this.raton = false; this.botonDisparo = false;
+    this.joy = null; this.mirar = null; this.mirarBoton = null; this.mov.x = this.mov.y = 0;
+    this.giroPend = this.cabeceoPend = 0;
     this.tactil.base.hidden = this.tactil.palanca.hidden = true;
   }
 }

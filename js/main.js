@@ -63,6 +63,7 @@ const capaArma = $('#arma');
 const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
+$('#hud-arma').parentElement.dataset.tactil = 'cambiarArma';   // en táctil se cambia de arma tocando su recuadro
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
@@ -263,6 +264,12 @@ function vibrar(ms) {
   try { navigator.vibrate?.(ms); } catch (e) { /* sin vibración */ }
 }
 aplicarControles();
+// En táctil no hay botón de recargar: el revólver se recarga solo al vaciarse o tras un momento sin atacar.
+function recargaAutomatica() {
+  const j = juego.j;
+  if (!document.body.classList.contains('tactil') || j.muerto || j.arma !== 'revolver' || j.recargando > 0 || j.tambor === 6 || !j.reserva) return;
+  if (!j.tambor || performance.now() - entrada.ultimoAtaque > 1500) juego.recargar();
+}
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-ir]');
@@ -623,6 +630,7 @@ function cuadro(t) {
   }
   actualizarHUD();
   botonUsar.classList.toggle('listo', juego.puedeUsar());
+  recargaAutomatica();
 
   fpsN++; fpsT += dt;
   if (fpsT > 1) { $('#fps').textContent = `${Math.round(fpsN / fpsT)} fps`; fpsN = 0; fpsT = 0; }
