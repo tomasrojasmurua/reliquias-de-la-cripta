@@ -8,7 +8,8 @@ import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { abrirPalancas, crearPalancas } from './palancas.js';
-import { recortarZonas } from './laberinto.js';
+import { recortarZonas, azarConSemilla } from './laberinto.js';
+import { Sala, COLORES, HZ_POSICION, codigoValido, normalizarCodigo, enlaceDeSala, enlaceWhatsApp } from './red.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 import { lienzoEmblema } from '../datos/emblemas.js';
@@ -152,7 +153,7 @@ const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 // las mazmorras sin zonas tienen un solo tamaño
 const tamanoDe = def => def.sectores ? prep.tamano : 'grande';
-const limiteDe = def => prep.modo === 'contrarreloj' ? TAMANOS[tamanoDe(def)].minutos[prep.ritmo] * 60 : 0;
+const limiteDe = def => prep.modo === 'contrarreloj' || prep.modo === 'sala' ? TAMANOS[tamanoDe(def)].minutos[prep.ritmo] * 60 : 0;
 const minuscula = t => t[0].toLowerCase() + t.slice(1);
 
 function abrirPreparar(def) {
@@ -161,7 +162,7 @@ function abrirPreparar(def) {
   mostrar('preparar');
 }
 function pintarPreparar() {
-  const def = elegida, Z = def.sectores, tam = tamanoDe(def), contra = prep.modo === 'contrarreloj';
+  const def = elegida, Z = def.sectores, tam = tamanoDe(def), contra = prep.modo !== 'explorar', enSala = prep.modo === 'sala';
   $('#preparar h2').textContent = def.nombre;
   $('#prep-desc').textContent = def.descripcion;
   for (const b of document.querySelectorAll('[data-modo]')) b.classList.toggle('activo', b.dataset.modo === prep.modo);
@@ -177,8 +178,11 @@ function pintarPreparar() {
     b.innerHTML = `${RITMOS[i]}<small>${TAMANOS[tam].minutos[i]} min</small>`;
     b.classList.toggle('activo', i === prep.ritmo);
   });
-  const seg = limiteDe(def), rec = recordDe(def, tam, seg);
-  $('#nota-modo').textContent = contra
+  const seg = limiteDe(def), rec = enSala ? 0 : recordDe(def, tam, seg);
+  $('#btn-entrar').textContent = enSala ? 'Crear sala' : 'Entrar';
+  $('#nota-modo').textContent = enSala
+    ? `Creas una sala y compartes el enlace por WhatsApp. Todos entran a la misma cripta, con ${seg / 60} minutos para reunir más botín que los demás y salir.`
+    : contra
     ? `Tienes ${seg / 60} minutos para reunir el botín más valioso y salir. Si se apaga la última antorcha antes de escapar, pierdes la mitad de los puntos.${rec ? ` Récord: ${rec} puntos.` : ''}`
     : 'Explora sin apuro: cada tesoro que encuentres va a tu colección.';
 }
@@ -186,7 +190,7 @@ const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave]
 for (const b of document.querySelectorAll('[data-modo]')) b.onclick = () => elegir('modo', b.dataset.modo);
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
 for (const b of document.querySelectorAll('[data-ritmo]')) b.onclick = () => elegir('ritmo', +b.dataset.ritmo);
-$('#btn-entrar').onclick = () => empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
+$('#btn-entrar').onclick = () => prep.modo === 'sala' ? crearSala() : empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
 
 function pintarMazmorras() {
   const lista = $('#lista-mazmorras');
@@ -303,6 +307,8 @@ document.addEventListener('click', e => {
   if (ir === 'diaria') pintarDiaria();
   if (ir === 'coleccion') pintarColeccion();
   if (ir === 'opciones') pintarOpciones();
+  if (ir === 'unirse') abrirUnirse();
+  if (sala && (ir === 'mazmorras' || ir === 'portada')) cerrarSala();
   if (ir === 'portada') { juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); }
   mostrar(ir);
 });
@@ -418,13 +424,263 @@ function mensajeMenu(t) {
   setTimeout(() => { b.textContent = antes; }, 2200);
 }
 
+// ---------- Salas con amigos ----------
+
+let sala = null;                 // la conexión con la sala (js/red.js), mientras haya una
+const cazadores = new Map();     // los otros cazadores en la cripta: puesto -> { nombre, x, y, z, yaw, pt, rx, rz }
+let ultimoMarcador = null;
+let cuentaAtras = 0;
+let envioT = 0, hudSalaT = 0, hudSalaClave = '';
+
+const nombreElegido = () => (progreso.opciones.nombre || '').trim();
+function guardarNombreSala(n) {
+  n = n.trim().slice(0, 16);
+  if (n && n !== progreso.opciones.nombre) { progreso.opciones.nombre = n; guardar(); }
+  return n;
+}
+
+function abrirUnirse(codigo = '') {
+  $('#sala-nombre').value = nombreElegido();
+  $('#sala-codigo').value = codigo;
+  $('#unirse-error').textContent = '';
+  $('#unirse-sub').textContent = codigo ? `Te invitaron a la sala ${codigo}. Ponte un nombre y entra.` : 'Escribe el código que te mandó tu amigo.';
+  if (document.querySelector('.pantalla:not([hidden])')?.id !== 'unirse') mostrar('unirse');
+}
+$('#sala-codigo').addEventListener('input', e => { e.target.value = normalizarCodigo(e.target.value); });
+
+async function conectar(boton, texto, tarea, alFallar) {
+  const antes = boton.textContent;
+  boton.disabled = true; boton.textContent = texto;
+  try { return await tarea(); }
+  catch (e) { alFallar(e.message); }
+  finally { boton.disabled = false; boton.textContent = antes; }
+}
+
+$('#btn-unirse').onclick = async () => {
+  const codigo = normalizarCodigo($('#sala-codigo').value), error = $('#unirse-error');
+  if (!codigoValido(codigo)) { error.textContent = 'El código son 4 letras.'; return; }
+  error.textContent = '';
+  const nombre = guardarNombreSala($('#sala-nombre').value);
+  const s = await conectar($('#btn-unirse'), 'Conectando…', () => Sala.unirse(codigo, nombre), m => { error.textContent = m; });
+  if (s) { enlazarSala(s); mostrar('sala'); pintarLobby(); }
+};
+
+async function crearSala() {
+  const def = elegida, tamano = tamanoDe(def), limite = limiteDe(def);
+  const s = await conectar($('#btn-entrar'), 'Creando sala…', () => Sala.crear(nombreElegido()), m => { $('#nota-modo').textContent = m; });
+  if (!s) return;
+  s.ponerConfig({ mazmorra: def.id, tamano, limite });
+  enlazarSala(s);
+  mostrar('sala');
+  pintarLobby();
+}
+
+function enlazarSala(s) {
+  sala = s;
+  ultimoMarcador = null;
+  s.alCambiar = () => { pintarLobby(); };
+  s.alEmpezar = p => comenzarCuenta(p);
+  s.alPosicion = (id, p) => posicionDeCazador(id, p);
+  s.alMarcador = lista => {
+    ultimoMarcador = lista;
+    for (const f of lista) if (f.estado !== 'jugando') cazadores.delete(f.id);   // quien terminó ya no está en la cripta
+    pintarMarcador();
+  };
+  s.alPerderse = motivo => perderSala(motivo);
+}
+
+function cerrarSala() {
+  clearInterval(cuentaAtras);
+  $('#cuenta').hidden = true;
+  const s = sala;
+  sala = null;
+  cazadores.clear();
+  $('#hud-sala').hidden = true;
+  s?.cerrar();
+}
+
+// Se cayó la conexión (el anfitrión salió): quien está jugando sigue su partida solo.
+function perderSala(motivo) {
+  sala = null;
+  cazadores.clear();
+  clearInterval(cuentaAtras);
+  $('#cuenta').hidden = true;
+  const donde = document.querySelector('.pantalla:not([hidden])')?.id;
+  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = true; }
+  else if (donde === 'resumen') pintarMarcador();
+  else { abrirUnirse(); $('#unirse-error').textContent = motivo; }
+}
+
+function pintarLobby() {
+  if (!sala) return;
+  const anfitrion = sala.soyAnfitrion, lista = sala.jugadores, c = sala.config;
+  $('#sala-codigo-vista').textContent = sala.codigo;
+  $('#sala-invitar').hidden = !anfitrion;
+  $('#sala-sub').textContent = anfitrion
+    ? (lista.length > 1 ? 'Empieza cuando estén todos.' : 'Comparte el enlace y espera a tus amigos.')
+    : 'Esperando a que el anfitrión empiece la partida…';
+  const ul = $('#sala-jugadores');
+  ul.innerHTML = '';
+  for (const j of lista) {
+    const li = document.createElement('li'), nombre = document.createElement('b'), est = document.createElement('small');
+    li.className = j.id === sala.yo ? 'yo' : '';
+    li.insertAdjacentHTML('afterbegin', `<i class="sombrero ${j.color}"></i>`);
+    nombre.textContent = j.nombre + (j.id === 0 ? ' (anfitrión)' : '');
+    est.textContent = j.estado === 'jugando' ? 'en la cripta' : 'listo';
+    li.append(nombre, est);
+    ul.appendChild(li);
+  }
+  const def = c && MAZMORRAS.find(m => m.id === c.mazmorra);
+  $('#sala-config').textContent = def ? `${def.nombre}${def.sectores ? ` · ${TAMANOS[c.tamano] ? ['pequeña', 'mediana', 'grande'][Object.keys(TAMANOS).indexOf(c.tamano)] : ''}` : ''} · ${c.limite / 60} minutos` : '';
+  const boton = $('#btn-empezar-sala');
+  boton.hidden = !anfitrion;
+  boton.disabled = !lista.every(j => j.estado === 'sala') || !$('#cuenta').hidden;
+}
+
+$('#btn-salir-sala').onclick = () => {
+  const eraAnfitrion = sala?.soyAnfitrion;
+  cerrarSala();
+  mostrar(eraAnfitrion ? 'preparar' : 'portada');
+};
+
+$('#btn-whatsapp').onclick = () => window.open(enlaceWhatsApp(sala.codigo, nombreElegido() || 'Un amigo'), '_blank', 'noopener');
+$('#btn-copiar-enlace').onclick = async () => {
+  const b = $('#btn-copiar-enlace'), enlace = enlaceDeSala(sala.codigo), antes = b.textContent;
+  try { await navigator.clipboard.writeText(enlace); b.textContent = 'Enlace copiado'; setTimeout(() => { b.textContent = antes; }, 2200); }
+  catch (e) { prompt('Copia el enlace de la sala:', enlace); }
+};
+
+$('#btn-empezar-sala').onclick = () => {
+  if (!sala?.soyAnfitrion) return;
+  const c = sala.config;
+  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, cuenta: 3 });
+};
+
+// 3, 2, 1 y todos entran a la vez a la misma cripta (la semilla da el mismo mapa, los mismos enemigos y las mismas reliquias).
+function comenzarCuenta(p) {
+  const def = MAZMORRAS.find(m => m.id === p.mazmorra);
+  if (!def || !sala) return;
+  $('#btn-empezar-sala').disabled = true;
+  let n = p.cuenta || 3;
+  const num = $('#cuenta-num');
+  $('#cuenta').hidden = false;
+  num.textContent = n; sonar('menu_alternar');
+  clearInterval(cuentaAtras);
+  cuentaAtras = setInterval(() => {
+    if (--n > 0) { num.textContent = n; sonar('menu_alternar'); return; }
+    clearInterval(cuentaAtras);
+    $('#cuenta').hidden = true;
+    empezar(def, p.tamano, p.limite, null, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9) });
+  }, 1000);
+}
+
+function iniciarPartidaEnSala() {
+  cazadores.clear();
+  envioT = 0; hudSalaClave = ''; ultimoMarcador = null;
+  $('#hud-sala').hidden = !actual.sala;
+  if (actual.sala) sala?.ponerEstado('jugando');
+}
+
+function posicionDeCazador(id, p) {
+  if (!sala || id === sala.yo) return;
+  if (!p) {
+    const c = cazadores.get(id);
+    if (c && actual?.sala && !actual.sala.fin) mensaje(`${c.nombre} salió de la sala`, 3);
+    cazadores.delete(id);
+    return;
+  }
+  let c = cazadores.get(id);
+  if (!c) {
+    c = { nombre: sala.jugadores.find(j => j.id === id)?.nombre || 'Un cazador', rx: p.x, rz: p.z, ry: p.y };
+    cazadores.set(id, c);
+  }
+  Object.assign(c, { x: p.x, y: p.y, z: p.z, yaw: p.yaw, pt: p.pt });
+}
+
+// Cada cuadro: mando mi posición unas veces por segundo y dibujo a los demás, suavizando sus saltos.
+function cuadroDeSala(t, dt, sprites) {
+  if (sala && !actual.sala.fin) {
+    envioT += dt;
+    if (envioT >= 1 / HZ_POSICION) {
+      envioT = 0;
+      const j = juego.j;
+      sala.enviarPosicion({ x: j.x, y: j.y, z: j.z, yaw: j.yaw, pt: juego.puntos() });
+    }
+  }
+  const k = 1 - Math.exp(-dt * 14), m = juego.mapa;
+  for (const [id, c] of cazadores) {
+    const antes = Math.hypot(c.x - c.rx, c.z - c.rz);
+    c.rx += (c.x - c.rx) * k; c.rz += (c.z - c.rz) * k; c.ry += (c.y - c.ry) * k;
+    const camina = antes / Math.max(dt, 0.001) > 0.8;
+    const color = sala?.jugadores.find(j => j.id === id)?.color || COLORES[id % COLORES.length];
+    sprites.push({ x: c.rx, z: c.rz, y: c.ry, ancho: 0.95, alto: 0.95, tex: `cazador_${color}_${camina ? Math.floor(t / 180) % 2 : 8}`, luz: Math.max(0.6, m.celda(Math.floor(c.rx), Math.floor(c.rz))?.luz ?? 0.5) });
+  }
+  if (t - hudSalaT > 400) { hudSalaT = t; pintarHudSala(); }
+}
+
+function pintarHudSala() {
+  const hud = $('#hud-sala');
+  if (hud.hidden || !sala) return;
+  const filas = sala.jugadores.map(j => ({ j, mio: j.id === sala.yo, aqui: j.id === sala.yo || cazadores.has(j.id) }))
+    .map(({ j, mio, aqui }) => ({ ...j, mio, aqui, pt: mio ? juego.puntos() : (cazadores.get(j.id)?.pt ?? ultimoMarcador?.find(f => f.id === j.id)?.puntos ?? 0) }));
+  const clave = JSON.stringify(filas.map(f => [f.id, f.nombre, f.pt, f.aqui]));
+  if (clave === hudSalaClave) return;
+  hudSalaClave = clave;
+  hud.innerHTML = '';
+  for (const f of filas) {
+    const li = document.createElement('li'), n = document.createElement('span'), pt = document.createElement('b');
+    li.className = f.aqui ? '' : 'fuera';
+    li.insertAdjacentHTML('afterbegin', `<i class="sombrero ${f.color}"></i>`);
+    n.textContent = f.nombre; pt.textContent = f.pt;
+    li.append(n, pt);
+    hud.appendChild(li);
+  }
+}
+
+// Al terminar: mi resultado va al anfitrión, que reparte el marcador a todos.
+function resumenSala(puntos, exito) {
+  $('#resumen-sala').hidden = false;
+  $('#btn-reintentar').hidden = true;
+  const volver = $('#btn-volver-sala');
+  volver.hidden = !sala;
+  volver.onclick = () => {
+    sala.ponerEstado('sala');
+    cazadores.clear();
+    mostrar('sala');
+    pintarLobby();
+  };
+  if (sala) sala.terminar(puntos, exito);
+  else ultimoMarcador = null;
+  pintarMarcador();
+}
+
+const ESTADOS = { 'escapó': 'escapó', atrapado: 'atrapado', jugando: 'aún en la cripta' };
+function pintarMarcador() {
+  const ol = $('#resumen-marcador');
+  if (!ol) return;
+  ol.innerHTML = '';
+  if (!ultimoMarcador) {
+    ol.innerHTML = sala ? '' : '<li><small>No hay marcador: saliste de la sala.</small></li>';
+    return;
+  }
+  for (const f of [...ultimoMarcador].sort((a, b) => b.puntos - a.puntos)) {
+    const li = document.createElement('li'), n = document.createElement('span'), pt = document.createElement('b'), est = document.createElement('small');
+    li.className = sala && f.id === sala.yo ? 'yo' : '';
+    li.insertAdjacentHTML('afterbegin', `<i class="sombrero ${f.color}"></i>`);
+    n.textContent = f.nombre; pt.textContent = `${f.puntos} puntos`; est.textContent = ESTADOS[f.estado] || f.estado;
+    li.append(n, pt, est);
+    ol.appendChild(li);
+  }
+}
+
 // ---------- Partida ----------
 
 // `diaria`: la expedición del día (js/diaria.js), con su semilla y sus modificadores.
-function empezar(def, tamano = 'grande', limite = 0, diaria = null) {
+// `enSala`: la partida de una sala, con la semilla y las pistas que comparten todos los cazadores.
+function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = null) {
   if (!render) return;
   activarAudio();
-  actual = { def, tamano, limite, diaria };
+  actual = { def, tamano, limite, diaria, sala: enSala };
   juego = new Juego(recortarZonas(def, TAMANOS[tamano].zonas), {
     mensaje,
     tesoro(t, r) {
@@ -442,18 +698,20 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null) {
     salida: r => terminar(r, true),
     muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
     tiempoAgotado: r => terminar(r, false),
-  }, diaria?.semilla, { limite, modificadores: diaria?.modificadores });
+  }, (diaria || enSala)?.semilla, { limite, modificadores: diaria?.modificadores, real: !!enSala });
   $('#hud-reloj').hidden = !limite;
   $('#caja-puntos').hidden = !limite;
   document.body.classList.toggle('contrarreloj', !!limite);
   render.construir(juego.mapa);
   capaMapa.hidden = true;
+  iniciarPartidaEnSala();
   iniciarAmbiente(def.ambiente);
   sonar('entrada');
   document.body.classList.add('jugando');
   mostrar('juego');
   reanudar();
   mensaje(diaria ? `Expedición nº ${diaria.numero}: ${def.nombre}` : def.nombre, 3);
+  $('#pausa-sala').hidden = !enSala;
 }
 
 function reanudar() {
@@ -467,6 +725,8 @@ function reanudar() {
 
 function pausar() {
   if (!juego || pausado) return;
+  // en una sala el mundo no se detiene: pausar solo suelta el ratón y muestra el menú
+  if (actual?.sala && !actual.sala.fin) { entrada.soltarTodo(); if (document.pointerLockElement) document.exitPointerLock(); pausado = true; entrada.activa = false; return; }
   pausado = true;
   entrada.activa = false;
   entrada.soltarTodo();
@@ -477,7 +737,7 @@ function pausar() {
 function abrirPanelTablilla(a) {
   pausar();
   // en la expedición del día todos ven las mismas pistas, aunque ya las hayan resuelto antes
-  const diaria = actual.diaria;
+  const diaria = actual.diaria || actual.sala;
   const resueltas = diaria ? new Set() : new Set(progreso.pistas);
   const azar = diaria ? diaria.azarPistas : Math.random;
   const dificultad = juego.mods.has('escritura') ? a.dificultad.map(d => Math.min(5, d + 1)) : a.dificultad;
@@ -510,10 +770,13 @@ function abrirPanelTablilla(a) {
 }
 
 function terminar(r, exito) {
+  if (actual.sala) { actual.sala.fin = true; $('#hud-sala').hidden = true; }
   pausar();
   sonar(exito ? 'victoria' : 'derrota');
   $('#panel').hidden = true;
   $('#btn-compartir').hidden = true;
+  $('#resumen-sala').hidden = $('#btn-volver-sala').hidden = true;
+  $('#btn-reintentar').hidden = false;
   if (r.limite) return terminarContrarreloj(r, exito);
   if (exito && actual.tamano === 'grande') {
     const est = progreso.mazmorras[r.mazmorra.id] ||= {};
@@ -542,7 +805,7 @@ function terminarContrarreloj(r, exito) {
   const puntos = exito ? r.puntos : Math.floor(r.puntos / 2);
   if (exito) for (const id of r.tesoros) if (!progreso.tesoros.includes(id)) progreso.tesoros.push(id);
   // la expedición del día, con sus modificadores, no cuenta para los récords del contrarreloj
-  const clave = `${r.mazmorra.id}:${actual.tamano}:${r.limite}`, antes = actual.diaria ? Infinity : recordDe(r.mazmorra, actual.tamano, r.limite);
+  const clave = `${r.mazmorra.id}:${actual.tamano}:${r.limite}`, antes = actual.diaria || actual.sala ? Infinity : recordDe(r.mazmorra, actual.tamano, r.limite);
   if (puntos > antes) (progreso.records ||= {})[clave] = puntos;
   guardar();
   const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
@@ -557,6 +820,7 @@ function terminarContrarreloj(r, exito) {
   $('#btn-reintentar').textContent = 'Revancha';
   $('#btn-reintentar').onclick = () => empezar(actual.def, actual.tamano, actual.limite);
   if (actual.diaria) resumenDiaria(r, exito, puntos);
+  if (actual.sala) resumenSala(puntos, exito);
   mostrar('resumen');
   detenerAmbiente();
   document.body.classList.remove('jugando');
@@ -587,7 +851,7 @@ document.addEventListener('pointerlockchange', () => {
   }
 });
 $('#btn-continuar').onclick = () => reanudar();
-$('#btn-menu-pausa').onclick = () => { $('#pausa').hidden = true; juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); pintarMazmorras(); mostrar('mazmorras'); };
+$('#btn-menu-pausa').onclick = () => { cerrarSala(); $('#pausa').hidden = true; juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); pintarMazmorras(); mostrar('mazmorras'); };
 $('#btn-pausa').addEventListener('click', () => { pausar(); $('#pausa').hidden = false; });
 
 function actualizarHUD() {
@@ -636,14 +900,16 @@ function cuadro(t) {
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
   if (ent.pulsos.has('mapa') && !pausado) capaMapa.hidden = !capaMapa.hidden;
-  if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
+  if (!pausado || (actual?.sala && !actual.sala.fin)) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
   else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
   render.ajustarTamano(CALIDADES[calidad]);
   // la antorcha titila
   const linterna = (juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025)
     * (juego.mods.has('oscuridad') ? 0.5 : 1);
-  render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra(), pinchosArriba: x => pinchosArriba(x, juego.tiempo) });
+  const sprites = juego.sprites();
+  if (actual?.sala) cuadroDeSala(t, dt, sprites);
+  render.dibujar(juego.camara(), sprites, { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra(), pinchosArriba: x => pinchosArriba(x, juego.tiempo) });
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);
@@ -669,4 +935,11 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && jue
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 mostrar('portada');
-window.__reliquias = { get juego() { return juego; }, empezar, MAZMORRAS };
+const invitacion = normalizarCodigo(new URLSearchParams(location.search).get('sala'));
+if (invitacion) {
+  abrirUnirse(invitacion);
+  // el enlace queda limpio: recargar la página no vuelve a abrir la invitación
+  const q = new URLSearchParams(location.search); q.delete('sala');
+  history.replaceState(history.state, '', location.pathname + (q.size ? `?${q}` : ''));
+}
+window.__reliquias = { get juego() { return juego; }, get sala() { return sala; }, get cazadores() { return cazadores; }, empezar, MAZMORRAS };

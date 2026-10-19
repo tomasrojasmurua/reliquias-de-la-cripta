@@ -66,12 +66,15 @@ const VEL_FUEGO = 5.5;
 export class Juego {
   // `opciones.limite`: segundos del contrarreloj (0 = exploración libre, sin reloj).
   // `opciones.modificadores`: los de la expedición del día (js/diaria.js).
+  // `opciones.real`: el reloj sigue la hora real, como en una sala, donde nadie puede detener el tiempo.
   constructor(def, eventos, semilla, opciones = {}) {
     this.def = def;
     this.limite = opciones.limite || 0;
     this.mods = new Set(opciones.modificadores || []);
     this.vidaInicial = this.mods.has('herido') ? 60 : 100;
     this.reloj = 0;
+    this.real = !!opciones.real;
+    this.inicioReal = Date.now();
     this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
     const m = this.mapa;
@@ -623,7 +626,7 @@ export class Juego {
   avanzarReloj(dt) {
     if (!this.limite || this.terminado) return;
     const antes = this.restante();
-    this.reloj += dt;
+    this.reloj = this.real ? (Date.now() - this.inicioReal) / 1000 : this.reloj + dt;
     const r = this.restante();
     if (antes > 60 && r <= 60) { sonar('campanada'); this.ev.mensaje('¡Queda un minuto! Las antorchas empiezan a apagarse.', 4); }
     if (r <= 0) { this.terminado = true; this.ev.tiempoAgotado(this.resumen('Se apagó la última antorcha.')); }
