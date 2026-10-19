@@ -338,6 +338,55 @@ function ponerDardos(g, azar, n, enSala = () => false) {
   return puestos.length;
 }
 
+// Rocas rodantes: la casilla marcada ('ŗ') está en el medio de un tramo recto de 7 casillas libres o más;
+// js/mapa.js calcula por dónde rueda. Lejos del inicio, fuera de las salas y espaciadas entre sí.
+function ponerRocas(g, azar, n, enSala = () => false) {
+  const { mezclar } = herramientas(azar);
+  const H = g.length, W = g[0].length;
+  const inicio = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'P') inicio.push([x, y]);
+  const libre = (x, y) => g[y]?.[x] === '.' && !enSala(x, y);
+  const candidatos = [];
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      if (!libre(x, y) || libre(x - dx, y - dy)) continue;   // el primero de un tramo
+      let largo = 0;
+      while (libre(x + dx * largo, y + dy * largo)) largo++;
+      if (largo < 7) continue;
+      const mx = x + dx * (largo >> 1), my = y + dy * (largo >> 1);
+      if (inicio.some(([px, py]) => Math.abs(px - mx) + Math.abs(py - my) < 12)) continue;
+      candidatos.push([mx, my]);
+    }
+  }
+  mezclar(candidatos);
+  const puestas = [];
+  for (const [x, y] of candidatos) {
+    if (puestas.length >= n) break;
+    if (puestas.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 12)) continue;
+    g[y][x] = 'ŗ';
+    puestas.push([x, y]);
+  }
+  return puestas.length;
+}
+
+// En un callejón libre de la rejilla: `car` (hasta `n` veces, el más hondo primero).
+function ponerEnCallejones(t, car, n) {
+  let puestos = 0;
+  for (const [x, y] of t.finales()) {
+    if (puestos >= n) break;
+    if (t.g[y][x] !== '.') continue;
+    t.g[y][x] = car; puestos++;
+  }
+  // sin callejones libres: la casilla de pasillo más lejana que quede
+  for (; puestos < n; puestos++) {
+    let mejor = null;
+    for (let y = 1; y < t.H - 1; y++) for (let x = 1; x < t.W - 1; x++) if (t.g[y][x] === '.' && !t.enSala(x, y) && (!mejor || t.d(x, y) > t.d(...mejor))) mejor = [x, y];
+    if (!mejor) break;
+    t.g[mejor[1]][mejor[0]] = car;
+  }
+  return puestos;
+}
+
 // ---------- El plano fijo cambia en cada partida ----------
 //
 // El plano de datos/mazmorras.js es solo un punto de partida. En cada partida se le suman, siempre sin
@@ -691,6 +740,12 @@ export function conZonas(def, azar = Math.random) {
     if (b.zona !== ultima) ponerAtajos(t, Math.max(1, Math.round(b.ancho * b.alto / 900)), pares, acertijos, def, z.acertijo?.dificultad ?? [2, 3]);
     // trampas de dardos en los pasillos largos (la cámara extra no las tiene)
     if (b.zona !== ultima) ponerDardos(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1100)), t.enSala);
+    // de la segunda zona en adelante: rocas rodantes y, en la primera de ellas, la Tommy gun con sus cargadores
+    if (b.zona !== ultima && b.zona >= 1) {
+      ponerRocas(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1500)), t.enSala);
+      if (b.zona === 1 && Z.bloques.findIndex(o => o.zona === 1) === k) { ponerEnCallejones(t, 'ɸ', 1); ponerEnCallejones(t, 'ʠ', 2); }
+      else if (azar() < 0.75) ponerEnCallejones(t, 'ʠ', 1 + (azar() < 0.4 ? 1 : 0));
+    }
     // los sellos (y el pasadizo secreto antes del sello de la cámara extra)
     for (const s of sellos[k]) {
       const lx = s.x - b.x, ly = s.y - b.y;
