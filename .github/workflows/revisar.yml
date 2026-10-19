@@ -1,0 +1,26 @@
+# Revisa cada cambio: mazmorras jugables, caché sin conexión al día y cada mazmorra arrancando en un navegador.
+name: Revisar
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Mazmorras
+        run: npm run validar
+      - name: Caché sin conexión
+        run: node herramientas/cache.js --revisar
+      - name: Navegador
+        run: npx playwright install --with-deps chromium
+      - name: Cada mazmorra arranca
+        run: npm run probar

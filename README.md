@@ -92,6 +92,13 @@ Otros campos opcionales: `alturas` (un plano paralelo con la altura del suelo: `
 
 Las tablillas y los sellos se declaran en `acertijos`: `T: { id, dificultad: [min, max], sello: 'Z', titulo }` pone una tablilla en cada `T` del plano y un sello en cada `Z`. Al acertar la pista de la tablilla se abren sus sellos. La dificultad (1 a 5) elige al azar una pista del banco de esa dificultad, evitando las que el jugador ya resolvió. La regla es poner tesoros más valiosos tras pistas más difíciles y tras los pasadizos secretos.
 
+## Revisar los cambios
+Cada cambio que llega a GitHub pasa por una revisión automática (`.github/workflows/revisar.yml`). Para correrla en tu equipo hace falta Node 22: `npm install` una vez y luego `npm run revisar`, que hace tres cosas:
+
+- `npm run validar` carga cada mazmorra con 25 semillas en los tres tamaños y avisa si falta el inicio o la salida, si el borde del plano queda abierto, si un acertijo no tiene tablilla o sello, si un tesoro no existe o está en dos mazmorras, o si no se puede llegar a pie a la salida, a una tablilla o a un tesoro.
+- `node herramientas/cache.js --revisar` comprueba que `sw.js` esté al día. Después de cambiar cualquier archivo del juego, `npm run cache` reescribe la lista de archivos y la versión del caché sin conexión.
+- `npm run probar` abre el juego en Chromium, entra a cada mazmorra por el menú y falla si aparece un error.
+
 ## Pistas crípticas
 `datos/pistas.js` se genera desde `fuentes/banco-pistas.json` (copia ese archivo ahí antes de correrlo):
 
