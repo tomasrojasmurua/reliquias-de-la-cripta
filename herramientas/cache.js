@@ -13,7 +13,10 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CARPETAS = ['js', 'datos', 'iconos'];
 const SUELTOS = ['index.html', 'css/estilo.css', 'manifest.webmanifest'];
 
-const archivos = [...SUELTOS, ...CARPETAS.flatMap(c => readdirSync(join(RAIZ, c)).sort().map(n => `${c}/${n}`))];
+// recorre las subcarpetas (js/vendor) y deja fuera los textos de licencias
+const listar = c => readdirSync(join(RAIZ, c), { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
+  .flatMap(e => e.isDirectory() ? listar(`${c}/${e.name}`) : e.name.endsWith('.txt') ? [] : [`${c}/${e.name}`]);
+const archivos = [...SUELTOS, ...CARPETAS.flatMap(listar)];
 const huella = createHash('sha256');
 for (const a of archivos) huella.update(a).update(readFileSync(join(RAIZ, a)));
 const cache = `reliquias-${huella.digest('hex').slice(0, 10)}`;

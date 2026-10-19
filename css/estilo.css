@@ -261,6 +261,34 @@ body.jugando #escena { display: none; }
 #diaria-tabla small { color: var(--suave); }
 #diaria-mods b { display: block; font: 700 14px Cinzel, Georgia, serif; font-style: normal; letter-spacing: .08em; color: #ff9a6a; }
 
+/* ---------- Salas con amigos ---------- */
+
+.campo { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 15px; color: #d8c49a; }
+.campo input { font: inherit; color: var(--texto); background: rgba(0, 0, 0, .4); border: 1px solid #5a4630; border-radius: 4px; padding: 8px 10px; width: 11em; min-width: 0; }
+#sala-codigo { font-family: 'Courier New', monospace; font-size: 22px; letter-spacing: .3em; text-align: center; text-transform: uppercase; font-weight: bold; }
+.aviso-error { color: #ff8a7a; }
+#sala-codigo-vista { color: #f1e4c8; letter-spacing: .3em; }
+.menu button.whatsapp { background: linear-gradient(#2fbf62, #168a42); border-color: #6fe29a; color: #05260f; }
+#sala-jugadores { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+#sala-jugadores li { display: flex; align-items: center; gap: 10px; font-size: 17px; }
+#sala-jugadores small { margin-left: auto; color: var(--suave); }
+#sala-jugadores li.yo b { color: var(--oro); }
+.sombrero { flex: none; width: 18px; height: 12px; border-radius: 8px 8px 2px 2px; border: 1px solid rgba(0, 0, 0, .6); }
+.sombrero.rojo { background: #d23a2e; } .sombrero.azul { background: #2f66d8; } .sombrero.verde { background: #33a852; } .sombrero.amarillo { background: #e6b91f; }
+#cuenta { background: rgba(10, 7, 4, .88); }
+#cuenta-num { margin: 0; font: 800 clamp(96px, 30vw, 200px) Cinzel, Georgia, serif; color: var(--oro); text-shadow: 0 0 30px rgba(232, 184, 58, .5); line-height: 1; }
+#hud-sala { position: absolute; z-index: 2; top: calc(max(10px, env(safe-area-inset-top)) + 38px); left: max(8px, env(safe-area-inset-left)); margin: 0; padding: 4px 8px; list-style: none; display: flex; flex-direction: column; gap: 2px; background: rgba(18, 13, 8, .7); border: 1px solid var(--borde); border-radius: 5px; font-size: 12px; color: #f1e4c8; pointer-events: none; }
+#hud-sala li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+#hud-sala b { margin-left: auto; padding-left: 10px; color: var(--oro); font-family: 'Courier New', monospace; }
+#hud-sala li.fuera { opacity: .45; }
+#resumen-sala { width: min(420px, 100%); }
+#resumen-marcador { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
+#resumen-marcador li { display: flex; align-items: center; gap: 10px; }
+#resumen-marcador li.yo b { color: var(--oro); }
+#resumen-marcador small { margin-left: auto; color: var(--suave); }
+#resumen-marcador li:first-child span { color: var(--oro); }
+#pausa-sala { max-width: 340px; text-align: center; }
+
 /* ---------- Juego ---------- */
 
 #juego { position: fixed; inset: 0; }
