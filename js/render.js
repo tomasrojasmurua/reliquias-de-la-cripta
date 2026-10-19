@@ -2,7 +2,7 @@
 // (muros, suelo y techo), con sprites que miran siempre a la cámara, como en Doom.
 // Texturas pixel art con filtro «nearest» a resolución nativa: el aspecto de Doom, más nítido.
 
-import { casilla, COLS, FILAS } from './texturas.js';
+import { casilla, COLS, FILAS, T } from './texturas.js';
 import { MOVILES } from './mapa.js';
 
 export const ALTO_MURO = 1.25;
@@ -77,6 +77,49 @@ function carasBloque(arr, mapa, x, y, tile, y0, y1, esVecinoAbierto) {
   }
 }
 
+// Cuadrilátero con una coordenada de textura por esquina (p0 abajo-izq, p1 abajo-der, p2 arriba-der, p3 arriba-izq).
+function quadUV(arr, p0, p1, p2, p3, uv, tile, luz) {
+  const vs = [[p0, 0], [p1, 1], [p2, 2], [p0, 0], [p2, 2], [p3, 3]];
+  for (const [p, k] of vs) arr.push(p[0], p[1], p[2], uv[k][0], uv[k][1], tile[0], tile[1], luz, matiz[0], matiz[1], matiz[2]);
+}
+
+// Un dibujo de T x T con fondo transparente convertido en un objeto con grosor: dos caras con la
+// imagen y, por todo el borde de la silueta, paredes del color de cada píxel. Gira sobre `yaw`.
+function extruir(arr, alfa, tile, cx, cz, y0, ancho, alto, prof, yaw, luz) {
+  const co = Math.cos(yaw), si = Math.sin(yaw), h = prof / 2;
+  const P = (lx, ly, lz) => [cx + lx * co + lz * si, y0 + ly, cz - lx * si + lz * co];
+  const w2 = ancho / 2;
+  const cara = (lz, a, b, f) => quad(arr, P(a * w2, 0, lz), P(b * w2, 0, lz), P(b * w2, alto, lz), P(a * w2, alto, lz), tile, luz * f);
+  cara(h, -1, 1, 1);      // frente
+  cara(-h, 1, -1, 0.72);  // dorso
+  const op = (x, y) => x >= 0 && x < T && y >= 0 && y < T && alfa[y * T + x];
+  for (let py = 0; py < T; py++) for (let px = 0; px < T; px++) {
+    if (!op(px, py)) continue;
+    const xa = (px / T - 0.5) * ancho, xb = ((px + 1) / T - 0.5) * ancho;
+    const ya = (1 - (py + 1) / T) * alto, yb = (1 - py / T) * alto;
+    // el borde del dibujo trae contorno oscuro: las paredes toman el color del píxel de más adentro
+    const de = (dx, dy) => { const k = op(px + dx, py + dy) ? 1 : 0; return Array(4).fill([(px + dx * k + 0.5) / T, (py + dy * k + 0.5) / T]); };
+    if (!op(px - 1, py)) quadUV(arr, P(xa, ya, -h), P(xa, ya, h), P(xa, yb, h), P(xa, yb, -h), de(1, 0), tile, luz * 0.8);
+    if (!op(px + 1, py)) quadUV(arr, P(xb, ya, h), P(xb, ya, -h), P(xb, yb, -h), P(xb, yb, h), de(-1, 0), tile, luz * 0.8);
+    if (!op(px, py - 1)) quadUV(arr, P(xa, yb, h), P(xb, yb, h), P(xb, yb, -h), P(xa, yb, -h), de(0, 1), tile, luz * 1.05);
+  }
+}
+
+// Trampa de pinchos: 3 x 3 pirámides de cuatro caras, cada una con su sombreado.
+function pinchos(arr, x, z, piso, luz) {
+  const tile = casilla('pinchos'), claro = [8.5 / T, 50 / T], oscuro = [11.5 / T, 50 / T];
+  matiz = NEUTRO;
+  const tri = (a, b, c, uv, l) => {
+    for (const p of [a, b, c]) arr.push(p[0], p[1], p[2], uv[0], uv[1], tile[0], tile[1], l, 1, 1, 1);
+  };
+  for (let i = 0; i < 3; i++) for (let k = 0; k < 3; k++) {
+    const cx = x + (i + 0.5) / 3, cz = z + (k + 0.5) / 3, r = 0.12, alto = 0.42 + ((i + k) % 2) * 0.12;
+    const A = [cx - r, piso, cz - r], B = [cx + r, piso, cz - r], C = [cx + r, piso, cz + r], D = [cx - r, piso, cz + r], P = [cx, piso + alto, cz];
+    const l = Math.max(0.5, luz);
+    tri(A, B, P, claro, l * 0.94); tri(B, C, P, oscuro, l * 1.08); tri(C, D, P, oscuro, l * 0.94); tri(D, A, P, claro, l * 1.08);
+  }
+}
+
 const VECINOS = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
 // Cara de la casilla (x, y) que mira a su vecina (x + dx, y + dy), entre las alturas y0 e y1.
@@ -132,7 +175,19 @@ export class Render {
     this.bandas = true;
   }
 
+  // Alfa (T x T) de un dibujo del atlas, para extruir su silueta.
+  relieve(nombre) {
+    this.silueta = this.silueta || {};
+    if (!this.silueta[nombre]) {
+      const [cx, cy] = casilla(nombre);
+      const d = this.atlas.getContext('2d').getImageData(cx * T, cy * T, T, T).data;
+      this.silueta[nombre] = Uint8Array.from({ length: T * T }, (_, i) => d[i * 4 + 3] > 127 ? 1 : 0);
+    }
+    return this.silueta[nombre];
+  }
+
   ponerAtlas(atlas) {
+    this.atlas = atlas;
     const gl = this.gl;
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
@@ -203,7 +258,20 @@ export class Render {
       cara(arr, h.x, h.y, h.dx, h.dy, casilla(h.tex), v.piso, v.piso + ALTO_MURO, luzCara(v, h.dx));
       for (let i = antes; i < arr.length; i += FLOTANTES) { arr[i] += h.dx * 0.02; arr[i + 2] += h.dy * 0.02; }
     }
+    // estatuas de los hitos: volumen real, con la silueta del dibujo extruida
+    for (const h of mapa.hitos || []) {
+      if (h.tipo !== 'estatua') continue;
+      const c = mapa.celda(h.x, h.y);
+      matiz = matizSuelo(c.zona);
+      extruir(arr, this.relieve(h.tex), casilla(h.tex), h.x + 0.5, h.y + 0.5, c.piso, 1.2, 1.2, 0.32, ((h.x * 7 + h.y * 13) % 4) * Math.PI / 2, Math.max(0.5, c.luz));
+    }
     matiz = NEUTRO;
+    // trampas de pinchos: cada una es un manojo de pirámides que sube y baja (ver dibujar)
+    this.trampas = [];
+    for (let y = 0; y < mapa.alto; y++) for (let x = 0; x < mapa.ancho; x++) {
+      const c = mapa.celda(x, y);
+      if (c.trampa === 'pinchos') this.trampas.push({ x, y, piso: c.piso, luz: c.luz });
+    }
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufFijo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
@@ -260,6 +328,11 @@ export class Render {
       // puertas y sellos suben; los pasadizos secretos se hunden en el suelo
       const d = c.piso + (c.tipo === 'secreto' ? -c.abierto * ALTO_MURO : c.abierto * ALTO_MURO);
       carasBloque(arr, mapa, x, y, casilla(c.tex), d, d + ALTO_MURO, abierto);
+    }
+    for (const t of this.trampas || []) {
+      if (!efectos.pinchosArriba?.(t.x)) continue;
+      if (Math.abs(t.x + 0.5 - cam.x) > 16 || Math.abs(t.y + 0.5 - cam.z) > 16) continue;
+      pinchos(arr, t.x, t.y, t.piso, t.luz);
     }
     const rx = -Math.sin(cam.yaw), rz = Math.cos(cam.yaw);
     for (const s of sprites) {

@@ -868,10 +868,6 @@ export class Juego {
       }
       else s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z), ancho: 0.5, alto: 0.5, tex: o.tipo, luz: Math.max(0.5, luzEn(o.x, o.z)) });
     }
-    for (let z = 0; z < m.alto; z++) for (let x = 0; x < m.ancho; x++) {
-      const c = m.celdas[z * m.ancho + x];
-      if (c.trampa === 'pinchos' && pinchosArriba(x, this.tiempo)) s.push({ x: x + 0.5, z: z + 0.5, y: c.piso, ancho: 0.95, alto: 0.45, tex: 'pinchos', luz: c.luz });
-    }
     for (const e of this.enemigos) {
       if (e.estado === 'oculto') continue;
       const tam = e.tam || 1;
@@ -905,10 +901,6 @@ export class Juego {
     }
     for (const b of this.brasas) s.push({ x: b.x, z: b.z, y: b.y, ancho: 0.035, alto: 0.035, tex: 'brasa', luz: 1.3 });
     for (const q of this.motas) s.push({ x: q.x, z: q.z, y: q.y, ancho: 0.025, alto: 0.025, tex: 'mota', luz: luzEn(q.x, q.z) });
-    for (const h of m.hitos) {
-      if (h.tipo !== 'estatua' || Math.abs(h.x + 0.5 - j.x) > 16 || Math.abs(h.y + 0.5 - j.z) > 16) continue;
-      s.push({ x: h.x + 0.5, z: h.y + 0.5, y: m.piso(h.x, h.y), ancho: 1.2, alto: 1.2, tex: h.tex, luz: luzEn(h.x + 0.5, h.y + 0.5) });
-    }
     for (const d of this.decorado) {
       if (Math.abs(d.x - j.x) > 16 || Math.abs(d.z - j.z) > 16) continue;
       const tex = d.tex === 'deco_velas' ? 'deco_velas_' + (Math.floor(this.tiempo * 5 + d.fase) % 2) : d.tex;

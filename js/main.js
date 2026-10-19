@@ -1,7 +1,7 @@
 import { crearAtlas, registrarTesoros, miniatura } from './texturas.js';
 import { Render } from './render.js';
 import { Entrada } from './entrada.js';
-import { Juego } from './juego.js';
+import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
@@ -909,7 +909,7 @@ function cuadro(t) {
     * (juego.mods.has('oscuridad') ? 0.5 : 1);
   const sprites = juego.sprites();
   if (actual?.sala) cuadroDeSala(t, dt, sprites);
-  render.dibujar(juego.camara(), sprites, { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra() });
+  render.dibujar(juego.camara(), sprites, { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra(), pinchosArriba: x => pinchosArriba(x, juego.tiempo) });
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);
