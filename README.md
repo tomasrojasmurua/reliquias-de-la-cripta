@@ -62,6 +62,7 @@ La **colección** muestra los tesoros en vitrinas, una por rareza: estanterías 
 - `js/hitos.js`: murales y estatuas que hacen reconocible cada sala.
 - `datos/mazmorras.js`: las mazmorras (planos de texto, ver abajo).
 - `datos/tesoros.js`: catálogo de tesoros y rarezas.
+- `datos/emblemas.js`: el emblema en pixel art de cada mazmorra (16 × 16, una letra por píxel) que se ve al lado de su nombre al elegirla. Una mazmorra nueva necesita el suyo con la misma `id`.
 - `datos/pistas.js`: banco de pistas crípticas, generado (no editar a mano).
 - `fuentes/`: la guía para descifrar las pistas. El banco original (`banco-pistas.json`) no se sube al repositorio porque trae las respuestas y las pistas del día futuras de Críptico 51 a la vista; está en la carpeta `reliquias/fuentes` del proyecto.
 - `manifest.webmanifest`, `sw.js`, `iconos/`: app instalable que funciona sin conexión.
