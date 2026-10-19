@@ -39,6 +39,8 @@ function cargarPeerJS() {
 //   alCambiar(jugadores)   la lista cambió: [{ id, nombre, color, estado }]; `id` es el puesto (0 = anfitrión)
 //   alEmpezar(partida)     el anfitrión empezó: { semilla, mazmorra, tamano, limite, cuenta }
 //   alPosicion(id, p)      un cazador se movió: { x, y, z, yaw, pt }
+//   alTesoro(i, id)        el tesoro `i` se lo llevó el cazador `id` (puede ser yo, o llegué tarde)
+//   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
 //   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado }]
 //   alPerderse(motivo)     se cayó la conexión con la sala
 export class Sala {
@@ -52,7 +54,8 @@ export class Sala {
     this.conexiones = new Map(); // puesto -> conexión (solo el anfitrión)
     this.enPartida = false;
     this.cerrada = false;
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = () => {};
+    this.duenos = new Map();     // solo el anfitrión: tesoro -> quién se lo llevó
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -128,7 +131,31 @@ export class Sala {
       if (j && ['sala', 'jugando'].includes(m.e)) { j.estado = m.e; this.#difundirSala(); }
     } else if (m.t === 'fin') {
       this.#registrarFin(id, m);
+    } else if (m.t === 'toma') {
+      this.#reclamar(m.i | 0, id);
+    } else if (m.t === 'suelta') {
+      this.#soltado(m.i | 0, +m.x, +m.z, id);
     }
+  }
+
+  // Quien pide primero se lleva el tesoro; el que llega tarde recibe el nombre del dueño.
+  #reclamar(i, id) {
+    const dueno = this.duenos.get(i);
+    if (dueno === id) return;
+    if (dueno !== undefined) {
+      if (id === 0) this.alTesoro(i, dueno);
+      else this.conexiones.get(id)?.send({ t: 'tomado', i, id: dueno });
+      return;
+    }
+    this.duenos.set(i, id);
+    this.#aviso({ t: 'tomado', i, id });
+    this.alTesoro(i, id);
+  }
+
+  #soltado(i, x, z, desde) {
+    this.duenos.delete(i);
+    this.#aviso({ t: 'suelto', i, x, z }, desde);
+    if (desde !== 0) this.alSuelto(i, x, z);
   }
 
   // Manda a todos los invitados (menos `salvo`).
@@ -148,6 +175,7 @@ export class Sala {
 
   empezar(partida) {
     this.enPartida = true;
+    this.duenos.clear();
     for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; }
     this.#aviso({ t: 'empezar', ...partida });
     this.alEmpezar(partida);
@@ -184,6 +212,10 @@ export class Sala {
       this.alPosicion(m.id, null);
     } else if (m.t === 'marcador') {
       this.alMarcador(m.lista);
+    } else if (m.t === 'tomado') {
+      this.alTesoro(m.i, m.id);
+    } else if (m.t === 'suelto') {
+      this.alSuelto(m.i, m.x, m.z);
     }
   }
 
@@ -194,6 +226,18 @@ export class Sala {
     const m = { t: 'p', x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +p.yaw.toFixed(2), pt: p.pt };
     if (this.soyAnfitrion) this.#aviso({ ...m, id: 0 });
     else this.conexion?.open && this.conexion.send(m);
+  }
+
+  // Pido el tesoro `i`; la respuesta llega por alTesoro(i, quién se lo llevó).
+  tomar(i) {
+    if (this.soyAnfitrion) this.#reclamar(i, 0);
+    else this.conexion?.open && this.conexion.send({ t: 'toma', i });
+  }
+
+  // Solté el tesoro `i` en (x, z): vuelve a estar disponible para todos.
+  soltar(i, x, z) {
+    if (this.soyAnfitrion) this.#soltado(i, x, z, 0);
+    else this.conexion?.open && this.conexion.send({ t: 'suelta', i, x: +x.toFixed(2), z: +z.toFixed(2) });
   }
 
   // 'sala' (en la sala de espera) o 'jugando'.

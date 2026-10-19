@@ -1347,6 +1347,14 @@ function cazador(g, [claro, oscuro], pose) {
 for (const [color, tonos] of Object.entries(COLORES_CAZADOR)) {
   for (const pose of [0, 1, 8]) registrar(`cazador_${color}_${pose}`, sprite(g => cazador(g, tonos, pose)));
 }
+// La nota que queda donde otro cazador se llevó un tesoro: un pergamino sobre el suelo con el sello de su color.
+for (const [color, [claro, oscuro]] of Object.entries(COLORES_CAZADOR)) {
+  registrar(`nota_${color}`, sprite(g => {
+    r(g, 14, 36, 36, 22, '#8a7048'); r(g, 15, 35, 34, 22, '#e8d8a8'); r(g, 15, 35, 34, 2, '#f4eac8'); r(g, 15, 55, 34, 2, '#b89c60');
+    for (let k = 0; k < 4; k++) r(g, 19, 40 + k * 4, 22 - (k % 2) * 6, 1, '#6a5430');
+    r(g, 38, 46, 9, 9, oscuro); r(g, 39, 47, 7, 7, claro); r(g, 41, 49, 3, 3, oscuro);
+  }));
+}
 // hilo de seda del que cuelga la araña cuando baja del techo
 registrar('hilo', sprite(g => r(g, 31, 0, 2, 64, '#d8d4e0'), { relieve: false }));
 registrar('icor', sprite(g => mancha(g, ['#7ac63a', '#4a8a1a', '#b8f070'], 11), { relieve: false }));
