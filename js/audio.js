@@ -184,6 +184,21 @@ const SONIDOS = {
     tono(150, 0.25, 0.55, 'sine', 0, 38);
     ruido(0.9, 500, 0.5, 0.12, 'lowpass', 0.12);
   },
+  escopeta() {
+    ruido(0.06, 2500, 0.5, 0.85, 'highpass');
+    ruido(0.7, 1100, 0.7, 0.75, 'lowpass', 0, salida, 260);
+    tono(110, 0.35, 0.7, 'sine', 0, 30);
+    ruido(1.2, 400, 0.5, 0.18, 'lowpass', 0.15);
+  },
+  recargaE() {
+    // se abre la escopeta, caen los cartuchos, se cierra
+    tono(420, 0.04, 0.14, 'square'); ruido(0.05, 2500, 3, 0.18, 'bandpass');
+    tono(1200, 0.03, 0.1, 'square', 0.35); tono(1500, 0.03, 0.1, 'square', 0.5);
+    ruido(0.06, 1500, 3, 0.2, 'bandpass', 0.35); ruido(0.06, 1500, 3, 0.2, 'bandpass', 0.5);
+    tono(300, 0.06, 0.2, 'square', 0.85, 180); ruido(0.08, 1200, 1, 0.3, 'lowpass', 0.85);
+  },
+  flecha() { ruido(0.12, 1800, 1, 0.1, 'bandpass', 0, salida, 4500); tono(300, 0.08, 0.1, 'triangle', 0, 120); },
+  dardo() { ruido(0.05, 3500, 2, 0.3, 'bandpass'); tono(900, 0.05, 0.08, 'square', 0, 400); },
   vacio() { tono(1700, 0.025, 0.15, 'square'); ruido(0.02, 3000, 3, 0.1, 'bandpass'); },
   recarga() {
     for (let i = 0; i < 3; i++) { tono(950 + i * 70, 0.025, 0.1, 'square', i * 0.13); ruido(0.03, 3500, 4, 0.12, 'bandpass', i * 0.13); }
@@ -395,6 +410,7 @@ VOCES.cobra = VOCES.vibora = VOCES.serpiente;
 VOCES['escorpión'] = VOCES.escorpion;
 VOCES['murciélago'] = VOCES.murcielago;
 // los guardianes hablan como el enemigo de su mazmorra
+VOCES.arquero = VOCES.esqueleto;
 Object.assign(VOCES, { faraon: VOCES.momia, anubis: VOCES.momia, jarl: VOCES.draugr, capitan: VOCES.pirata, rey_jaguar: VOCES.jaguar, gran_sectario: VOCES.sectario, gran_caballero: VOCES.caballero });
 
 // Donde está la fuente: más lejos, más baja y más opaca; a un lado o al otro.

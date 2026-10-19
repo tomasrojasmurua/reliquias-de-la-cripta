@@ -154,6 +154,44 @@ function revolver(fuego) {
   return pixelar(c);
 }
 
+// ---------- Escopeta de dos cañones ----------
+
+function escopeta(fuego) {
+  const [c, g] = hoja();
+  const cx = 82;
+  // dos cañones lado a lado, en perspectiva, con la costilla entre ellos
+  const canon = (puntos, x0, x1) => forma(g, puntos, lineal(g, x0, 0, x1, 0, [[0, ACERO[0]], [0.35, ACERO[1]], [0.5, ACERO[2]], [0.65, ACERO[1]], [1, ACERO[0]]]));
+  canon([[cx - 10, 16], [cx - 1, 16], [cx - 1, 64], [cx - 17, 64]], cx - 17, cx - 1);
+  canon([[cx + 1, 16], [cx + 10, 16], [cx + 17, 64], [cx + 1, 64]], cx + 1, cx + 17);
+  g.fillStyle = ACERO[0]; g.fillRect(cx - 1, 16, 2, 48);
+  g.fillStyle = 'rgba(210,220,240,.5)'; g.fillRect(cx - 6, 18, 2, 30); g.fillRect(cx + 5, 18, 2, 30);
+  g.fillStyle = '#05060a';
+  for (const dx of [-5.5, 5.5]) { g.beginPath(); g.ellipse(cx + dx, 16, 3.6, 1.8, 0, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#e8d8a0'; g.fillRect(cx - 1, 13, 2, 3);   // mira de bolita
+  // guardamano de nogal
+  forma(g, [[cx - 15, 54], [cx + 15, 54], [cx + 19, 80], [cx - 19, 80]], lineal(g, cx - 19, 0, cx + 19, 0, [[0, NOGAL[0]], [0.3, NOGAL[1]], [0.45, NOGAL[2]], [0.65, NOGAL[1]], [1, NOGAL[0]]]));
+  g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 1;
+  for (let k = -14; k <= 14; k += 4) { g.beginPath(); g.moveTo(cx + k * 0.85, 56); g.lineTo(cx + k * 1.1, 78); g.stroke(); }
+  // abrazadera, armazón y gatillos
+  g.fillStyle = ACERO[1]; g.fillRect(cx - 17, 52, 34, 3);
+  cilindro(g, cx - 21, 78, 42, 14, ACERO);
+  g.fillStyle = '#cfae52'; g.fillRect(cx - 4, 82, 8, 2);
+  for (const dx of [-8, 8]) { g.fillStyle = ACERO[0]; g.fillRect(cx + dx - 2, 72, 4, 7); g.fillStyle = ACERO[2]; g.fillRect(cx + dx - 2, 72, 1, 6); }
+  // culata de nogal y mano
+  forma(g, [[cx - 15, 90], [cx + 15, 90], [cx + 21, 114], [cx - 21, 114]], lineal(g, cx - 21, 0, cx + 21, 0, [[0, NOGAL[0]], [0.3, NOGAL[1]], [0.45, NOGAL[2]], [0.65, NOGAL[1]], [1, NOGAL[0]]]));
+  empunar(g, cx, 100, -0.06, false, -0.1);
+  if (fuego) {
+    // los dos fogonazos, más anchos que el del revólver
+    for (const dx of [-5.5, 5.5]) {
+      g.fillStyle = radial(g, cx + dx, 12, 0, 22, [[0, 'rgba(255,255,230,1)'], [0.25, 'rgba(255,230,120,1)'], [0.6, 'rgba(255,140,30,.95)'], [1, 'rgba(255,90,10,0)']]);
+      g.beginPath();
+      for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2, rr = i % 2 ? 7 : 18 + (i % 4) * 3; g.lineTo(cx + dx + Math.cos(a) * rr, 12 + Math.sin(a) * rr * 0.65); }
+      g.fill();
+    }
+  }
+  return pixelar(c);
+}
+
 // ---------- Látigo ----------
 
 function latigo(golpe) {
@@ -234,6 +272,7 @@ const SPRITES = {};
 function cache() {
   if (SPRITES.listo) return;
   SPRITES.rev = [revolver(false), revolver(true)];
+  SPRITES.esc = [escopeta(false), escopeta(true)];
   SPRITES.lat = [latigo(false), latigo(true)];
   SPRITES.antorcha = antorcha();
   SPRITES.listo = true;
@@ -271,6 +310,10 @@ export function dibujarArma(ctx, w, h, j) {
     const fuego = j.ataque > 0.32;
     const retroceso = j.ataque > 0.2 ? (j.ataque - 0.2) * 40 * escala : 0;
     ctx.drawImage(SPRITES.rev[fuego ? 1 : 0], x, y + retroceso, W * escala, H * escala);
+  } else if (j.arma === 'escopeta') {
+    const fuego = j.ataque > 0.68;
+    const retroceso = j.ataque > 0.5 ? (j.ataque - 0.5) * 70 * escala : 0;
+    ctx.drawImage(SPRITES.esc[fuego ? 1 : 0], x, y + retroceso, W * escala, H * escala);
   } else {
     const golpe = j.ataque > 0.25;
     ctx.drawImage(SPRITES.lat[golpe ? 1 : 0], x, y, W * escala, H * escala);

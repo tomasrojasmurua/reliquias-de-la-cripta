@@ -175,7 +175,9 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
     tesoros[c] = id;
     const camara = camaras[n];
     // una cámara sellada necesita un callejón cuyo pasillo no dé a una sala
-    const libre = ([x, y]) => { const [dx, dy] = V.find(([dx, dy]) => g[y + dy][x + dx] === '.') || [0, 0]; return (dx || dy) && !enSala(x + dx, y + dy); };
+    // y la casilla que se sella no puede ser un cruce: así el sello nunca le cierra el paso a otra cosa (la salida, un sello de zona)
+    const sellable = (x, y, dx, dy) => (dx || dy) && !enSala(x + dx, y + dy) && V.filter(([vx, vy]) => g[y + dy + vy][x + dx + vx] !== '#').length === 2;
+    const libre = ([x, y]) => { const [dx, dy] = V.find(([dx, dy]) => g[y + dy][x + dx] === '.') || [0, 0]; return sellable(x, y, dx, dy); };
     let pos = camara ? (hondos.find(libre) || finales.find(libre)) : null;
     if (pos && hondos.includes(pos)) hondos.splice(hondos.indexOf(pos), 1);
     pos = pos || hondos.shift() || finales.pop();
@@ -189,7 +191,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
     // la mitad de las veces el callejón se tapia con un muro agrietado: un nicho secreto
     g[y][x] = c;
     const [dx, dy] = V.find(([dx, dy]) => g[y + dy][x + dx] === '.') || [0, 0];
-    if (camara && (dx || dy) && !enSala(x + dx, y + dy)) {
+    if (camara && sellable(x, y, dx, dy)) {
       g[y + dy][x + dx] = camara.sello;
       if (!ponerTablilla(t, camara.tablilla, true)) g[y + dy][x + dx] = '.';
       else camara.puesta = true;
@@ -197,7 +199,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
   });
   for (const [x, y] of finales) {
     const r = azar();
-    if (r < 0.2) g[y][x] = 'b';
+    if (r < 0.2) g[y][x] = azar() < 0.4 ? 'q' : 'b';
     else if (r < 0.3) g[y][x] = 'v';
     else if (r < 0.4) g[y][x] = enemigo(); // algo espera al fondo del callejón
   }
@@ -305,6 +307,35 @@ function ponerAtajos(t, n, pares, acertijos, def, dificultad) {
     hechos.push([x, y]);
   }
   return hechos.length;
+}
+
+// Trampas de dardos: un muro al fondo de un pasillo recto (de 6 casillas o más) que dispara a lo largo de él.
+// `g` es la rejilla de caracteres; no se ponen cerca del inicio ni dentro de las salas.
+function ponerDardos(g, azar, n, enSala = () => false) {
+  const { mezclar } = herramientas(azar);
+  const H = g.length, W = g[0].length;
+  const inicio = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'P') inicio.push([x, y]);
+  const candidatos = [];
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    if (g[y][x] !== '#' || enSala(x, y)) continue;
+    const abiertos = V.filter(([dx, dy]) => g[y + dy][x + dx] === '.');
+    if (abiertos.length !== 1) continue;
+    const [dx, dy] = abiertos[0];
+    let largo = 0;
+    while (g[y + dy * (largo + 1)]?.[x + dx * (largo + 1)] === '.') largo++;
+    if (largo < 6 || inicio.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 12)) continue;
+    candidatos.push([x, y]);
+  }
+  mezclar(candidatos);
+  const puestos = [];
+  for (const [x, y] of candidatos) {
+    if (puestos.length >= n) break;
+    if (puestos.some(([px, py]) => Math.abs(px - x) + Math.abs(py - y) < 10)) continue;
+    g[y][x] = 'ð';
+    puestos.push([x, y]);
+  }
+  return puestos.length;
 }
 
 // ---------- El plano fijo cambia en cada partida ----------
@@ -421,6 +452,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
   const revolverTrasTablilla = azar() < 0.4;
   const plan = [{ uso: 'revolver', puerta: revolverTrasTablilla ? 'via' : 'S', profundo: true }];
   plan.push({ uso: 'barreta', puerta: 'S', profundo: true });   // la palanca de hierro: siempre tras un pasadizo secreto
+  plan.push({ uso: 'escopeta', puerta: azar() < 0.5 ? 'via' : 'S', profundo: true });   // la escopeta: una sala oculta de la primera zona
   if (azar() < 0.85) plan.push({ uso: 'botin', puerta: 'via' });
   if (azar() < 0.9) plan.push({ uso: 'botin', puerta: 'S' });
   if (azar() < 0.75) plan.push({ uso: 'trampa', puerta: 'S' });
@@ -431,8 +463,8 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
     const h = buscar(p.profundo);
     if (!h) {
       // sin sitio en la roca, el revólver queda a la vista en uno de los rincones más lejanos
-      if (p.uso === 'revolver' || p.uso === 'barreta') {
-        const objeto = p.uso === 'revolver' ? 'R' : 'w';
+      if (p.uso === 'revolver' || p.uso === 'barreta' || p.uso === 'escopeta') {
+        const objeto = { revolver: 'R', barreta: 'w', escopeta: 'z' }[p.uso];
         // en un plano de salas abiertas se emparedan una o dos casillas junto a una pared: un nicho tras un pasadizo secreto
         const antes = distancias(new Set()).size;
         const candidatas = mezclar([...dist.keys()].map(k => k.split(',').map(Number)).filter(([x, y]) => suelo(x, y) && x > 2 && y > 2 && x < W - 3 && y < H - 3 && dist.get(x + ',' + y) >= 8));
@@ -453,7 +485,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
         if (p.uso === 'barreta') continue;   // sin nicho posible, esta partida no trae palanca
         const lejanas = [...dist].filter(([k]) => { const [x, y] = k.split(',').map(Number); return suelo(x, y); }).sort((a, b) => b[1] - a[1]);
         const [x, y] = elegir(lejanas.slice(0, Math.max(1, Math.ceil(lejanas.length / 4))))[0].split(',').map(Number);
-        g[y][x] = 'R';
+        g[y][x] = objeto;
       }
       continue;
     }
@@ -465,11 +497,12 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
     }
     excavar(h, puerta);
     h.uso = p.uso; h.via = via;
-    const libres = mezclar(h.sala.length ? h.sala.map(c => c.slice()) : h.interior.map(c => c.slice()));
+    const libres = mezclar(h.sala.length && p.uso !== 'escopeta' ? h.sala.map(c => c.slice()) : h.interior.map(c => c.slice()));
     const poner = c => { const k = libres.pop(); if (k) g[k[1]][k[0]] = c; };
     if (p.uso === 'revolver') { poner('R'); poner('b'); }
     else if (p.uso === 'barreta') { poner('w'); poner('b'); }
-    else if (p.uso === 'botin') { poner('b'); poner('v'); if (azar() < 0.5) poner('b'); }
+    else if (p.uso === 'escopeta') { poner('z'); poner('q'); poner('q'); }
+    else if (p.uso === 'botin') { poner('b'); poner('v'); if (azar() < 0.5) poner('b'); if (azar() < 0.4) poner('q'); }
     else if (p.uso === 'trampa') { for (const [x, y] of libres.slice(0, 3)) g[y][x] = '^'; if (azar() < 0.5) poner(elegir(tipos.length ? tipos : ['k'])); }
     else { for (let i = 0; i < 2 + Math.floor(azar() * 2); i++) poner(elegir(tipos.length ? tipos : ['k'])); poner('b'); }
     if (via) nuevasVias.push(h);
@@ -495,6 +528,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
       quitarVia(acertijos, h.via);
     }
   }
+  ponerDardos(g, azar, 2);
   return g.map(f => f.join(''));
 }
 
@@ -655,6 +689,8 @@ export function conZonas(def, azar = Math.random) {
     camaras.cerrar();
     // atajos tras puertas con acertijo (la cámara extra no los tiene)
     if (b.zona !== ultima) ponerAtajos(t, Math.max(1, Math.round(b.ancho * b.alto / 900)), pares, acertijos, def, z.acertijo?.dificultad ?? [2, 3]);
+    // trampas de dardos en los pasillos largos (la cámara extra no las tiene)
+    if (b.zona !== ultima) ponerDardos(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1100)), t.enSala);
     // los sellos (y el pasadizo secreto antes del sello de la cámara extra)
     for (const s of sellos[k]) {
       const lx = s.x - b.x, ly = s.y - b.y;

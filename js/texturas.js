@@ -799,6 +799,8 @@ const ESTILOS = {
   pirata: { cuerpo: 'huesos', piel: '#ddd3b8', sombra: '#9e957c', ojo: '#ffb03a' },
   // guerrero jaguar: la cabeza del jaguar por casco, abanico de plumas y macana de obsidiana
   jaguar: { cuerpo: 'momia', piel: '#9a6234', sombra: '#5e3618', ojo: '#ffe14a', liso: true },
+  // arquero: esqueleto con arco y carcaj, dispara desde lejos y retrocede
+  arquero: { cuerpo: 'huesos', piel: '#d8d0b4', sombra: '#9a9278', ojo: '#7ae0ff', sinConjuro: true },
   // sectario del templo maldito: túnica hasta el suelo, capucha, máscara de calavera y fuego en la mano
   sectario: { cuerpo: 'momia', piel: '#7a1e14', sombra: '#420c08', ojo: '#ffcc33', liso: true, tunica: true },
   // caballero cruzado: yelmo cerrado con ojos rojos en la mirilla, sobreveste, escudo y espada
@@ -958,6 +960,34 @@ const ADORNOS = {
       g.strokeStyle = '#1a0e06'; g.lineWidth = 1; g.beginPath(); g.moveTo(12, sy - 7); g.lineTo(14, sy - 3); g.lineTo(11, sy + 1); g.lineTo(13, sy + 6); g.stroke();
     },
   },
+  arquero: {
+    detras(g, e, p) {
+      // carcaj a la espalda, con las plumas de las flechas asomando
+      const { dy } = p;
+      g.save(); g.translate(41, 27 + dy); g.rotate(0.28);
+      r(g, -3, -2, 7, 22, '#4a2c14'); r(g, -3, -2, 7, 2, '#8a5a30'); r(g, -3, 8, 7, 1, '#2a1608');
+      for (let k = 0; k < 3; k++) { r(g, -2 + k * 2, -8 - (k % 2) * 2, 1, 7, '#9a9278'); r(g, -3 + k * 2, -10 - (k % 2) * 2, 3, 3, k % 2 ? '#b02020' : '#e8e0c8'); }
+      g.restore();
+    },
+    delante(g, e, p) {
+      const { dy, alza, vaiven } = p, yI = 40 + dy + alza + vaiven, yD = 40 + dy + alza - vaiven;
+      const cy = yI - 5;
+      // arco de madera en la mano izquierda
+      g.strokeStyle = '#6a4220'; g.lineWidth = 2.6; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(23, cy - 18); g.quadraticCurveTo(7, cy, 23, cy + 18); g.stroke();
+      g.strokeStyle = '#a8683a'; g.lineWidth = 1; g.beginPath(); g.moveTo(22, cy - 17); g.quadraticCurveTo(9, cy, 22, cy + 17); g.stroke();
+      r(g, 14, cy - 3, 3, 6, '#2a1608');
+      g.strokeStyle = '#e8e0c8'; g.lineWidth = 1;
+      if (p.lanza) {
+        // cuerda tensada hasta la mano derecha y flecha en el arco
+        g.beginPath(); g.moveTo(23, cy - 18); g.lineTo(44, yD - 1); g.lineTo(23, cy + 18); g.stroke();
+        r(g, 17, yD - 2, 29, 1, '#c8b898'); r(g, 15, yD - 3, 3, 3, '#cfd4da');
+        r(g, 42, yD - 4, 3, 5, '#b02020');
+      } else {
+        g.beginPath(); g.moveTo(23, cy - 18); g.lineTo(23, cy + 18); g.stroke();
+      }
+    },
+  },
   draugr: {
     detras(g, e, p) {
       // capa de piel que asoma tras los hombros
@@ -1104,7 +1134,7 @@ function humanoide(g, tipo, pose) {
   ad.delante?.(g, e, p);
   tocado(g, e, p);
   herida(g, p, 29, 28 + p.dy);
-  if (p.lanza) { // conjuro: fuego entre las manos
+  if (p.lanza && !e.sinConjuro) { // conjuro: fuego entre las manos
     r(g, 26, 20, 12, 10, '#ff8a1a'); r(g, 28, 22, 8, 6, '#ffe14a'); r(g, 30, 24, 4, 2, '#fff8d0');
   }
 }
@@ -1461,6 +1491,54 @@ registrar('vendas', sprite(g => {
   r(g, 20, 40, 24, 20, '#efe8d8'); r(g, 20, 40, 24, 3, '#ffffff');
   r(g, 29, 44, 6, 14, '#b02020'); r(g, 25, 48, 14, 6, '#b02020');
 }));
+
+registrar('escopeta', sprite(g => {
+  // escopeta de dos cañones tendida en el suelo: cañones de acero, guardamano y culata de nogal
+  g.fillStyle = gradV(g, 22, 40, ['#aab2c0', '#4a4e5a', '#14161c']); g.fillRect(6, 24, 34, 6); g.fillRect(6, 31, 34, 6);
+  r(g, 6, 29, 34, 2, '#0c0d12'); r(g, 7, 25, 32, 1, '#d8e0ee'); r(g, 7, 32, 32, 1, '#d8e0ee');
+  r(g, 4, 24, 3, 13, '#2a2e38');
+  g.fillStyle = gradV(g, 26, 40, ['#a8683a', '#6a3818', '#2e1608']); g.fillRect(30, 26, 14, 12);
+  g.fillStyle = '#3a3e4a'; g.fillRect(42, 25, 8, 12); r(g, 44, 23, 3, 3, '#14161c');
+  g.fillStyle = gradV(g, 24, 44, ['#a8683a', '#6a3818', '#2e1608']);
+  g.beginPath(); g.moveTo(50, 25); g.lineTo(60, 28); g.lineTo(62, 44); g.lineTo(52, 38); g.lineTo(50, 37); g.closePath(); g.fill();
+  r(g, 53, 29, 6, 1, '#4a2410'); r(g, 54, 33, 6, 1, '#4a2410');
+}));
+registrar('cartuchos', sprite(g => {
+  // caja con cartuchos de escopeta: tubos rojos con base de latón
+  for (let i = 0; i < 4; i++) {
+    const x = 16 + i * 8;
+    g.fillStyle = gradV(g, 24, 40, ['#e8584a', '#b02020', '#6a1010']); g.fillRect(x, 24, 7, 16);
+    g.fillStyle = gradV(g, 36, 42, ['#f0d080', '#c8962e', '#7a5214']); g.fillRect(x, 36, 7, 6);
+    r(g, x + 1, 24, 1, 12, '#ff9a8a');
+  }
+  g.fillStyle = gradV(g, 40, 60, ['#8a6a44', '#5a4228', '#3a2a14']); g.fillRect(12, 40, 40, 20);
+  g.fillStyle = gradV(g, 38, 42, ['#a88858', '#6a5030']); g.fillRect(12, 38, 40, 4);
+  r(g, 18, 46, 28, 8, '#e8d8a8'); r(g, 20, 48, 24, 1, '#b02020'); r(g, 20, 51, 18, 1, '#3a2a1a');
+}));
+
+// Proyectiles de los arqueros y de las trampas de dardos (siempre de cara a la cámara: una flecha en diagonal).
+registrar('flecha', sprite(g => {
+  g.strokeStyle = '#d8c8a0'; g.lineWidth = 3; g.beginPath(); g.moveTo(12, 52); g.lineTo(46, 18); g.stroke();
+  g.fillStyle = '#e8eef4'; g.beginPath(); g.moveTo(54, 10); g.lineTo(40, 18); g.lineTo(46, 24); g.closePath(); g.fill();
+  g.fillStyle = '#b02020'; g.beginPath(); g.moveTo(8, 44); g.lineTo(20, 52); g.lineTo(10, 56); g.closePath(); g.fill();
+  g.beginPath(); g.moveTo(4, 56); g.lineTo(16, 48); g.lineTo(12, 60); g.closePath(); g.fill();
+}, { relieve: false }));
+registrar('dardo', sprite(g => {
+  g.strokeStyle = '#7a8088'; g.lineWidth = 3; g.beginPath(); g.moveTo(14, 50); g.lineTo(44, 20); g.stroke();
+  g.fillStyle = '#e8eef4'; g.beginPath(); g.moveTo(54, 10); g.lineTo(42, 16); g.lineTo(48, 22); g.closePath(); g.fill();
+  g.fillStyle = '#3a8a3a'; g.beginPath(); g.moveTo(10, 42); g.lineTo(18, 50); g.lineTo(10, 54); g.closePath(); g.fill();
+}, { relieve: false }));
+
+// Muro de una trampa de dardos: piedra con cuatro agujeros por donde asoman las puntas.
+function capaDardos() {
+  const huecos = [[22, 22], [42, 22], [22, 42], [42, 42]];
+  const cerca = (x, y, rr) => huecos.some(([hx, hy]) => Math.hypot(x - hx, y - hy) < rr);
+  return {
+    alto: (x, y, v) => cerca(x, y, 4) ? v - 0.55 : cerca(x, y, 5.5) ? v + 0.08 : v,
+    color: (x, y, v, c) => cerca(x, y, 3.2) ? [12, 9, 8] : cerca(x, y, 5.5) ? escalar(c, 0.7) : c,
+  };
+}
+registrar('dardos', b => dibujaPiedra(b, rng(11), capaDardos()));
 
 // ---------- Ambiente ----------
 

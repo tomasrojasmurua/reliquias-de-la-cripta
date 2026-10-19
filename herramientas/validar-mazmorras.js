@@ -114,6 +114,10 @@ function revisarMapa(def, m, donde, juego) {
   if (barretas.length > 1) error(donde, `hay ${barretas.length} palancas de hierro (a lo más una)`);
   else if (!barretas.length) error(donde, 'no tiene palanca de hierro oculta');
   else if (!llega(Math.floor(barretas[0].x), Math.floor(barretas[0].z))) error(donde, 'no se puede llegar a la palanca de hierro');
+  // la escopeta: una sola, y se llega a ella desde el inicio
+  const escopetas = m.objetos.filter(o => o.tipo === 'escopeta');
+  if (escopetas.length !== 1) error(donde, `hay ${escopetas.length} escopetas (debe haber una)`);
+  else if (!llega(Math.floor(escopetas[0].x), Math.floor(escopetas[0].z))) error(donde, 'no se puede llegar a la escopeta');
   if (m.totalSecretos < 1) error(donde, 'no tiene ningún pasadizo secreto');
 
   // el guardián está en su puesto y se llega a él
