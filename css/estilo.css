@@ -280,6 +280,9 @@ body.jugando #escena { display: none; }
 #hud-sala { position: absolute; z-index: 2; top: calc(max(10px, env(safe-area-inset-top)) + 38px); left: max(8px, env(safe-area-inset-left)); margin: 0; padding: 4px 8px; list-style: none; display: flex; flex-direction: column; gap: 2px; background: rgba(18, 13, 8, .7); border: 1px solid var(--borde); border-radius: 5px; font-size: 12px; color: #f1e4c8; pointer-events: none; }
 #hud-sala li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #hud-sala b { margin-left: auto; padding-left: 10px; color: var(--oro); font-family: 'Courier New', monospace; }
+#emotes { position: absolute; z-index: 2; left: max(8px, env(safe-area-inset-left)); bottom: 100px; display: none; flex-direction: column; gap: 4px; }
+body.tactil #emotes:not([hidden]) { display: flex; }
+#emotes button { padding: 5px 10px; font-size: 12px; opacity: .8; }
 #hud-sala li.fuera { opacity: .45; }
 #hud-sala li.yo span { color: var(--oro); }
 #resumen-sala { width: min(420px, 100%); }

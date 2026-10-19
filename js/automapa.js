@@ -15,6 +15,7 @@ const COLOR = {
   tesoro: '#ffd34d',
   jugador: '#ff6a4a',
 };
+const COLOR_CAZADOR = { rojo: '#d23a2e', azul: '#2f66d8', verde: '#33a852', amarillo: '#e6b91f' };
 
 // Marca como vistas las casillas al alcance de la vista del jugador (rayos en todas direcciones).
 export function explorar(juego, alcance = 9) {
@@ -125,6 +126,11 @@ export function dibujarAutomapa(ctx, w, h, juego) {
       ctx.strokeText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
       ctx.fillText('SALIDA', ox + (x + 0.5) * t, oy + y * t - 3);
     }
+  }
+  // los otros cazadores de la sala, con el color de su sombrero
+  for (const o of juego.otros || []) {
+    ctx.fillStyle = COLOR_CAZADOR[o.color] || '#fff'; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ox + o.x * t, oy + o.z * t, Math.max(4, t * 0.45), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
   // jugador
   const px = ox + j.x * t, py = oy + j.z * t, r = Math.max(5, t * 0.55);
