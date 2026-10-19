@@ -63,6 +63,8 @@ function cargarPeerJS() {
 //   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
 //   alGolpe(i, daño)       (anfitrión) un invitado le pegó al enemigo `i`
 //   alDano(n, causa)       (invitado) un enemigo me hirió
+//   alPvp(de, d)           otro cazador (`de`) me pegó, con `d` de daño
+//   alBaja(k, v)           el cazador `k` derrotó al cazador `v`
 //   alForzado(id, a)       el cazador `id` forzó el sello del acertijo `a` con la palanca (solo para avisar: cada uno abre el suyo)
 //   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado, tesoros, resueltos }]
 //   alPerderse(motivo)     se cayó la conexión con la sala
@@ -84,7 +86,7 @@ export class Sala {
     this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
     this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
     this.alEnlace = this.alConexion = this.alEmote = () => {};
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = () => {};
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alPvp = this.alBaja = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -260,6 +262,10 @@ export class Sala {
       if (j && ['sala', 'jugando'].includes(m.e)) { j.estado = m.e; this.#difundirSala(); }
     } else if (m.t === 'fin') {
       this.#registrarFin(id, m);
+    } else if (m.t === 'pvp') {
+      this.#pegar(id, m.a | 0, Math.min(60, Math.max(0, m.d | 0)));
+    } else if (m.t === 'baja') {
+      this.#bajaDe(m.k | 0, id);
     } else if (m.t === 'golpe') {
       this.alGolpe(m.i | 0, Math.min(60, Math.max(0, m.d | 0)));
     } else if (m.t === 'toma') {
@@ -358,6 +364,10 @@ export class Sala {
       for (const [i, id] of Array.isArray(m.l) ? m.l : []) this.alTesoro(i | 0, id | 0);
     } else if (m.t === 'en') {
       this.alEnemigos(m);
+    } else if (m.t === 'pvp') {
+      this.alPvp(m.de | 0, Math.min(60, Math.max(0, m.d | 0)));
+    } else if (m.t === 'baja') {
+      this.alBaja(m.k | 0, m.v | 0);
     } else if (m.t === 'dano') {
       this.alDano(m.n | 0, String(m.c || '').slice(0, 60));
     } else if (m.t === 'tomado') {
@@ -386,6 +396,28 @@ export class Sala {
   // Un invitado le pega al enemigo `i`: el anfitrión le resta la vida.
   golpear(i, d) {
     this.conexion?.open && this.conexion.send({ t: 'golpe', i, d });
+  }
+
+  // Le pego al cazador `id`: el anfitrión reenvía el golpe y cada uno se resta su propia vida.
+  pegarA(id, d) {
+    if (this.soyAnfitrion) this.#pegar(0, id, d);
+    else this.conexion?.open && this.conexion.send({ t: 'pvp', a: id, d });
+  }
+
+  #pegar(de, a, d) {
+    if (a === 0) this.alPvp(de, d);
+    else this.conexiones.get(a)?.send({ t: 'pvp', de, d });
+  }
+
+  // Me derribó el cazador `k`: el anfitrión se lo cuenta a todos.
+  baja(k) {
+    if (this.soyAnfitrion) this.#bajaDe(k, 0);
+    else this.conexion?.open && this.conexion.send({ t: 'baja', k });
+  }
+
+  #bajaDe(k, v) {
+    this.#aviso({ t: 'baja', k, v });
+    this.alBaja(k, v);
   }
 
   // El anfitrión le avisa a un invitado que un enemigo lo hirió.

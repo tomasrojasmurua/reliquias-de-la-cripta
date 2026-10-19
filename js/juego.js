@@ -82,6 +82,9 @@ const SALPICA = {
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
   escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso',
 };
+// Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
+// al empezar la partida y al reaparecer, para que nadie espere a otro en la entrada.
+const DAÑO_CAZADOR = 0.6, TREGUA_INICIAL = 10, TREGUA_REAPARECER = 4;
 const VEL_FUEGO = 5.5, VEL_FLECHA = 9;
 
 export class Juego {
@@ -98,6 +101,9 @@ export class Juego {
     this.rol = opciones.rol || null;   // en una sala: 'anfitrion' (simula a los enemigos) o 'invitado' (los copia del anfitrión)
     this.blancos = [];                 // el anfitrión: los otros cazadores, que los enemigos también persiguen
     this.soloRemotos = false;
+    this.combate = !!opciones.combate;  // en una sala: los cazadores pueden herirse entre sí
+    this.rivales = [];                  // los otros cazadores a tiro: { id, x, y, z, muerto }
+    this.proteccion = this.combate ? TREGUA_INICIAL : 0;   // segundos sin recibir daño de otros cazadores
     this.inicioReal = Date.now();
     this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
@@ -343,6 +349,7 @@ export class Juego {
     this.fogonazo = Math.max(0, this.fogonazo - dt * 6);
     this.animarPuertas(dt);
     this.avanzarReloj(dt);
+    if (this.proteccion > 0) this.proteccion = Math.max(0, this.proteccion - dt);
     if (j.muerto) {
       if (this.reaparecer > 0 && (this.reaparecer -= dt) <= 0) this.revivir();
       this.enemigosAunque(dt);   // en una sala el mundo sigue aunque yo haya caído
@@ -624,7 +631,9 @@ export class Juego {
       const cono = (0.32 + a * 0.02) * (this.asistir ? 1.8 : 1);
       if (a > 0 && a < Math.min(muro, arma.alcance) && lat < cono && a < mejorD) { mejor = e; mejorD = a; }
     }
-    if (mejor) this.herir(mejor, azar(arma.daño));
+    const rival = this.rivalEnMira(fx, fz, Math.min(muro, arma.alcance), 0.32, 0.02, mejorD);
+    if (rival) this.herirCazador(rival, azar(arma.daño));
+    else if (mejor) this.herir(mejor, azar(arma.daño));
     else if (muro < arma.alcance) {
       // impacto en el muro: polvo (y chispas si es una bala)
       const d = muro - 0.05;
@@ -633,6 +642,39 @@ export class Juego {
       if (j.arma === 'revolver') this.salpicar(ix, iy, iz, 'chispa', 3, 1.2);
       else setTimeout(() => sonar('golpe'), 90);
     }
+  }
+
+  // ¿Está el cazador `r` en la línea de tiro? Devuelve su distancia, o null.
+  enMira(r, fx, fz, alcance, base, abre, asistido = 1.8) {
+    const j = this.j;
+    if (!this.combate || r.muerto || Math.abs(r.y - j.y) > 1.2) return null;
+    const ex = r.x - j.x, ez = r.z - j.z, a = ex * fx + ez * fz, lat = Math.abs(ex * fz - ez * fx);
+    return a > 0 && a < alcance && lat < (base + a * abre) * (this.asistir ? asistido : 1) ? a : null;
+  }
+
+  // El cazador más cercano en la mira, si está más cerca que el enemigo `masLejos`.
+  rivalEnMira(fx, fz, alcance, base, abre, masLejos) {
+    let mejor = null, md = masLejos;
+    for (const r of this.rivales) {
+      const a = this.enMira(r, fx, fz, alcance, base, abre);
+      if (a !== null && a < md) { mejor = r; md = a; }
+    }
+    return mejor;
+  }
+
+  // Le pego a otro cazador: él mismo se resta la vida (si no está protegido) y yo veo el golpe.
+  herirCazador(r, daño) {
+    this.ev.pegarA?.(r.id, Math.max(1, Math.round(daño * DAÑO_CAZADOR)));
+    this.salpicar(r.x, r.y + 0.5, r.z, 'sangre', 5, 1.2);
+    sonar('golpe');
+  }
+
+  // Me pega otro cazador. Si me derriba, lo aviso para que se sepa quién fue.
+  recibirGolpe(n, de) {
+    const j = this.j;
+    if (!this.combate || j.muerto || this.proteccion > 0) return;
+    this.dañarJugador(n, `${de.nombre} te derrotó.`);
+    if (j.muerto) this.ev.baja?.(de.id);
   }
 
   // Siete perdigones en abanico: de cerca casi todos pegan; de lejos se dispersan y llegan pocos. Pueden herir a varios.
@@ -660,10 +702,15 @@ export class Juego {
       const cono = (0.5 + a * 0.075) * (this.asistir ? 1.4 : 1);
       if (a > 0 && a < Math.min(muro, arma.alcance) && lat < cono) blancos.push([a, e]);
     }
+    for (const r of this.rivales) {
+      const a = this.enMira(r, fx, fz, Math.min(muro, arma.alcance), 0.5, 0.075, 1.4);
+      if (a !== null) blancos.push([a, r]);
+    }
     blancos.sort((x, y) => x[0] - y[0]);
     for (const [a, e] of blancos.slice(0, 3)) {
       const pegan = Math.max(1, Math.round(arma.perdigones * Math.min(1, Math.max(0.15, 1.2 - a / 9))));
-      this.herir(e, pegan * azar(arma.daño));
+      if (e.id !== undefined) this.herirCazador(e, pegan * azar(arma.daño));
+      else this.herir(e, pegan * azar(arma.daño));
     }
     if (!blancos.length && muro < arma.alcance) {
       const d = muro - 0.05;
@@ -833,6 +880,7 @@ export class Juego {
     const j = this.j, m = this.mapa;
     Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: this.vidaInicial, muerto: false, quemadura: 0 });
     delete j.cayendo;
+    if (this.combate) { this.proteccion = TREGUA_REAPARECER; this.ev.mensaje('Estás protegido unos segundos.', 3); }
   }
 
   resumen(causa = null) {
