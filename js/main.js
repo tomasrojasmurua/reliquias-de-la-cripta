@@ -894,13 +894,6 @@ function abrirPanelTablilla(a) {
       reanudar();
     },
     alCerrar() { panel.hidden = true; reanudar(); },
-    nuevaPista() {
-      a.estado.vistas.add(a.estado.pista.id);
-      a.estado.pista = elegirPista(dificultad, resueltas, new Set([...a.estado.vistas, ...enUso()]), azar);
-      a.estado.nivel = 0;
-      a.estado.ayudas = 0;
-      a.estado.inicio = Date.now();
-    },
   });
 }
 

@@ -1,5 +1,5 @@
 // Acertijos: las tablillas muestran una pista críptica del banco (datos/pistas.js).
-// Ayudas progresivas según la guía: tipo, definición, indicador y relleno, primera letra, solución.
+// Ayudas progresivas según la guía: tipo, definición, indicador y relleno, primera letra. Nunca se muestra la solución.
 
 import { PISTAS } from '../datos/pistas.js';
 import { sonar } from './audio.js';
@@ -103,11 +103,10 @@ function pistaResaltada(p, nivel) {
 }
 
 // Abre el panel de una tablilla. estado: {titulo, pista, nivel, ...}; al acertar llama a alResolver().
-export function abrirTablilla(el, estado, { alResolver, alCerrar, nuevaPista }) {
+export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
   const p = () => estado.pista;
   const respuesta = () => revelar(p()._r);
   const palabras = () => p().longitud.replace(/[()]/g, '').split(',').map(Number);
-  let mostrandoSolucion = false;
 
   el.innerHTML = `
     <div class="tablilla">
@@ -154,16 +153,15 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar, nuevaPista }) 
       ? `<mark class="ind">Indicador</mark> y <mark class="rel">relleno</mark> resaltados.`
       : 'Esta pista no tiene indicador ni relleno.');
     if (estado.nivel >= 4) ayudas.push(`<b>Primera letra:</b> ${normalizar(respuesta())[0]}`);
-    if (mostrandoSolucion) ayudas.push(`<b>Solución:</b> ${respuesta()}. ${escapar(revelar(p()._e))}<br><i>La tablilla se reacomoda: tendrás que descifrar otra inscripción para abrir el sello.</i>`);
     $('.ayuda').innerHTML = ayudas.map(a => `<p>${a}</p>`).join('');
     const bAyuda = $('[data-a="ayuda"]');
-    bAyuda.textContent = mostrandoSolucion ? 'Nueva inscripción' : estado.nivel >= 4 ? 'Ver solución' : 'Pedir ayuda';
+    bAyuda.disabled = estado.nivel >= 4;
+    bAyuda.textContent = estado.nivel >= 4 ? 'Sin más ayudas' : 'Pedir ayuda';
   }
 
   input.addEventListener('input', pintar);
   $('form').addEventListener('submit', e => {
     e.preventDefault();
-    if (mostrandoSolucion) return;
     if (normalizar(input.value) === normalizar(respuesta())) {
       sonar('acierto');
       alResolver(p());
@@ -176,12 +174,7 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar, nuevaPista }) 
     const a = e.target.dataset.a;
     if (a === 'cerrar') alCerrar();
     if (a === 'ayuda') {
-      if (mostrandoSolucion) { nuevaPista(); mostrandoSolucion = false; input.value = ''; }   // la inscripción nueva cuenta desde cero
-      else {
-        if (estado.nivel >= 4) mostrandoSolucion = true;
-        else estado.nivel++;
-        estado.ayudas = (estado.ayudas || 0) + 1;
-      }
+      if (estado.nivel < 4) { estado.nivel++; estado.ayudas = (estado.ayudas || 0) + 1; }
       pintar();
     }
   });
