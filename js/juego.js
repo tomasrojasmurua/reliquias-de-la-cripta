@@ -30,7 +30,7 @@ const ENEMIGOS = {
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
 // Encuentros más duros: más vida y golpes un poco más fuertes y seguidos (los guardianes ya eran duros).
-const ESCALA_VIDA = 1.5, ESCALA_DAÑO = 1.15, ESCALA_ESPERA = 0.9;
+const ESCALA_VIDA = 1.5, ESCALA_DAÑO = 1.05, ESCALA_ESPERA = 0.96;
 for (const e of Object.values(ENEMIGOS)) {
   e.vida = Math.round(e.vida * ESCALA_VIDA);
   e.daño = e.daño.map(n => Math.round(n * ESCALA_DAÑO));
