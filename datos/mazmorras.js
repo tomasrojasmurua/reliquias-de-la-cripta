@@ -23,6 +23,8 @@
 // `laberinto`: túneles que se generan de nuevo en cada partida (js/laberinto.js), pegados `abajo` o a la
 //   `derecha` del plano; `puerta` es la casilla del borde del plano que se vuelve puerta hacia ellos,
 //   y `tesoros` los que se esconden en los callejones más hondos.
+// `sectores`: la mazmorra crece en varias zonas generadas que se abren con acertijos (ver js/laberinto.js).
+// `derrumbe`: [x, y] la entrada (un muro «%» de escombros) que se viene abajo al empezar.
 // `ambiente`: sonido de fondo (cripta, desierto, nieve, mar, selva, lava o catacumba).
 // `texTablilla`, `texSello`: texturas de tablillas y sellos. `tinte`: color de la luz [r, g, b].
 // `avisos`: { carácter: 'texto' } pone inscripciones en el muro que se leen con «Usar».
@@ -30,10 +32,29 @@
 export const MAZMORRAS = [
   {
     id: 'cripta-escarabajo',
-    laberinto: { lado: 'abajo', puerta: [9, 15], ancho: 43, alto: 17, tesoros: ['ushebti', 'paleta_escriba'] },
+    // Cuatro zonas: el plano fijo con los túneles de abajo, las galerías a la derecha, el hipogeo abajo
+    // y, tras un pasadizo secreto y un sello, la cámara de Jepri con la reliquia más valiosa.
+    sectores: {
+      bloques: [
+        { x: 0, y: 16, ancho: 43, alto: 17, zona: 0 },
+        { x: 43, y: 0, ancho: 41, alto: 33, zona: 1 },
+        { x: 0, y: 33, ancho: 63, alto: 29, zona: 2 },
+        { x: 63, y: 33, ancho: 21, alto: 29, zona: 3, luz: 0.5, textura: { suelo: 'arena' } },
+      ],
+      entrada: [9, 16],
+      pasos: [[0, 1, 42, 25], [1, 2, 52, 32], [2, 3, 62, 47]],
+      salida: [1, 2],
+      zonas: [
+        { nombre: 'La antecámara', tesoros: ['ushebti', 'paleta_escriba'], acertijo: { dificultad: [1, 2], titulo: 'La estela de las galerías' } },
+        { nombre: 'Las galerías del embalsamador', tesoros: ['cuchillo_embalsamador', 'jarra_natron', 'amuleto_tyet', 'escarabajo_corazon'], acertijo: { dificultad: [2, 3], titulo: 'El papiro del embalsamador' } },
+        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo'], acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
+        { nombre: 'La cámara de Jepri', tesoros: ['escarabajo_jepri'] },
+      ],
+    },
+    derrumbe: [0, 2],
     ambiente: 'cripta',
     nombre: 'La Cripta del Escarabajo',
-    descripcion: 'Una tumba menor bajo las arenas. Buen lugar para empezar.',
+    descripcion: 'Una tumba bajo las arenas, más honda de lo que parece. Cuatro zonas y una salida que hay que encontrar.',
     muro: 'piedra', suelo: 'losa', techo: 'techo',
     luz: 0.62,
     angulo: 0,
@@ -45,7 +66,7 @@ export const MAZMORRAS = [
     plano: [
       '###########T###############################',
       '#.....#.........#.......##.b....#.v########',
-      '#..P..#....1....#..k.R..D.......S5.########',
+      '%..P..#....1....#..k.R..D.......S5.########',
       '!.....D.........D....b..##...k..#.b########',
       '#.....#.........#.......####.##############',
       '###S###...m.....############.#####!###!####',
@@ -55,7 +76,7 @@ export const MAZMORRAS = [
       '###########D##############.......m......Q.#',
       '#######...k.....#.......##.........k....#6#',
       '#######.........#..2....##.....b........###',
-      '######X.....m...Z.......##..............###',
+      '#######.....m...Z.......##..............###',
       '#######.......b.#....b..##..............###',
       '#######.........#.......######L############',
       '###########################################',
@@ -596,3 +617,8 @@ export const MAZMORRAS = [
     luces: [[15, 15, 25, 17, 0.9], [21, 1, 25, 5, 0.65], [9, 1, 13, 3, 0.3], [7, 24, 18, 30, 0.45], [1, 19, 3, 31, 0.7], [23, 24, 24, 26, 0.85]],
   },
 ];
+
+// Todos los tesoros de una mazmorra: los del plano fijo, los del laberinto y los de sus zonas.
+export function tesorosDe(m) {
+  return [...Object.values(m.tesoros || {}), ...(m.laberinto?.tesoros || []), ...(m.sectores?.zonas.flatMap(z => z.tesoros) || [])];
+}

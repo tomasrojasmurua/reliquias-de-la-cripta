@@ -211,6 +211,11 @@ body.retro #vista { image-rendering: pixelated; }
 #mensaje.visible { opacity: 1; }
 #fps { position: absolute; right: 8px; top: 6px; font: 11px monospace; color: rgba(255, 255, 255, .4); pointer-events: none; }
 #btn-pausa { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px 12px; opacity: .75; z-index: 3; }
+#hud-zona { position: absolute; top: max(10px, env(safe-area-inset-top)); left: calc(max(8px, env(safe-area-inset-left)) + 46px); max-width: calc(100% - 140px); padding: 5px 10px; background: rgba(18, 13, 8, .7); border: 1px solid var(--borde); border-radius: 5px; font-size: 13px; color: var(--suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; z-index: 2; }
+#hud-zona b { color: var(--oro); font-family: Cinzel, Georgia, serif; letter-spacing: .06em; }
+#hud-zona em { font-style: normal; color: #f1e4c8; }
+#hud-zona.completa em { color: #7fe0a0; }
+@media (max-width: 620px) { #hud-zona span { display: none; } }
 
 #hud { position: absolute; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; z-index: 2; }
 #hud .caja { min-width: 84px; text-align: center; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; padding: 3px 10px; }

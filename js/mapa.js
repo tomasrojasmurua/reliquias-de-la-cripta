@@ -1,6 +1,6 @@
 // Convierte la definición de una mazmorra (datos/mazmorras.js) en casillas y objetos.
 
-import { conLaberinto } from './laberinto.js';
+import { conLaberinto, conZonas, azarConSemilla } from './laberinto.js';
 
 // tipo: muro | vacio | suelo | puerta | secreto | sello | tablilla | aviso | salida
 // Peligros en el suelo: trampa 'pinchos' (suben y bajan), peligro 'lava' (quema) y 'abismo' (caída mortal).
@@ -12,6 +12,7 @@ const LEYENDA_BASE = {
   'D': { tipo: 'puerta', tex: 'puerta' },
   'S': { tipo: 'secreto', tex: 'piedra_grieta' },
   'X': { tipo: 'salida', tex: 'salida' },
+  '%': { tipo: 'muro', tex: 'derrumbe' },
   '!': { tipo: 'muro', tex: 'antorcha', antorcha: true },
   'R': { tipo: 'suelo', objeto: 'revolver' },
   'b': { tipo: 'suelo', objeto: 'balas' },
@@ -47,8 +48,11 @@ export function altura(h) {
   return 0;
 }
 
-export function cargarMazmorra(def) {
-  if (def.laberinto) def = conLaberinto(def);
+// `semilla`: con la misma semilla salen los mismos laberintos (para que todos jueguen la misma mazmorra).
+export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967296)) {
+  const azar = azarConSemilla(semilla);
+  if (def.sectores) def = conZonas(def, azar);
+  else if (def.laberinto) def = conLaberinto(def, azar);
   const alto = def.plano.length;
   const ancho = Math.max(...def.plano.map(f => f.length));
   const leyenda = { ...LEYENDA_BASE, ...(def.leyenda || {}) };
@@ -72,7 +76,7 @@ export function cargarMazmorra(def) {
     for (let x = 0; x < ancho; x++) {
       const car = def.plano[y][x] ?? ' ';
       let l = leyenda[car];
-      if (!l && /[0-9]/.test(car)) l = { tipo: 'suelo', tesoro: def.tesoros[car] };
+      if (!l && def.tesoros?.[car]) l = { tipo: 'suelo', tesoro: def.tesoros[car] };
       if (!l) throw new Error(`Carácter desconocido «${car}» en ${def.id} (${x}, ${y})`);
       const c = {
         tipo: l.tipo,
@@ -84,6 +88,7 @@ export function cargarMazmorra(def) {
         acertijo: l.acertijo || null,
         antorcha: !!l.antorcha,
         trampa: l.trampa || null, peligro: l.peligro || null, texto: l.texto || null,
+        zona: 0,
       };
       const h = def.alturas?.[y]?.[x];
       if (h && h !== '.' && h !== ' ') { c.piso = altura(h); c.techoY = Math.max(ALTO, c.piso + ALTO); }
@@ -94,13 +99,14 @@ export function cargarMazmorra(def) {
       const cx = x + 0.5, cz = y + 0.5;
       if (l.inicio) inicio = { x: cx, z: cz };
       if (l.objeto) objetos.push({ tipo: l.objeto, x: cx, z: cz });
-      if (l.tesoro) objetos.push({ tipo: 'tesoro', tesoro: l.tesoro, x: cx, z: cz });
+      if (l.tesoro) objetos.push({ tipo: 'tesoro', tesoro: l.tesoro, x: cx, z: cz, zona: 0 });
       if (l.enemigo) enemigos.push({ tipo: l.enemigo, x: cx, z: cz });
     }
   }
 
   const mapa = {
-    def, ancho, alto, celdas, objetos, enemigos, inicio, acertijos, totalSecretos,
+    def, ancho, alto, celdas, objetos, enemigos, inicio, acertijos, totalSecretos, semilla,
+    regiones: def.regiones || null,
     celda(x, y) {
       if (x < 0 || y < 0 || x >= ancho || y >= alto) return null;
       return celdas[y * ancho + x];
@@ -144,6 +150,12 @@ export function cargarMazmorra(def) {
       if (z.muro && c.tipo === 'muro' && !c.antorcha && def.plano[y][x] === '#') c.tex = z.muro;
     }
   }
+
+  // Zonas de la mazmorra (si las tiene): cada casilla y cada tesoro saben a cuál pertenecen.
+  (def.regiones || []).forEach((r, i) => {
+    for (const [x0, y0, x1, y1] of r.rects) for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const c = mapa.celda(x, y); if (c) c.zona = i; }
+  });
+  for (const o of objetos) o.zona = mapa.celda(Math.floor(o.x), Math.floor(o.z)).zona;
 
   // El abismo se hunde bajo el suelo de su zona.
   for (const c of celdas) if (c.peligro === 'abismo') c.piso -= HONDO;

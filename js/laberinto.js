@@ -1,38 +1,61 @@
-// Laberinto que cambia en cada partida: túneles con bifurcaciones y callejones sin salida,
+// Laberintos que cambian en cada partida: túneles con bifurcaciones y callejones sin salida,
 // salas con hordas o vacías, trampas, y unos pocos tesoros escondidos en los ramales más hondos.
-// Se pega a un lado del plano fijo de la mazmorra (ver `laberinto` en datos/mazmorras.js).
+//
+// Dos usos (ver datos/mazmorras.js):
+//  - `laberinto`: un bloque de túneles pegado abajo o a la derecha del plano fijo.
+//  - `sectores`: la mazmorra crece en varias zonas generadas. Cada zona tiene sus salas, sus reliquias
+//    y una tablilla cuyo acertijo abre el sello hacia la siguiente; la última esconde un pasadizo secreto
+//    hacia una cámara extra. La salida se esconde en un ramal hondo de alguna zona del medio.
+//
+// Todo el azar sale de `azar`, así que con la misma semilla sale la misma mazmorra (para el multijugador).
 
 const ENEMIGOS = 'mkgpjcn';
 const V = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
-// Devuelve una copia de la definición con el laberinto añadido al plano.
-export function conLaberinto(def, azar = Math.random) {
-  const L = def.laberinto;
-  // impares: las casillas del laberinto van en coordenadas impares
-  let W = L.ancho | 1, H = L.alto | 1;
-  if (L.lado === 'abajo' && W > def.plano[0].length) W -= 2;
+// Generador con semilla (mulberry32).
+export function azarConSemilla(semilla) {
+  let s = semilla >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function herramientas(azar) {
+  return {
+    elegir: a => a[Math.floor(azar() * a.length)],
+    mezclar: a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; },
+  };
+}
+
+// Talla un bloque de W x H (impares, con su propio borde de muro). `entradas` son casillas del borde por
+// donde se llega; la primera es la principal y desde ella se miden las distancias.
+export function tallar(W, H, entradas, { salas: nSalas, azar }) {
+  const { elegir, mezclar } = herramientas(azar);
   const g = Array.from({ length: H }, () => Array(W).fill('#'));
   const alt = Array.from({ length: H }, () => Array(W).fill('.'));
   const dentro = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1;
-  const elegir = a => a[Math.floor(azar() * a.length)];
-  const mezclar = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(azar() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const impar = (n, lado) => Math.min(Math.max(n | 1, 1), lado - 2);
 
-  // Entrada: la casilla del borde del laberinto que toca la puerta del plano fijo.
-  const abajo = L.lado === 'abajo';
-  const [px, py] = L.puerta;
-  let ex = abajo ? px : 0, ey = abajo ? 0 : py;
-  const impar = n => Math.min(Math.max(n | 1, 1), (abajo ? W : H) - 2);
-  const ix = abajo ? impar(ex) : 1, iy = abajo ? 1 : impar(ey);
-  g[ey][ex] = '.';
-  // pasillo de la puerta a la primera casilla del laberinto
-  for (let x = Math.min(ex, ix); x <= Math.max(ex, ix); x++) g[abajo ? 1 : ey][x] = '.';
-  for (let y = Math.min(ey, iy); y <= Math.max(ey, iy); y++) g[y][abajo ? ix : 1] = '.';
-  if (!abajo) for (let x = 0; x <= 1; x++) g[ey][x] = '.';
+  // cada entrada se une por un pasillo corto a la casilla impar más cercana
+  const interiores = entradas.map(([ex, ey]) => {
+    let x = ex, y = ey;
+    g[y][x] = '.';
+    if (ey === 0) y = 1; else if (ey === H - 1) y = H - 2; else if (ex === 0) x = 1; else x = W - 2;
+    const ix = impar(x, W), iy = impar(y, H);
+    for (; x !== ix; x += Math.sign(ix - x)) g[y][x] = '.';
+    for (; y !== iy; y += Math.sign(iy - y)) g[y][x] = '.';
+    g[iy][ix] = '.';
+    return [ix, iy];
+  });
+  const [ix, iy] = interiores[0];
 
   // 1. Túneles: backtracker recursivo, que deja muchos callejones sin salida.
   const visto = new Set([ix + ',' + iy]);
   const pila = [[ix, iy]];
-  g[iy][ix] = '.';
   while (pila.length) {
     const [x, y] = pila[pila.length - 1];
     const opciones = mezclar(V.slice()).filter(([dx, dy]) => dentro(x + dx * 2, y + dy * 2) && !visto.has((x + dx * 2) + ',' + (y + dy * 2)));
@@ -45,12 +68,12 @@ export function conLaberinto(def, azar = Math.random) {
 
   // 2. Salas en medio de los túneles (cortan los pasillos que cruzan).
   const salas = [];
-  const nSalas = L.salas ?? Math.round(W * H / 110);
+  nSalas = nSalas ?? Math.round(W * H / 110);
   for (let k = 0, intentos = 0; k < nSalas && intentos < 200; intentos++) {
     const w = elegir([3, 3, 5, 5, 7]), h = elegir([3, 3, 5]);
     const x0 = 1 + 2 * Math.floor(azar() * ((W - 1 - w) / 2)), y0 = 1 + 2 * Math.floor(azar() * ((H - 1 - h) / 2));
     if (x0 + w > W - 1 || y0 + h > H - 1) continue;
-    if (Math.abs(x0 - ix) + Math.abs(y0 - iy) < 6) continue; // la entrada queda libre
+    if (interiores.some(([ex, ey]) => Math.abs(x0 - ex) + Math.abs(y0 - ey) < 6)) continue; // las entradas quedan libres
     if (salas.some(s => x0 < s.x1 + 2 && s.x0 < x0 + w + 2 && y0 < s.y1 + 2 && s.y0 < y0 + h + 2)) continue;
     const s = { x0, y0, x1: x0 + w - 1, y1: y0 + h - 1 };
     for (let y = s.y0; y <= s.y1; y++) for (let x = s.x0; x <= s.x1; x++) g[y][x] = '.';
@@ -62,9 +85,10 @@ export function conLaberinto(def, azar = Math.random) {
 
   // 3. Algunos atajos: se tumba la pared de un tercio de los callejones (quedan muchos).
   const abiertos = (x, y) => V.filter(([dx, dy]) => g[y + dy]?.[x + dx] !== '#' && g[y + dy]?.[x + dx] !== undefined).length;
+  const esEntrada = (x, y) => interiores.some(([a, b]) => a === x && b === y);
   const callejones = () => {
     const r = [];
-    for (let y = 1; y < H - 1; y += 2) for (let x = 1; x < W - 1; x += 2) if (g[y][x] === '.' && abiertos(x, y) === 1 && !(x === ix && y === iy)) r.push([x, y]);
+    for (let y = 1; y < H - 1; y += 2) for (let x = 1; x < W - 1; x += 2) if (g[y][x] === '.' && abiertos(x, y) === 1 && !esEntrada(x, y)) r.push([x, y]);
     return r;
   };
   for (const [x, y] of callejones()) {
@@ -90,7 +114,7 @@ export function conLaberinto(def, azar = Math.random) {
     if (unido) break;
   }
 
-  // Distancia desde la entrada (para esconder los tesoros en lo más hondo).
+  // Distancia desde la entrada principal (para esconder lo valioso en lo más hondo).
   const dist = new Map([[ix + ',' + iy, 0]]);
   const cola = [[ix, iy]];
   while (cola.length) {
@@ -102,17 +126,48 @@ export function conLaberinto(def, azar = Math.random) {
   }
   const d = (x, y) => dist.get(x + ',' + y) ?? 0;
   const enSala = (x, y) => salas.some(s => x >= s.x0 && x <= s.x1 && y >= s.y0 && y <= s.y1);
+  // callejones fuera de las salas, del más hondo al menos hondo
+  const finales = () => callejones().filter(([x, y]) => !enSala(x, y)).sort((a, b) => d(...b) - d(...a));
+  return { W, H, g, alt, salas, dentro, d, enSala, finales, interiores, azar };
+}
 
-  // 4. Contenido de los callejones: tesoros al fondo, alguno tras un muro con grieta; balas, vendas, emboscadas o nada.
-  const tipos = [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
-  const enemigo = () => elegir(tipos.length ? tipos : ['k']);
-  const finales = callejones().filter(([x, y]) => !enSala(x, y)).sort((a, b) => d(...b) - d(...a));
-  const tesoros = { ...def.tesoros };
-  const libres = '0123456789'.split('').filter(c => !(c in tesoros));
-  const hondos = finales.slice(0, Math.max(L.tesoros.length + 1, Math.ceil(finales.length * 0.4)));
+// El muro del fondo de un callejón (el opuesto a su abertura).
+function fondo(t, [x, y]) {
+  const ab = V.find(([dx, dy]) => t.g[y + dy][x + dx] !== '#');
+  if (!ab) return null;
+  return [x - ab[0], y - ab[1]];
+}
+
+// Pone una tablilla en el muro de la sala más honda (o al fondo del callejón más hondo).
+function ponerTablilla(t, car) {
+  const { g, salas, d, dentro } = t;
+  const porHondura = salas.slice().sort((a, b) => d(b.x0, b.y0) - d(a.x0, a.y0));
+  for (const s of porHondura) {
+    const muros = [];
+    for (let x = s.x0; x <= s.x1; x++) { muros.push([x, s.y0 - 1]); muros.push([x, s.y1 + 1]); }
+    for (let y = s.y0; y <= s.y1; y++) { muros.push([s.x0 - 1, y]); muros.push([s.x1 + 1, y]); }
+    const ok = muros.filter(([x, y]) => dentro(x, y) && g[y][x] === '#');
+    if (ok.length) { const [x, y] = herramientas(t.azar).elegir(ok); g[y][x] = car; return [x, y]; }
+  }
+  for (const pos of t.finales()) {
+    const f = fondo(t, pos);
+    if (f && g[f[1]][f[0]] === '#') { g[f[1]][f[0]] = car; return f; }
+  }
+  return null;
+}
+
+// Tesoros al fondo de los callejones (a veces tras un muro agrietado), y en el resto balas, vendas,
+// emboscadas o nada. Después, hordas en las salas, antorchas y trampas de pinchos.
+function poblar(t, ids, nuevoCaracter, tiposEnemigo) {
+  const { g, W, H, salas, dentro, d, enSala, azar } = t;
+  const { elegir, mezclar } = herramientas(azar);
+  const enemigo = () => elegir(tiposEnemigo.length ? tiposEnemigo : ['k']);
+  const finales = t.finales();
+  const tesoros = {};
+  const hondos = finales.slice(0, Math.max(ids.length + 1, Math.ceil(finales.length * 0.4)));
   mezclar(hondos);
-  for (const id of L.tesoros) {
-    const c = libres.shift();
+  for (const id of ids) {
+    const c = nuevoCaracter();
     tesoros[c] = id;
     let pos = hondos.shift() || finales.pop();
     if (!pos) { // casi sin callejones: la casilla de pasillo más lejana
@@ -132,10 +187,8 @@ export function conLaberinto(def, azar = Math.random) {
     if (r < 0.2) g[y][x] = 'b';
     else if (r < 0.3) g[y][x] = 'v';
     else if (r < 0.5) g[y][x] = enemigo(); // algo espera al fondo del callejón
-    // el resto: nada
   }
 
-  // 5. Salas: hordas, alguna con provisiones, otras vacías.
   for (const s of salas) {
     const casillas = [];
     for (let y = s.y0; y <= s.y1; y++) for (let x = s.x0; x <= s.x1; x++) if (g[y][x] === '.') casillas.push([x, y]);
@@ -154,15 +207,30 @@ export function conLaberinto(def, azar = Math.random) {
     }
   }
 
-  // 6. Trampas de pinchos en algunos pasillos rectos.
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
     if (g[y][x] !== '.' || enSala(x, y) || d(x, y) < 4 || azar() > 0.03) continue;
     const recto = (g[y][x - 1] === '#' && g[y][x + 1] === '#') || (g[y - 1][x] === '#' && g[y + 1][x] === '#');
     if (recto) g[y][x] = '^';
   }
+  return tesoros;
+}
 
-  // 7. Pegar el laberinto al plano fijo.
-  const filas = g.map(r => r.join('')), filasAlt = alt.map(r => r.join(''));
+const tiposDe = def => [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
+
+// Devuelve una copia de la definición con el laberinto añadido al plano.
+export function conLaberinto(def, azar = Math.random) {
+  const L = def.laberinto;
+  // impares: las casillas del laberinto van en coordenadas impares
+  let W = L.ancho | 1, H = L.alto | 1;
+  if (L.lado === 'abajo' && W > def.plano[0].length) W -= 2;
+  const abajo = L.lado === 'abajo';
+  const [px, py] = L.puerta;
+  const t = tallar(W, H, [abajo ? [px, 0] : [0, py]], { salas: L.salas, azar });
+  const libres = '0123456789'.split('').filter(c => !(c in def.tesoros));
+  const tesoros = { ...def.tesoros, ...poblar(t, L.tesoros, () => libres.shift(), tiposDe(def)) };
+
+  // Pegar el laberinto al plano fijo.
+  const filas = t.g.map(r => r.join('')), filasAlt = t.alt.map(r => r.join(''));
   const base = def.plano.map(f => f.split(''));
   base[py][px] = 'D';
   const anchoBase = def.plano[0].length, altoBase = def.plano.length;
@@ -184,5 +252,121 @@ export function conLaberinto(def, azar = Math.random) {
     luces: [[...rect, luz], ...(def.luces || [])],
     zonas: [...(def.zonas || []), ...(L.zona ? [[...rect, L.zona]] : [])],
     regionLaberinto: rect,
+  };
+}
+
+// ---------- Mazmorra por zonas ----------
+//
+// def.sectores: {
+//   bloques: [{ x, y, ancho, alto, zona }]  bloques de túneles en el plano total (cada uno con su borde);
+//                                          `zona` es el índice en `zonas` (0 = la del plano fijo).
+//   zonas: [{ nombre, tesoros: [ids], acertijo: { dificultad, titulo } }]
+//          la zona i (salvo la última) tiene una tablilla que abre el sello hacia la zona i + 1;
+//          la última (la cámara extra) se alcanza por un pasadizo secreto y un sello que abre la tablilla
+//          de la penúltima.
+//   pasos: [[desde, hacia, x, y]]  muro compartido entre dos bloques por donde va el sello: (x, y) es la
+//          casilla del borde del bloque `desde`; la de al lado, en el bloque `hacia`, se abre como entrada.
+//   entrada: [x, y] casilla del borde del primer bloque que da al plano fijo (puerta).
+//   salida: [zonas posibles] la salida se esconde en un ramal hondo de una de ellas, al azar.
+// }
+const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N']];
+const CARACTERES_TESORO = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
+
+export function conZonas(def, azar = Math.random) {
+  const Z = def.sectores, { elegir } = herramientas(azar);
+  const anchoBase = def.plano[0].length, altoBase = def.plano.length;
+  const ancho = Math.max(anchoBase, ...Z.bloques.map(b => b.x + b.ancho));
+  const alto = Math.max(altoBase, ...Z.bloques.map(b => b.y + b.alto));
+  const plano = Array.from({ length: alto }, (_, y) => Array.from({ length: ancho }, (_, x) => def.plano[y]?.[x] ?? '#'));
+  const altBase = def.alturas || [];
+  const alturas = Array.from({ length: alto }, (_, y) => Array.from({ length: ancho }, (_, x) => {
+    const h = altBase[y]?.[x];
+    return x < anchoBase && y < altoBase && h ? h : '.';
+  }));
+  const tesoros = { ...def.tesoros }, acertijos = { ...def.acertijos };
+  const usados = new Set(def.plano.join(''));
+  const pares = CARACTERES_ACERTIJO.filter(([a, b]) => !usados.has(a) && !usados.has(b) && !(a in acertijos));
+  const caracteresTesoro = [...CARACTERES_TESORO].filter(c => !usados.has(c));
+  const tipos = tiposDe(def);
+
+  // dónde cae cada paso: el sello en el bloque de origen, la entrada en el de destino
+  const dentroDe = (b, x, y) => x >= b.x && y >= b.y && x < b.x + b.ancho && y < b.y + b.alto;
+  const bloqueEn = (x, y) => Z.bloques.findIndex(b => dentroDe(b, x, y));
+  const entradas = Z.bloques.map(() => []);
+  const sellos = Z.bloques.map(() => []);
+  const [ex0, ey0] = Z.entrada;
+  entradas[bloqueEn(ex0, ey0)].push([ex0, ey0]);
+  for (const [desde, hacia, x, y] of Z.pasos) {
+    const vecina = V.map(([dx, dy]) => [x + dx, y + dy]).find(([nx, ny]) => bloqueEn(nx, ny) >= 0 && Z.bloques[bloqueEn(nx, ny)].zona === hacia);
+    sellos[Z.bloques.findIndex(b => b.zona === desde && dentroDe(b, x, y))].push({ x, y, hacia });
+    entradas[bloqueEn(...vecina)].push(vecina);
+  }
+
+  // un acertijo por zona que abre el paso a la siguiente
+  const ultima = Z.zonas.length - 1;
+  const selloDe = {};
+  Z.zonas.forEach((z, i) => {
+    if (!z.acertijo || i === ultima) return;
+    const [car, sello] = pares.shift();
+    acertijos[car] = { id: `${def.id}-zona${i + 1}`, tipo: 'pista', dificultad: z.acertijo.dificultad, sello, titulo: z.acertijo.titulo };
+    selloDe[i + 1] = sello;
+    z.caracterTablilla = car;
+  });
+
+  // la salida va a una de las zonas posibles
+  const zonaSalida = elegir(Z.salida);
+  const talladas = Z.bloques.map((b, k) => {
+    const loc = entradas[k].map(([x, y]) => [x - b.x, y - b.y]);
+    // las casillas donde van los sellos se abren hacia dentro desde el bloque: son entradas también
+    for (const s of sellos[k]) loc.push([s.x - b.x, s.y - b.y]);
+    const t = tallar(b.ancho, b.alto, loc, { azar });
+    const z = Z.zonas[b.zona];
+    // la tablilla de la zona va en su primer bloque
+    if (z.caracterTablilla && Z.bloques.findIndex(o => o.zona === b.zona) === k) ponerTablilla(t, z.caracterTablilla);
+    if (b.zona === zonaSalida && Z.bloques.findIndex(o => o.zona === b.zona) === k) {
+      // un ramal hondo, pero no el más hondo de todos (esos son para las reliquias)
+      const fin = t.finales();
+      const candidatos = fin.slice(Math.min(fin.length - 1, 2), Math.max(3, Math.ceil(fin.length * 0.5)));
+      for (const pos of candidatos) {
+        const f = fondo(t, pos);
+        if (f && t.g[f[1]][f[0]] === '#') { t.g[f[1]][f[0]] = 'X'; break; }
+      }
+    }
+    Object.assign(tesoros, poblar(t, b.tesoros ?? (Z.bloques.findIndex(o => o.zona === b.zona) === k ? z.tesoros : []), () => caracteresTesoro.shift(), tipos));
+    // los sellos (y el pasadizo secreto antes del sello de la cámara extra)
+    for (const s of sellos[k]) {
+      const lx = s.x - b.x, ly = s.y - b.y;
+      t.g[ly][lx] = s.hacia === ultima ? 'S' : selloDe[s.hacia];
+    }
+    return t;
+  });
+  // en la cámara extra, el sello va justo después del pasadizo secreto
+  for (const [desde, hacia, x, y] of Z.pasos) {
+    if (hacia !== ultima) continue;
+    const [nx, ny] = V.map(([dx, dy]) => [x + dx, y + dy]).find(([nx, ny]) => bloqueEn(nx, ny) >= 0 && Z.bloques[bloqueEn(nx, ny)].zona === hacia);
+    const k = bloqueEn(nx, ny), b = Z.bloques[k];
+    talladas[k].g[ny - b.y][nx - b.x] = selloDe[hacia];
+  }
+  // pegar los bloques
+  Z.bloques.forEach((b, k) => {
+    const t = talladas[k];
+    for (let y = 0; y < b.alto; y++) for (let x = 0; x < b.ancho; x++) { plano[b.y + y][b.x + x] = t.g[y][x]; alturas[b.y + y][b.x + x] = t.alt[y][x]; }
+  });
+  // la puerta del plano fijo hacia el primer bloque
+  const pf = V.map(([dx, dy]) => [ex0 + dx, ey0 + dy]).find(([x, y]) => x < anchoBase && y < altoBase && bloqueEn(x, y) < 0);
+  if (pf) plano[pf[1]][pf[0]] = 'D';
+
+  // regiones de cada zona (para el HUD y el automapa)
+  const regiones = Z.zonas.map((z, i) => ({
+    nombre: z.nombre,
+    rects: [...(i === 0 ? [[0, 0, anchoBase - 1, altoBase - 1]] : []), ...Z.bloques.filter(b => b.zona === i).map(b => [b.x, b.y, b.x + b.ancho - 1, b.y + b.alto - 1])],
+  }));
+  const luces = Z.bloques.map(b => [b.x, b.y, b.x + b.ancho - 1, b.y + b.alto - 1, b.luz ?? def.luz * 0.75]);
+  return {
+    ...def, tesoros, acertijos,
+    plano: plano.map(f => f.join('')), alturas: alturas.map(f => f.join('')),
+    luces: [...luces, ...(def.luces || [])],
+    zonas: [...(def.zonas || []), ...Z.bloques.filter(b => b.textura).map(b => [b.x, b.y, b.x + b.ancho - 1, b.y + b.alto - 1, b.textura])],
+    regiones,
   };
 }

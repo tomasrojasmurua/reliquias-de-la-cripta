@@ -268,6 +268,16 @@ registrar('musgo', b => {
     color: (x, y, v, c) => { const k = cuanto(x, y); return k ? mezclar(c, mota(x, y) > 0.7 ? [92, 122, 52] : [54, 84, 38], k) : c; },
   });
 });
+// Escombros que tapan la entrada derrumbada: piedras sueltas de todos los tamaños y polvo.
+registrar('derrumbe', b => {
+  const r = rng(15), polvo = fbm(semilla(r), 4, 3);
+  const chicas = adoquines(semilla(r), 8, { junta: 0.8, bisel: 2, mella: 1.5 });
+  muro(b, r, [112, 102, 90], { adoquines: 4, junta: 1.4, bisel: 4, mella: 2.5, mortero: [30, 26, 22], variacion: 0.35, fuerza: 3,
+    capa: {
+      alto: (x, y, v, i) => v < 0.35 ? Math.max(v, chicas.a[i] * 0.7) : v,
+      color: (x, y, v, c) => mezclar(c, [150, 136, 112], suave((polvo(x, y) - 0.55) * 4) * 0.6),
+    } });
+});
 registrar('arenisca', b => dibujaArenisca(b, rng(21)));
 registrar('arenisca_grieta', b => dibujaArenisca(b, rng(21), null, grietas(rng(7), [[33, 4, 30], [12, 30, 24]])));
 
