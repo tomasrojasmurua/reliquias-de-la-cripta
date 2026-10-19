@@ -40,6 +40,9 @@ const TAMANOS = {
   mediana: { zonas: 2, minutos: [5, 8, 11] },
   grande: { zonas: Infinity, minutos: [8, 12, 16] },
 };
+// En una sala se pierde tiempo coordinando y descifrando entre varios, así que los relojes son más largos.
+const MINUTOS_SALA = { pequena: [4, 6, 8], mediana: [8, 12, 16], grande: [14, 20, 26] };
+const minutosDe = (tam, i) => prep.modo === 'sala' ? MINUTOS_SALA[tam][i] : TAMANOS[tam].minutos[i];
 const RITMOS = ['Corto', 'Normal', 'Largo'];
 const prep = { tesoros: progreso.opciones.tesoros || 'exclusivos', modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
 let elegida = null;   // la mazmorra de la pantalla de preparación
@@ -155,7 +158,7 @@ const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 // las mazmorras sin zonas tienen un solo tamaño
 const tamanoDe = def => def.sectores ? prep.tamano : 'grande';
-const limiteDe = def => prep.modo === 'contrarreloj' || prep.modo === 'sala' ? TAMANOS[tamanoDe(def)].minutos[prep.ritmo] * 60 : 0;
+const limiteDe = def => prep.modo === 'contrarreloj' || prep.modo === 'sala' ? minutosDe(tamanoDe(def), prep.ritmo) * 60 : 0;
 const minuscula = t => t[0].toLowerCase() + t.slice(1);
 
 function abrirPreparar(def) {
@@ -182,7 +185,7 @@ function pintarPreparar() {
     ? 'Cada tesoro es del primero que lo toma; los demás encuentran una nota «¡Llegaste tarde!».'
     : 'Todos pueden recoger cada tesoro. Gana quien más reúna, y al final se ve cómo lo logró cada uno.';
   document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
-    b.innerHTML = `${RITMOS[i]}<small>${TAMANOS[tam].minutos[i]} min</small>`;
+    b.innerHTML = `${RITMOS[i]}<small>${minutosDe(tam, i)} min</small>`;
     b.classList.toggle('activo', i === prep.ritmo);
   });
   const seg = limiteDe(def), rec = enSala ? 0 : recordDe(def, tam, seg);
