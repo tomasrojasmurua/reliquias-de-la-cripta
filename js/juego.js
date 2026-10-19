@@ -92,7 +92,7 @@ export class Juego {
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
-    this.objetos = m.objetos.map(o => ({ ...o, fase: Math.random() * 6 }));
+    this.objetos = m.objetos.map((o, n) => ({ ...o, n, fase: Math.random() * 6 }));   // `n`: el puesto fijo del objeto, igual para todos en una sala
     this.guardian = this.colocarGuardian();
     if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
     this.tesoros = [];
@@ -686,6 +686,7 @@ export class Juego {
       o.cogido = false;
       const z = this.zonas[o.zona];
       if (z) z.halladas--;
+      this.ev.solto?.(o);
     }
     this.reaparecer = 4;
     this.ev.mensaje(o ? `Soltaste ${TESORO[id].nombre}. Reapareces en el inicio…` : 'Reapareces en el inicio…', 4);
@@ -717,6 +718,12 @@ export class Juego {
   recoger() {
     const j = this.j;
     for (const o of this.objetos) {
+      // la nota que deja otro cazador donde se llevó el tesoro
+      if (o.nota && !o.notaVista && Math.hypot(o.x - j.x, o.z - j.z) < 1.4) {
+        o.notaVista = true;
+        sonar('error');
+        this.ev.mensaje(`¡Llegaste tarde! ${o.nota.nombre} se llevó ${TESORO[o.tesoro].nombre}.`, 4);
+      }
       if (o.cogido || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
       if (o.tipo === 'revolver') {
         const n = this.mods.has('escasez') ? 3 : 6;
@@ -737,16 +744,28 @@ export class Juego {
         this.dañarJugador(45, 'Elegiste mal.');
         if (!j.muerto) this.ev.mensaje('Elegiste mal: ese cáliz era una trampa y se convierte en polvo.', 4);
       } else if (o.tipo === 'tesoro') {
-        o.cogido = true;
-        const t = TESORO[o.tesoro];
-        this.tesoros.push(t.id);
-        sonar('tesoro');
-        this.ev.tesoro(t, RAREZAS[t.rareza]);
-        const z = this.zonas[o.zona];
-        if (z && ++z.halladas === z.total) setTimeout(() => this.ev.mensaje(`${z.nombre}: reuniste todas sus reliquias.`, 4), 2200);
+        // en una sala el anfitrión decide quién llegó primero: se pide y se espera su respuesta
+        if (this.ev.reclamar) { if (!o.pendiente) { o.pendiente = true; this.ev.reclamar(o); } continue; }
+        this.tomar(o);
       }
     }
   }
+
+  tomar(o) {
+    o.cogido = true; o.pendiente = false;
+    const t = TESORO[o.tesoro];
+    this.tesoros.push(t.id);
+    sonar('tesoro');
+    this.ev.tesoro(t, RAREZAS[t.rareza]);
+    const z = this.zonas[o.zona];
+    if (z && ++z.halladas === z.total) setTimeout(() => this.ev.mensaje(`${z.nombre}: reuniste todas sus reliquias.`, 4), 2200);
+  }
+
+  // Otro cazador se llevó este tesoro: queda su nota en el lugar.
+  ceder(o, por) { o.cogido = true; o.pendiente = false; o.nota = por; o.notaVista = false; }
+
+  // El tesoro volvió al suelo (su dueño cayó y lo soltó).
+  reponer(o, x, z) { Object.assign(o, { cogido: false, pendiente: false, nota: null, notaVista: false, x, z }); }
 
   actualizarEnemigos(dt) {
     const j = this.j;
@@ -878,7 +897,10 @@ export class Juego {
     const luzEn = (x, z) => m.celda(Math.floor(x), Math.floor(z))?.luz ?? 0.5;
     const pisoEn = (x, z) => m.piso(Math.floor(x), Math.floor(z));
     for (const o of this.objetos) {
-      if (o.cogido) continue;
+      if (o.cogido) {
+        if (o.nota) s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.02, ancho: 0.5, alto: 0.5, tex: 'nota_' + o.nota.color, luz: Math.max(0.5, luzEn(o.x, o.z)) });
+        continue;
+      }
       const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
       if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: Math.max(0.3, luzEn(o.x, o.z)) });
       else if (o.tipo === 'tesoro') {

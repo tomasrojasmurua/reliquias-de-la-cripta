@@ -281,6 +281,7 @@ body.jugando #escena { display: none; }
 #hud-sala li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #hud-sala b { margin-left: auto; padding-left: 10px; color: var(--oro); font-family: 'Courier New', monospace; }
 #hud-sala li.fuera { opacity: .45; }
+#hud-sala li.yo span { color: var(--oro); }
 #resumen-sala { width: min(420px, 100%); }
 #resumen-marcador { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
 #resumen-marcador li { display: flex; align-items: center; gap: 10px; }

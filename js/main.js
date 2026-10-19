@@ -489,6 +489,8 @@ function enlazarSala(s) {
     pintarMarcador();
   };
   s.alPerderse = motivo => perderSala(motivo);
+  s.alTesoro = (i, id) => tesoroDeSala(i, id);
+  s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); };
 }
 
 function cerrarSala() {
@@ -583,6 +585,21 @@ function iniciarPartidaEnSala() {
   if (actual.sala) sala?.ponerEstado('jugando');
 }
 
+// El anfitrión responde quién se llevó cada tesoro: yo (lo tomo) o otro cazador (queda su nota).
+function reclamarTesoro(o) {
+  if (!sala) { juego.tomar(o); return; }
+  sala.tomar(o.n);
+  setTimeout(() => { o.pendiente = false; }, 2500);   // por si la respuesta se pierde, se puede volver a pedir
+}
+function tesoroDeSala(i, id) {
+  const o = actual?.sala && !actual.sala.fin && juego?.objetos[i];
+  if (!o || o.tipo !== 'tesoro' || o.cogido) return;
+  if (id === sala.yo) { juego.tomar(o); return; }
+  const j = sala.jugadores.find(q => q.id === id);
+  juego.ceder(o, { nombre: j?.nombre || 'Otro cazador', color: j?.color || 'rojo' });
+  mensaje(`${j?.nombre || 'Otro cazador'} se llevó ${TESORO[o.tesoro].nombre}`, 3);
+}
+
 function posicionDeCazador(id, p) {
   if (!sala || id === sala.yo) return;
   if (!p) {
@@ -625,13 +642,14 @@ function pintarHudSala() {
   if (hud.hidden || !sala) return;
   const filas = sala.jugadores.map(j => ({ j, mio: j.id === sala.yo, aqui: j.id === sala.yo || cazadores.has(j.id) }))
     .map(({ j, mio, aqui }) => ({ ...j, mio, aqui, pt: mio ? juego.puntos() : (cazadores.get(j.id)?.pt ?? ultimoMarcador?.find(f => f.id === j.id)?.puntos ?? 0) }));
+  filas.sort((a, b) => b.pt - a.pt || a.id - b.id);   // el que va ganando, arriba
   const clave = JSON.stringify(filas.map(f => [f.id, f.nombre, f.pt, f.aqui]));
   if (clave === hudSalaClave) return;
   hudSalaClave = clave;
   hud.innerHTML = '';
   for (const f of filas) {
     const li = document.createElement('li'), n = document.createElement('span'), pt = document.createElement('b');
-    li.className = f.aqui ? '' : 'fuera';
+    li.className = (f.aqui ? '' : 'fuera ') + (f.mio ? 'yo' : '');
     li.insertAdjacentHTML('afterbegin', `<i class="sombrero ${f.color}"></i>`);
     n.textContent = f.nombre; pt.textContent = f.pt;
     li.append(n, pt);
@@ -695,6 +713,8 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
       actualizarHUD();
     },
     daño() { destello('rojo'); },
+    reclamar: enSala ? o => reclamarTesoro(o) : undefined,
+    solto: enSala ? o => sala?.soltar(o.n, o.x, o.z) : undefined,
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     reconstruir: () => render.construir(juego.mapa),
