@@ -1,6 +1,7 @@
 // Convierte la definición de una mazmorra (datos/mazmorras.js) en casillas y objetos.
 
 import { conLaberinto, conZonas, azarConSemilla } from './laberinto.js';
+import { colocarHitos } from './hitos.js';
 
 // tipo: muro | vacio | suelo | puerta | secreto | sello | tablilla | aviso | salida
 // Peligros en el suelo: trampa 'pinchos' (suben y bajan), peligro 'lava' (quema) y 'abismo' (caída mortal).
@@ -115,6 +116,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
     solida(x, y) {
       const c = this.celda(x, y);
       if (!c) return true;
+      if (c.estatua) return true;
       if (SOLIDOS_FIJOS.has(c.tipo)) return true;
       if (MOVILES.has(c.tipo)) return c.abierto < 0.9;
       return false;
@@ -181,5 +183,9 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
       if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.6 * (1 - d / 4.5)));
     }
   }
+
+  // Pinturas, relieves y estatuas en las salas de los laberintos (con su propio azar, para no
+  // cambiar la mazmorra que sale de la semilla).
+  mapa.hitos = colocarHitos(mapa, def.salas || [], azarConSemilla(semilla ^ 0x5bd1e995));
   return mapa;
 }

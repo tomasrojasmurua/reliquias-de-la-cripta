@@ -6,14 +6,22 @@ import { casilla, COLS, FILAS } from './texturas.js';
 import { MOVILES } from './mapa.js';
 
 export const ALTO_MURO = 1.25;
-const FLOTANTES = 8; // x y z, u v, col fila, luz
+const FLOTANTES = 11; // x y z, u v, col fila, luz, matiz r g b
+
+// Cada zona tiñe sutilmente sus muros (y algo menos su suelo y su techo) para notar al cruzar a otra:
+// la primera queda como está, la segunda más ocre, la tercera más fría y la cámara extra rojiza.
+const MATICES = [[1, 1, 1], [1.11, 0.97, 0.79], [0.84, 0.97, 1.14], [1.1, 0.85, 0.93]];
+const NEUTRO = [1, 1, 1];
+let matiz = NEUTRO;   // el que llevan los vértices que añade quad()
+const matizMuro = zona => MATICES[zona % MATICES.length] || NEUTRO;
+const matizSuelo = zona => matizMuro(zona).map(c => 1 + (c - 1) * 0.5);
 
 const VS = `
-attribute vec3 aPos; attribute vec2 aUV; attribute vec2 aTile; attribute float aLuz;
+attribute vec3 aPos; attribute vec2 aUV; attribute vec2 aTile; attribute float aLuz; attribute vec3 aMatiz;
 uniform mat4 uMVP;
-varying vec2 vUV; varying vec2 vTile; varying float vLuz; varying vec3 vPos;
+varying vec2 vUV; varying vec2 vTile; varying float vLuz; varying vec3 vPos; varying vec3 vMatiz;
 void main() {
-  vUV = aUV; vTile = aTile; vLuz = aLuz; vPos = aPos;
+  vUV = aUV; vTile = aTile; vLuz = aLuz; vPos = aPos; vMatiz = aMatiz;
   gl_Position = uMVP * vec4(aPos, 1.0);
 }`;
 
@@ -21,7 +29,7 @@ const FS = `
 precision mediump float;
 uniform sampler2D uTex; uniform vec2 uCasilla; uniform vec3 uOjo;
 uniform float uLinterna; uniform float uFogonazo; uniform float uBandas; uniform vec3 uTinte;
-varying vec2 vUV; varying vec2 vTile; varying float vLuz; varying vec3 vPos;
+varying vec2 vUV; varying vec2 vTile; varying float vLuz; varying vec3 vPos; varying vec3 vMatiz;
 void main() {
   vec2 uv = clamp(vUV, 0.5 / 64.0, 1.0 - 0.5 / 64.0);
   vec4 c = texture2D(uTex, (vTile + uv) * uCasilla);
@@ -35,7 +43,7 @@ void main() {
   if (uBandas > 0.5) { sector = floor(sector * 20.0 + 0.5) / 20.0; ant = floor(ant * 20.0 + 0.5) / 20.0; }
   vec3 luz = sector * uTinte + ant * vec3(1.0, 0.74, 0.46) + fog * vec3(1.0, 0.9, 0.7);
   luz = mix(luz, vec3(1.15), emisivo);
-  gl_FragColor = vec4(c.rgb * clamp(luz, vec3(0.03), vec3(1.4)), 1.0);
+  gl_FragColor = vec4(c.rgb * vMatiz * clamp(luz, vec3(0.03), vec3(1.4)), 1.0);
 }`;
 
 function compilar(gl, tipo, src) {
@@ -49,7 +57,7 @@ function compilar(gl, tipo, src) {
 // Añade un rectángulo vertical o tumbado: p0 abajo-izq, p1 abajo-der, p2 arriba-der, p3 arriba-izq.
 function quad(arr, p0, p1, p2, p3, tile, luz, v0 = 1, v1 = 0) {
   const vs = [[p0, 0, v0], [p1, 1, v0], [p2, 1, v1], [p0, 0, v0], [p2, 1, v1], [p3, 0, v1]];
-  for (const [p, u, v] of vs) arr.push(p[0], p[1], p[2], u, v, tile[0], tile[1], luz);
+  for (const [p, u, v] of vs) arr.push(p[0], p[1], p[2], u, v, tile[0], tile[1], luz, matiz[0], matiz[1], matiz[2]);
 }
 
 // Caras de un bloque (x, y) hacia las casillas abiertas vecinas. y0/y1: altura del bloque.
@@ -109,6 +117,7 @@ export class Render {
     this.loc = {
       aPos: gl.getAttribLocation(p, 'aPos'), aUV: gl.getAttribLocation(p, 'aUV'),
       aTile: gl.getAttribLocation(p, 'aTile'), aLuz: gl.getAttribLocation(p, 'aLuz'),
+      aMatiz: gl.getAttribLocation(p, 'aMatiz'),
       uMVP: gl.getUniformLocation(p, 'uMVP'), uTex: gl.getUniformLocation(p, 'uTex'),
       uCasilla: gl.getUniformLocation(p, 'uCasilla'), uOjo: gl.getUniformLocation(p, 'uOjo'),
       uLinterna: gl.getUniformLocation(p, 'uLinterna'), uFogonazo: gl.getUniformLocation(p, 'uFogonazo'),
@@ -153,6 +162,7 @@ export class Render {
         for (const [dx, dy] of VECINOS) {
           const v = mapa.celda(x + dx, y + dy);
           if (!v || !abierta(x + dx, y + dy)) continue;
+          matiz = matizMuro(v.zona);
           tramos(v.piso, v.techoY, (y0, y1, k) => {
             const antes = arr.length;
             cara(arr, x, y, dx, dy, k === 0 ? casilla(c.tex) : texArriba, y0, y1, luzCara(v, dx));
@@ -165,9 +175,11 @@ export class Render {
       const ts = casilla(c.suelo), tt = casilla(c.techo);
       const ys = c.piso, yt = c.techoY;
       const hondo = c.piso < -1;
+      matiz = matizSuelo(c.zona);
       quad(arr, [x, ys, y + 1], [x + 1, ys, y + 1], [x + 1, ys, y], [x, ys, y], ts, hondo ? 0.25 : c.luz);
       quad(arr, [x, yt, y], [x + 1, yt, y], [x + 1, yt, y + 1], [x, yt, y + 1], tt, Math.min(c.luz, 1) * 0.85);
       const texDesnivel = casilla(c.muroDesnivel || mapa.def.muro);
+      matiz = matizMuro(c.zona);
       for (const [dx, dy] of VECINOS) {
         const v = mapa.celda(x + dx, y + dy);
         if (!v || !abierta(x + dx, y + dy)) continue;
@@ -182,6 +194,16 @@ export class Render {
         if (v.techoY > c.techoY) tramos(c.techoY, v.techoY, (y0, y1) => cara(arr, x, y, dx, dy, texDesnivel, y0, y1, luzCara(v, dx) * 0.8));
       }
     }
+    // murales de los hitos (js/hitos.js): una lámina con transparencia apenas delante del muro
+    for (const h of mapa.hitos || []) {
+      if (h.tipo !== 'mural') continue;
+      const v = mapa.celda(h.x + h.dx, h.y + h.dy);
+      matiz = matizMuro(v.zona);
+      const antes = arr.length;
+      cara(arr, h.x, h.y, h.dx, h.dy, casilla(h.tex), v.piso, v.piso + ALTO_MURO, luzCara(v, h.dx));
+      for (let i = antes; i < arr.length; i += FLOTANTES) { arr[i] += h.dx * 0.02; arr[i + 2] += h.dy * 0.02; }
+    }
+    matiz = NEUTRO;
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufFijo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
@@ -203,6 +225,7 @@ export class Render {
     gl.enableVertexAttribArray(L.aUV); gl.vertexAttribPointer(L.aUV, 2, gl.FLOAT, false, s, 12);
     gl.enableVertexAttribArray(L.aTile); gl.vertexAttribPointer(L.aTile, 2, gl.FLOAT, false, s, 20);
     gl.enableVertexAttribArray(L.aLuz); gl.vertexAttribPointer(L.aLuz, 1, gl.FLOAT, false, s, 28);
+    gl.enableVertexAttribArray(L.aMatiz); gl.vertexAttribPointer(L.aMatiz, 3, gl.FLOAT, false, s, 32);
   }
 
   // cam: {x, y, z, yaw, pitch}; sprites: [{x, z, ancho, alto, tex, espejo, luz}]
