@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Ídolo dorado agazapado sobre su pedestal, iluminado por un haz de luz en la cripta. -->
+  <defs>
+    <radialGradient id="fondo" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#3a2410"/>
+      <stop offset=".55" stop-color="#1c1209"/>
+      <stop offset="1" stop-color="#0c0805"/>
+    </radialGradient>
+    <linearGradient id="haz" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe2a0" stop-opacity=".38"/>
+      <stop offset="1" stop-color="#ffb84a" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffb43c" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#ffb43c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="oro" gradientUnits="userSpaceOnUse" x1="158" y1="0" x2="354" y2="0">
+      <stop offset="0" stop-color="#7a4d0c"/>
+      <stop offset=".22" stop-color="#e9b43c"/>
+      <stop offset=".38" stop-color="#fff0b0"/>
+      <stop offset=".55" stop-color="#f0bd45"/>
+      <stop offset=".85" stop-color="#a86f14"/>
+      <stop offset="1" stop-color="#5e3a07"/>
+    </linearGradient>
+    <linearGradient id="oroV" gradientUnits="userSpaceOnUse" x1="0" y1="80" x2="0" y2="400">
+      <stop offset="0" stop-color="#ffe9a0" stop-opacity=".5"/>
+      <stop offset=".3" stop-color="#ffd060" stop-opacity="0"/>
+      <stop offset=".52" stop-color="#3a2204" stop-opacity=".35"/>
+      <stop offset=".6" stop-color="#ffd060" stop-opacity="0"/>
+      <stop offset="1" stop-color="#3a2204" stop-opacity=".6"/>
+    </linearGradient>
+    <linearGradient id="piedra" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a7a64"/>
+      <stop offset="1" stop-color="#3e342a"/>
+    </linearGradient>
+    <g id="cuerpo">
+      <!-- piernas agazapadas -->
+      <path d="M176 392 C164 352 170 300 196 282 L316 282 C342 300 348 352 336 392 Z"/>
+      <!-- torso -->
+      <path d="M206 300 C200 262 214 238 256 236 C298 238 312 262 306 300 Z"/>
+      <!-- cabeza -->
+      <path d="M190 120 C190 92 222 80 256 80 C290 80 322 92 322 120 L326 190 C326 232 296 252 256 252 C216 252 186 232 186 190 Z"/>
+      <!-- orejeras -->
+      <ellipse cx="180" cy="176" rx="18" ry="26"/>
+      <ellipse cx="332" cy="176" rx="18" ry="26"/>
+    </g>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#fondo)"/>
+
+  <!-- nicho de piedra -->
+  <path d="M120 512 V196 C120 110 184 58 256 58 C328 58 392 110 392 196 V512 Z" fill="#120b06" stroke="#4a3a28" stroke-width="10"/>
+  <path d="M120 230 H392 M120 300 H392 M120 370 H392" stroke="#000" stroke-opacity=".25" stroke-width="3"/>
+
+  <!-- haz de luz desde arriba -->
+  <path d="M206 0 H306 L376 470 H136 Z" fill="url(#haz)"/>
+  <ellipse cx="256" cy="230" rx="170" ry="190" fill="url(#aura)"/>
+
+  <!-- pedestal -->
+  <rect x="150" y="402" width="212" height="22" rx="3" fill="#a8977c"/>
+  <rect x="164" y="424" width="184" height="50" fill="url(#piedra)"/>
+  <path d="M164 446 H348" stroke="#2a2018" stroke-width="3"/>
+  <path d="M220 424 V446 M292 446 V474" stroke="#2a2018" stroke-width="3"/>
+
+  <!-- sombra del ídolo -->
+  <ellipse cx="256" cy="404" rx="96" ry="9" fill="#000" opacity=".45"/>
+
+  <!-- silueta: contorno oscuro, oro, y luz de arriba -->
+  <use href="#cuerpo" fill="#3a2204" stroke="#3a2204" stroke-width="12" stroke-linejoin="round"/>
+  <use href="#cuerpo" fill="url(#oro)"/>
+  <use href="#cuerpo" fill="url(#oroV)"/>
+
+  <g fill="none" stroke="#5e3a07" stroke-linecap="round" stroke-linejoin="round">
+    <!-- tocado: bandas en la frente -->
+    <path d="M194 112 C230 100 282 100 318 112" stroke-width="5"/>
+    <path d="M192 128 C230 117 282 117 320 128" stroke-width="3" opacity=".7"/>
+    <!-- orejeras: aro interior -->
+    <circle cx="180" cy="176" r="9" stroke-width="4"/>
+    <circle cx="332" cy="176" r="9" stroke-width="4"/>
+    <!-- cejas pesadas -->
+    <path d="M202 146 C216 134 240 134 252 144" stroke-width="6"/>
+    <path d="M260 144 C272 134 296 134 310 146" stroke-width="6"/>
+    <!-- nariz ancha -->
+    <path d="M256 146 V186 M236 194 C242 186 250 200 256 198 C262 200 270 186 276 194" stroke-width="5"/>
+    <!-- brazos que abrazan las rodillas -->
+    <path d="M206 262 C188 290 188 330 204 352" stroke-width="5"/>
+    <path d="M306 262 C324 290 324 330 308 352" stroke-width="5"/>
+    <!-- línea entre las piernas -->
+    <path d="M256 306 V392" stroke-width="4"/>
+    <!-- vientre -->
+    <path d="M226 290 C240 300 272 300 286 290" stroke-width="3" opacity=".7"/>
+    <!-- pies -->
+    <path d="M198 392 C200 380 222 378 228 392 M284 392 C290 378 312 380 314 392" stroke-width="4"/>
+  </g>
+
+  <!-- ojos almendrados y abultados, entrecerrados -->
+  <g fill="url(#oro)" stroke="#5e3a07" stroke-width="4">
+    <path d="M204 168 C214 150 242 150 252 168 C242 184 214 184 204 168 Z"/>
+    <path d="M260 168 C270 150 298 150 308 168 C298 184 270 184 260 168 Z"/>
+  </g>
+  <path d="M212 169 C222 162 234 162 244 169 C234 173 222 173 212 169 Z" fill="#1e1103"/>
+  <path d="M268 169 C278 162 290 162 300 169 C290 173 278 173 268 169 Z" fill="#1e1103"/>
+  <path d="M214 160 C222 155 232 155 240 158" stroke="#fffbe6" stroke-width="3" stroke-linecap="round" fill="none" opacity=".8"/>
+  <path d="M270 160 C278 155 288 155 296 158" stroke="#fffbe6" stroke-width="3" stroke-linecap="round" fill="none" opacity=".5"/>
+
+  <!-- boca abierta en mueca, con dientes arriba y abajo -->
+  <path d="M222 220 C230 206 282 206 290 220 C286 236 226 236 222 220 Z" fill="#1e1103" stroke="#5e3a07" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M232 213 H280" stroke="#f6d27a" stroke-width="6" stroke-dasharray="5 3"/>
+  <path d="M236 228 H276" stroke="#c9963a" stroke-width="5" stroke-dasharray="5 3"/>
+
+  <!-- manos sobre las rodillas -->
+  <g fill="url(#oro)" stroke="#5e3a07" stroke-width="4">
+    <ellipse cx="214" cy="352" rx="22" ry="17"/>
+    <ellipse cx="298" cy="352" rx="22" ry="17"/>
+  </g>
+  <path d="M202 346 v12 M212 344 v15 M222 345 v13 M290 345 v13 M300 344 v15 M310 346 v12" stroke="#5e3a07" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- brillos -->
+  <path d="M214 98 C228 90 244 88 256 88" stroke="#fffbe6" stroke-width="5" stroke-linecap="round" fill="none" opacity=".85"/>
+  <ellipse cx="226" cy="268" rx="6" ry="14" fill="#fffbe6" opacity=".55" transform="rotate(-20 226 268)"/>
+  <path d="M190 330 C186 316 188 302 194 292" stroke="#fffbe6" stroke-width="4" stroke-linecap="round" fill="none" opacity=".5"/>
+</svg>
