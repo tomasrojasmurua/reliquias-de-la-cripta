@@ -68,7 +68,7 @@ const ARMAS = {
   latigo: { nombre: 'Látigo', espera: 0.55, alcance: 1.9, daño: [14, 22] },
   revolver: { nombre: 'Revólver', espera: 0.42, alcance: 40, daño: [30, 48] },
   // la escopeta: siete perdigones que se abren con la distancia; de cerca es lo más fuerte que hay
-  escopeta: { nombre: 'Escopeta', espera: 0.85, alcance: 16, daño: [6, 9], perdigones: 7 },
+  escopeta: { nombre: 'Escopeta', espera: 0.85, alcance: 16, daño: [9, 12], perdigones: 7 },
   // la Tommy gun: ráfaga mientras se mantiene el disparo; cada bala pega poco y se dispersa un poco
   tommy: { nombre: 'Tommy gun', espera: 0.08, alcance: 28, daño: [4, 7], dispersion: 0.045 },
 };
