@@ -3,7 +3,7 @@
 
 export const T = 64;
 export const COLS = 16;
-export const FILAS = 16;
+export const FILAS = 20;
 
 const casillas = {};   // nombre -> [col, fila]
 const dibujos = [];

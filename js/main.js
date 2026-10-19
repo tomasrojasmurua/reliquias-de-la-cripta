@@ -281,7 +281,9 @@ function pausar() {
 function abrirPanelTablilla(a) {
   pausar();
   const resueltas = new Set(progreso.pistas);
-  if (!a.estado) a.estado = { titulo: a.titulo, pista: elegirPista(a.dificultad, resueltas), nivel: 0, vistas: new Set() };
+  // con tantas tablillas por mazmorra, ninguna repite la pista que ya muestra otra
+  const enUso = () => new Set(Object.values(juego.mapa.acertijos).filter(o => o !== a && o.estado).map(o => o.estado.pista.id));
+  if (!a.estado) a.estado = { titulo: a.titulo, pista: elegirPista(a.dificultad, resueltas, enUso()), nivel: 0, vistas: new Set() };
   const panel = $('#panel');
   abrirTablilla(panel, a.estado, {
     alResolver(p) {
@@ -293,7 +295,7 @@ function abrirPanelTablilla(a) {
     alCerrar() { panel.hidden = true; reanudar(); },
     nuevaPista() {
       a.estado.vistas.add(a.estado.pista.id);
-      a.estado.pista = elegirPista(a.dificultad, resueltas, a.estado.vistas);
+      a.estado.pista = elegirPista(a.dificultad, resueltas, new Set([...a.estado.vistas, ...enUso()]));
       a.estado.nivel = 0;
     },
   });
@@ -375,8 +377,8 @@ function actualizarHUD() {
   hz.hidden = !z;
   if (z) {
     const txt = `${z.halladas} de ${z.total} reliquia${z.total === 1 ? '' : 's'}`;
-    if (hz.dataset.clave !== z.numero + txt) {
-      hz.dataset.clave = z.numero + txt;
+    if (hz.dataset.clave !== z.numero + z.nombre + txt) {
+      hz.dataset.clave = z.numero + z.nombre + txt;
       hz.children[0].textContent = `Zona ${z.numero}`;
       hz.children[1].textContent = `· ${z.nombre}:`;
       hz.children[2].textContent = txt;
