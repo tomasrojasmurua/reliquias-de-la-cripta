@@ -118,6 +118,23 @@ function revisarMapa(def, m, donde, juego) {
   const escopetas = m.objetos.filter(o => o.tipo === 'escopeta');
   if (escopetas.length !== 1) error(donde, `hay ${escopetas.length} escopetas (debe haber una)`);
   else if (!llega(Math.floor(escopetas[0].x), Math.floor(escopetas[0].z))) error(donde, 'no se puede llegar a la escopeta');
+  // la Tommy gun, las rocas y los brujos: de la segunda zona en adelante (y solo ahí)
+  const zonasN = m.regiones?.length || 1;
+  const tommys = m.objetos.filter(o => o.tipo === 'tommy');
+  if (zonasN >= 2) {
+    if (tommys.length !== 1) error(donde, `hay ${tommys.length} Tommy guns (debe haber una)`);
+    else if (!llega(Math.floor(tommys[0].x), Math.floor(tommys[0].z))) error(donde, 'no se puede llegar a la Tommy gun');
+    if (!(m.rocas || []).length) error(donde, 'no tiene rocas rodantes');
+  } else if (tommys.length || (m.rocas || []).length || m.enemigos.some(e => e.tipo === 'brujo')) error(donde, 'tiene Tommy gun, rocas o brujos en una mazmorra de una sola zona');
+  for (const r of m.rocas || []) {
+    const fin = [r.x0 + r.dx * r.largo, r.z0 + r.dz * r.largo];
+    for (const [x, z] of [[r.x0 + r.dx * 0.5, r.z0 + r.dz * 0.5], fin]) {
+      const c = m.celda(Math.floor(x), Math.floor(z));
+      if (!c || SOLIDOS.has(c.tipo)) error(donde, `una roca rodante se sale del pasillo en (${x.toFixed(1)}, ${z.toFixed(1)})`);
+    }
+    if (Math.hypot(r.x0 - m.inicio.x, r.z0 - m.inicio.z) < 8) error(donde, 'una roca rueda demasiado cerca del inicio');
+  }
+  for (const e of m.enemigos) if (e.tipo === 'brujo' && (m.celda(Math.floor(e.x), Math.floor(e.z))?.zona || 0) < 1) error(donde, 'un brujo en la primera zona');
   if (m.totalSecretos < 1) error(donde, 'no tiene ningún pasadizo secreto');
 
   // el guardián está en su puesto y se llega a él

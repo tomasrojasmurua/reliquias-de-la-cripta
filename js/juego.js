@@ -26,6 +26,8 @@ const ENEMIGOS = {
   jaguar: { vida: 50, vel: 2.3, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 14 },
   // los sectarios además lanzan bolas de fuego desde lejos (se pueden esquivar)
   sectario: { vida: 40, vel: 1.9, daño: [8, 13], alcance: 0.95, espera: 0.9, vista: 13, fuego: [9, 14] },
+  // el brujo lanza fuego como el sectario y, si te le acercas o lo hieren, se desvanece y reaparece a distancia
+  brujo: { vida: 38, vel: 1.5, daño: [7, 11], alcance: 0.95, espera: 1.0, vista: 13, fuego: [10, 15], teletransporta: true },
   caballero: { vida: 95, vel: 1.1, daño: [12, 18], alcance: 1.1, espera: 1.3, vista: 12 },
   // bestias que se sueltan al azar en cada partida (ver js/fauna.js); `tam`: tamaño del sprite
   escorpion: { vida: 70, vel: 1.5, daño: [10, 16], alcance: 1.15, espera: 1.1, vista: 12, tam: 1.2 },
@@ -67,9 +69,15 @@ const ARMAS = {
   revolver: { nombre: 'Revólver', espera: 0.42, alcance: 40, daño: [30, 48] },
   // la escopeta: siete perdigones que se abren con la distancia; de cerca es lo más fuerte que hay
   escopeta: { nombre: 'Escopeta', espera: 0.85, alcance: 16, daño: [6, 9], perdigones: 7 },
+  // la Tommy gun: ráfaga mientras se mantiene el disparo; cada bala pega poco y se dispersa un poco
+  tommy: { nombre: 'Tommy gun', espera: 0.08, alcance: 28, daño: [5, 8], dispersion: 0.045 },
 };
-const ORDEN_ARMAS = ['latigo', 'revolver', 'escopeta'];
+const ORDEN_ARMAS = ['latigo', 'revolver', 'escopeta', 'tommy'];
 const TUBO = 2, MAX_CARTUCHOS = 24;
+const CARGADOR = 30, MAX_TAMBOR = 150;
+
+// Rocas rodantes (ver `rocas` en js/mapa.js): ruedan de un extremo a otro de un pasillo largo sin parar. Salen solo del reloj.
+const ROCAS = { vel: 3.4, daño: [24, 32], radio: 0.55, tam: 1.05 };
 
 // Trampas de dardos (ver `dardos` en js/mapa.js): un muro al fondo de un pasillo recto que dispara a lo largo de él.
 const DARDOS = { ciclo: 3.4, vel: 8, daño: [8, 12], radio: 0.32 };
@@ -80,7 +88,7 @@ const azar = ([a, b]) => a + Math.random() * (b - a);
 const SALPICA = {
   momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: 'hueso', jaguar: 'sangre', sectario: 'sangre', caballero: 'chispa',
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
-  escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso',
+  escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso', brujo: 'sangre',
 };
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
 // al empezar la partida y al reaparecer, para que nadie espere a otro en la entrada.
@@ -110,7 +118,7 @@ export class Juego {
     const m = this.mapa;
     this.j = {
       x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
-      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, barreta: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
+      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, cargador: 0, reservaT: 0, barreta: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
@@ -128,6 +136,7 @@ export class Juego {
     this.particulas = [];
     this.proyectiles = [];
     this.dardos = (m.dardos || []).map(d => ({ ...d, prev: 0, golpe: -1 }));
+    this.rocas = (m.rocas || []).map(r => ({ ...r, golpe: 0 }));
     this.terminado = false;
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
     // zonas: cuántas reliquias tiene cada una (para el HUD y el automapa)
@@ -379,7 +388,10 @@ export class Juego {
     if (j.recargando > 0) {
       j.recargando -= dt;
       if (j.recargando <= 0) {
-        if (j.recargaArma === 'escopeta') {
+        if (j.recargaArma === 'tommy') {
+          const n = Math.min(CARGADOR - j.cargador, j.reservaT);
+          j.cargador += n; j.reservaT -= n;
+        } else if (j.recargaArma === 'escopeta') {
           const n = Math.min(TUBO - j.tubo, j.reservaE);
           j.tubo += n; j.reservaE -= n;
         } else {
@@ -393,6 +405,7 @@ export class Juego {
     if (p.has('arma1')) this.cambiarArma('latigo');
     if (p.has('arma2')) this.cambiarArma('revolver');
     if (p.has('arma3')) this.cambiarArma('escopeta');
+    if (p.has('arma4')) this.cambiarArma('tommy');
     if (p.has('cambiarArma')) this.cambiarArma(this.siguienteArma());
     if (p.has('recargar')) this.recargar();
     if (p.has('usar')) this.usar();
@@ -405,6 +418,7 @@ export class Juego {
     this.recoger();
     this.peligros(dt);
     this.actualizarDardos();
+    this.actualizarRocas(dt);
     this.enemigosAunque(dt);
     this.actualizarParticulas(dt);
     this.actualizarAmbiente(dt);
@@ -479,6 +493,53 @@ export class Juego {
     const flecha = !!e.flechas, vel = flecha ? VEL_FLECHA : VEL_FUEGO;
     this.proyectiles.push({ x: e.x + dx / d * 0.4, z: e.z + dz / d * 0.4, y: e.y + 0.55, vx: dx / d * vel, vz: dz / d * vel, daño: flecha ? e.flechas : e.fuego, vida: 4, flecha });
     sonar(flecha ? 'flecha' : 'fuego');
+  }
+
+  // El brujo se desvanece y reaparece a 4.5–11 m de ti, con línea de vista y sobre suelo firme. false si no halló dónde.
+  teletransportar(e, j) {
+    const m = this.mapa, sitios = [];
+    for (let cz = Math.floor(j.z) - 11; cz <= Math.floor(j.z) + 11; cz++) for (let cx = Math.floor(j.x) - 11; cx <= Math.floor(j.x) + 11; cx++) {
+      const d = Math.hypot(cx + 0.5 - j.x, cz + 0.5 - j.z);
+      if (d < 4.5 || d > 11) continue;
+      const c = m.celda(cx, cz);
+      if (!c || c.tipo !== 'suelo' || c.peligro || c.trampa || m.solida(cx, cz) || Math.abs(m.piso(cx, cz) - j.y) > 0.4) continue;
+      sitios.push([cx + 0.5, cz + 0.5]);
+    }
+    for (let k = 0; k < 30 && sitios.length; k++) {
+      const [x, z] = sitios.splice(Math.floor(Math.random() * sitios.length), 1)[0], cx = Math.floor(x), cz = Math.floor(z);
+      if (!this.seVe({ x, z }, j)) continue;
+      this.salpicar(e.x, e.y + 0.6, e.z, 'polvo', 8, 0.9); this.salpicar(e.x, e.y + 0.6, e.z, 'chispa', 5, 1.2);
+      e.x = x; e.z = z; e.y = m.piso(cx, cz); e.visto = null; e.espera = Math.max(e.espera, 0.9);
+      this.salpicar(x, e.y + 0.6, z, 'chispa', 6, 1.2);
+      if (!this.soloRemotos) sonar('teleport');
+      return true;
+    }
+    return false;
+  }
+
+  // Dónde está la roca de una trampa ahora: va y viene por su pasillo a velocidad constante.
+  rocaEn(r) {
+    const largo = r.largo, ciclo = 2 * largo / ROCAS.vel, u = ((this.tiempo + r.fase) % ciclo) * ROCAS.vel;
+    const s = u < largo ? u : 2 * largo - u;
+    return { x: r.x0 + r.dx * s, z: r.z0 + r.dz * s, y: r.y, avanza: u < largo };
+  }
+
+  actualizarRocas(dt) {
+    const j = this.j;
+    for (const r of this.rocas) {
+      r.golpe = Math.max(0, r.golpe - dt);
+      const a = this.rocaEn(r);
+      const cerca = Math.hypot(a.x - j.x, a.z - j.z);
+      if (cerca < 9 && !j.muerto) {
+        r.retumbo = (r.retumbo || 0) - dt;
+        if (r.retumbo <= 0) { r.retumbo = 0.55; sonar('roca'); }
+      }
+      if (j.muerto || r.golpe > 0 || cerca > ROCAS.radio + RADIO_JUGADOR || Math.abs(a.y - j.y) > 0.7) continue;
+      r.golpe = 1.6;
+      this.temblor = Math.max(this.temblor, 0.4);
+      this.salpicar(a.x, a.y + 0.5, a.z, 'polvo', 8, 1);
+      this.dañarJugador(azar(ROCAS.daño), 'Te aplastó una roca rodante.');
+    }
   }
 
   actualizarProyectiles(dt) {
@@ -573,7 +634,7 @@ export class Juego {
 
   // La siguiente arma que tienes, en el orden látigo, revólver, escopeta.
   siguienteArma() {
-    const j = this.j, tengo = ORDEN_ARMAS.filter(a => a === 'latigo' || (a === 'revolver' && j.tieneRevolver) || (a === 'escopeta' && j.tieneEscopeta));
+    const j = this.j, tengo = ORDEN_ARMAS.filter(a => a === 'latigo' || (a === 'revolver' && j.tieneRevolver) || (a === 'escopeta' && j.tieneEscopeta) || (a === 'tommy' && j.tieneTommy));
     return tengo[(tengo.indexOf(j.arma) + 1) % tengo.length];
   }
 
@@ -581,12 +642,19 @@ export class Juego {
     const j = this.j;
     if (a === 'revolver' && !j.tieneRevolver) { this.ev.mensaje('Aún no tienes el revólver.'); return; }
     if (a === 'escopeta' && !j.tieneEscopeta) { this.ev.mensaje('Aún no tienes la escopeta.'); return; }
+    if (a === 'tommy' && !j.tieneTommy) { this.ev.mensaje('Aún no tienes la Tommy gun.'); return; }
     if (j.arma !== a) { j.arma = a; j.espera = 0.3; j.recargando = 0; }
   }
 
   recargar() {
     const j = this.j;
     if (j.recargando > 0) return;
+    if (j.arma === 'tommy') {
+      if (j.cargador === CARGADOR) return;
+      if (!j.reservaT) { this.ev.mensaje('No te quedan balas de Tommy.'); return; }
+      j.recargando = 1.6; j.recargaArma = 'tommy'; sonar('recargaT');
+      return;
+    }
     if (j.arma === 'escopeta') {
       if (j.tubo === TUBO) return;
       if (!j.reservaE) { this.ev.mensaje('No te quedan cartuchos.'); return; }
@@ -603,7 +671,19 @@ export class Juego {
     if (j.espera > 0 || j.recargando > 0) return;
     const arma = ARMAS[j.arma];
     if (j.arma === 'escopeta') return this.dispararEscopeta(arma);
-    if (j.arma === 'revolver') {
+    const desv = j.arma === 'tommy' ? (Math.random() - 0.5) * 2 * arma.dispersion : 0;
+    if (j.arma === 'tommy') {
+      if (!j.cargador) {
+        if (j.reservaT) this.recargar(); else { sonar('vacio'); j.espera = 0.3; }
+        return;
+      }
+      j.cargador--;
+      sonar('tommy');
+      this.fogonazo = 0.8;
+      this.temblor = Math.max(this.temblor, 0.05);
+      this.ev.vibrar?.(10);
+      for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 14) e.estado = 'caza';
+    } else if (j.arma === 'revolver') {
       if (!j.tambor) {
         if (j.reserva) this.recargar(); else { sonar('vacio'); j.espera = 0.3; }
         return;
@@ -620,7 +700,7 @@ export class Juego {
     j.espera = arma.espera; j.ataque = arma.espera;
 
     // Impacto: el enemigo más cercano dentro del cono, antes del primer muro (puntería automática vertical, como en Doom).
-    const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
+    const fx = Math.cos(j.yaw + desv), fz = Math.sin(j.yaw + desv);
     const muro = this.rayo(j.x, j.z, fx, fz, arma.alcance).dist;
     let mejor = null, mejorD = Infinity;
     for (const e of this.enemigos) {
@@ -639,7 +719,7 @@ export class Juego {
       const d = muro - 0.05;
       const ix = j.x + fx * d, iz = j.z + fz * d, iy = j.y + OJO + Math.tan(j.cabeceo) * d;
       this.salpicar(ix, iy, iz, 'polvo', 4, 0.8);
-      if (j.arma === 'revolver') this.salpicar(ix, iy, iz, 'chispa', 3, 1.2);
+      if (j.arma === 'revolver' || j.arma === 'tommy') this.salpicar(ix, iy, iz, 'chispa', 3, 1.2);
       else setTimeout(() => sonar('golpe'), 90);
     }
   }
@@ -756,6 +836,7 @@ export class Juego {
     }
     e.vida -= daño;
     e.golpe = 0.12;
+    if (e.teletransporta && e.vida > 0 && Math.random() < 0.3) e.tTele = Math.min(e.tTele ?? 0, 0.2);   // herido, se escabulle
     this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
     if (e.vida <= 0) {
       e.estado = 'muerto'; e.tMuerte = 0; this.abatidos++; this.voz(e, 'muerte');
@@ -918,6 +999,15 @@ export class Juego {
         const n = this.mods.has('escasez') ? 1 : TUBO;
         o.cogido = true; j.tieneEscopeta = true; j.tubo = n; j.arma = 'escopeta'; j.espera = 0.4;
         sonar('recoger'); this.ev.mensaje(`¡Una escopeta! Dos cañones, de cerca es devastadora. Cargada con ${n} cartucho${n === 1 ? '' : 's'}.`, 5);
+      } else if (o.tipo === 'tommy') {
+        const n = this.mods.has('escasez') ? 15 : CARGADOR, r = this.mods.has('escasez') ? 15 : 30;
+        o.cogido = true; j.tieneTommy = true; j.cargador = n; j.reservaT = Math.min(MAX_TAMBOR, j.reservaT + r); j.arma = 'tommy'; j.espera = 0.4;
+        sonar('recoger'); this.ev.mensaje(`¡Una Tommy gun! Mantén el disparo para la ráfaga. Cargador con ${n} balas.`, 5);
+      } else if (o.tipo === 'municionT') {
+        if (j.reservaT >= MAX_TAMBOR) continue;
+        const n = this.mods.has('escasez') ? 15 : 30;
+        o.cogido = true; j.reservaT = Math.min(MAX_TAMBOR, j.reservaT + n);
+        sonar('recoger'); this.ev.mensaje(`Un cargador de tambor (+${n}).`);
       } else if (o.tipo === 'cartuchos') {
         if (j.reservaE >= MAX_CARTUCHOS) continue;
         const n = this.mods.has('escasez') ? 3 : 6;
@@ -1116,6 +1206,10 @@ export class Juego {
         this.voz(e, 'ataque'); this.ev.mensaje(`¡${e.nombre} embiste!`, 1.5);
         continue;
       }
+      if (e.teletransporta) {
+        e.tTele = (e.tTele ?? 2) - dt;
+        if (loVe && e.tTele <= 0 && d < 5.5) e.tTele = this.teletransportar(e, j) ? 4 + Math.random() * 2 : 1;
+      }
       if (e.fuego && loVe && d > 2.2 && d < 11 && e.espera <= 0 && Math.random() < dt * 0.9) {
         e.estado = 'lanza'; e.t = 0.5; e.espera = 2.2 + Math.random() * 1.5;
         continue;
@@ -1254,6 +1348,10 @@ export class Juego {
     for (const d of this.dardos) {
       const a = this.dardoEn(d);
       if (a) s.push({ x: a.x, z: a.z, y: a.y - 0.08, ancho: 0.16, alto: 0.16, tex: 'dardo', luz: luzEn(a.x, a.z) });
+    }
+    for (const r of this.rocas) {
+      const a = this.rocaEn(r);
+      s.push({ x: a.x, z: a.z, y: a.y, ancho: ROCAS.tam, alto: ROCAS.tam, tex: 'roca_' + (Math.floor(this.tiempo * 6 * (a.avanza ? 1 : -1)) & 3), luz: luzEn(a.x, a.z) });
     }
     const parpadeo = this.tiempo * 9;
     for (const l of this.llamas) {

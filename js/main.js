@@ -355,10 +355,10 @@ aplicarControles();
 // En táctil no hay botón de recargar: el revólver se recarga solo al vaciarse o tras un momento sin atacar.
 function recargaAutomatica() {
   const j = juego.j;
-  const esc = j.arma === 'escopeta';
-  if (!document.body.classList.contains('tactil') || j.muerto || (j.arma !== 'revolver' && !esc) || j.recargando > 0) return;
-  const cargadas = esc ? j.tubo : j.tambor;
-  if (cargadas === (esc ? 2 : 6) || !(esc ? j.reservaE : j.reserva)) return;
+  const esc = j.arma === 'escopeta', tom = j.arma === 'tommy';
+  if (!document.body.classList.contains('tactil') || j.muerto || (j.arma !== 'revolver' && !esc && !tom) || j.recargando > 0) return;
+  const cargadas = tom ? j.cargador : esc ? j.tubo : j.tambor;
+  if (cargadas === (tom ? 30 : esc ? 2 : 6) || !(tom ? j.reservaT : esc ? j.reservaE : j.reserva)) return;
   if (!cargadas || performance.now() - entrada.ultimoAtaque > 1500) juego.recargar();
 }
 
@@ -1039,8 +1039,8 @@ function actualizarHUD() {
   const j = juego.j;
   $('#hud-vida').textContent = j.vida;
   $('#hud-vida').parentElement.classList.toggle('baja', j.vida <= 25);
-  $('#hud-arma').textContent = { revolver: 'Revólver', escopeta: 'Escopeta' }[j.arma] || 'Látigo';
-  $('#hud-balas').textContent = j.arma === 'escopeta' ? `${j.tubo} | ${j.reservaE}` : j.arma === 'revolver' || j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : j.tieneEscopeta ? `${j.tubo} | ${j.reservaE}` : '—';
+  $('#hud-arma').textContent = { revolver: 'Revólver', escopeta: 'Escopeta', tommy: 'Tommy gun' }[j.arma] || 'Látigo';
+  $('#hud-balas').textContent = j.arma === 'tommy' ? `${j.cargador} | ${j.reservaT}` : j.arma === 'escopeta' ? `${j.tubo} | ${j.reservaE}` : j.arma === 'revolver' || j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : j.tieneEscopeta ? `${j.tubo} | ${j.reservaE}` : '—';
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;
   if (juego.limite) {

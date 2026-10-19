@@ -190,6 +190,20 @@ const SONIDOS = {
     tono(110, 0.35, 0.7, 'sine', 0, 30);
     ruido(1.2, 400, 0.5, 0.18, 'lowpass', 0.15);
   },
+  tommy() {
+    ruido(0.04, 2800, 0.6, 0.55, 'highpass');
+    ruido(0.18, 1500, 0.8, 0.45, 'lowpass', 0, salida, 400);
+    tono(170, 0.1, 0.4, 'sine', 0, 55);
+  },
+  recargaT() {
+    // se saca el tambor, se mete otro y se monta el cerrojo
+    tono(300, 0.05, 0.14, 'square'); ruido(0.08, 1800, 2, 0.2, 'bandpass');
+    ruido(0.1, 900, 1, 0.25, 'lowpass', 0.6); tono(200, 0.08, 0.2, 'square', 0.62, 120);
+    tono(520, 0.04, 0.14, 'square', 1.2); ruido(0.05, 3000, 3, 0.2, 'bandpass', 1.2);
+    tono(260, 0.06, 0.2, 'square', 1.45, 150); ruido(0.08, 1200, 1, 0.3, 'lowpass', 1.45);
+  },
+  teleport() { tono(1400, 0.35, 0.16, 'sine', 0, 180); ruido(0.3, 4000, 2, 0.12, 'bandpass', 0.02, salida, 500); tono(180, 0.25, 0.14, 'triangle', 0.12, 900); },
+  roca() { ruido(0.6, 180, 1, 0.5, 'lowpass', 0, salida, 90); tono(52, 0.5, 0.35, 'sine', 0, 38); },
   recargaE() {
     // se abre la escopeta, caen los cartuchos, se cierra
     tono(420, 0.04, 0.14, 'square'); ruido(0.05, 2500, 3, 0.18, 'bandpass');
@@ -411,6 +425,7 @@ VOCES['escorpión'] = VOCES.escorpion;
 VOCES['murciélago'] = VOCES.murcielago;
 // los guardianes hablan como el enemigo de su mazmorra
 VOCES.arquero = VOCES.esqueleto;
+VOCES.brujo = VOCES.sectario;
 Object.assign(VOCES, { faraon: VOCES.momia, anubis: VOCES.momia, jarl: VOCES.draugr, capitan: VOCES.pirata, rey_jaguar: VOCES.jaguar, gran_sectario: VOCES.sectario, gran_caballero: VOCES.caballero });
 
 // Donde está la fuente: más lejos, más baja y más opaca; a un lado o al otro.

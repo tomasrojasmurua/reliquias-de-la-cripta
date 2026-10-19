@@ -22,6 +22,10 @@ const LEYENDA_BASE = {
   'w': { tipo: 'suelo', objeto: 'barreta' },
   'z': { tipo: 'suelo', objeto: 'escopeta' },
   'q': { tipo: 'suelo', objeto: 'cartuchos' },
+  'ɸ': { tipo: 'suelo', objeto: 'tommy' },
+  'ʠ': { tipo: 'suelo', objeto: 'municionT' },
+  // casilla por donde pasa una roca rodante (su pasillo se calcula más abajo)
+  'ŗ': { tipo: 'suelo', roca: true },
   // muro de una trampa de dardos: dispara a lo largo del pasillo recto que tiene delante
   'ð': { tipo: 'muro', tex: 'dardos', dardos: true },
   'm': { tipo: 'suelo', enemigo: 'momia' },
@@ -94,7 +98,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
         piso: 0, techoY: ALTO, // alturas del suelo y del techo de la casilla
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
-        antorcha: !!l.antorcha, dardos: !!l.dardos,
+        antorcha: !!l.antorcha, dardos: !!l.dardos, roca: !!l.roca,
         trampa: l.trampa || null, peligro: l.peligro || null, texto: l.texto || null,
         zona: 0,
       };
@@ -203,6 +207,25 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
     for (let k = 1; k <= 14; k++) { const v = mapa.celda(x + dx * k, y + dy * k); if (!v || v.tipo !== 'suelo' || v.peligro === 'abismo') break; largo = k; }
     if (largo < 3) return;
     mapa.dardos.push({ x: x + 0.5, z: y + 0.5, dx, dz: dy, largo: largo - 0.2, y: mapa.piso(x + dx, y + dy), fase: (x * 0.37 + y * 0.61) % 3.4 });
+  });
+
+  // Rocas rodantes: la casilla marcada está en un pasillo; la roca va y viene por el tramo recto más largo que pasa por ella
+  // (sobre suelo llano, sin abismos, de 7 a 16 casillas).
+  mapa.rocas = [];
+  celdas.forEach((c, i) => {
+    if (!c.roca) return;
+    const x = i % ancho, y = Math.floor(i / ancho);
+    const firme = (cx, cy) => { const v = mapa.celda(cx, cy); return v && v.tipo === 'suelo' && !v.peligro && !v.trampa; };
+    let mejor = null;
+    for (const [dx, dy] of [[1, 0], [0, 1]]) {
+      let a = 0, b = 0;
+      while (a < 16 && firme(x - dx * (a + 1), y - dy * (a + 1))) a++;
+      while (b < 16 && firme(x + dx * (b + 1), y + dy * (b + 1))) b++;
+      if (!mejor || a + b > mejor.a + mejor.b) mejor = { dx, dy, a, b };
+    }
+    if (mejor.a + mejor.b < 6) return;
+    const { dx, dy, a, b } = mejor;
+    mapa.rocas.push({ x0: x + 0.5 - dx * (a + 0.5), z0: y + 0.5 - dy * (a + 0.5), dx, dz: dy, largo: a + b, y: mapa.piso(x, y), fase: (x * 0.73 + y * 0.41) % 7 });
   });
 
   // Pinturas, relieves y estatuas en las salas de los laberintos (con su propio azar, para no
