@@ -37,11 +37,14 @@ function cargarPeerJS() {
 
 // Una sala, vista desde el anfitrión (`soyAnfitrion`) o desde un invitado. Los avisos llegan por estos ganchos:
 //   alCambiar(jugadores)   la lista cambió: [{ id, nombre, color, estado }]; `id` es el puesto (0 = anfitrión)
-//   alEmpezar(partida)     el anfitrión empezó: { semilla, mazmorra, tamano, limite, cuenta }
+//   alEmpezar(partida)     el anfitrión empezó: { semilla, mazmorra, tamano, limite, cuenta, tesoros }
 //   alPosicion(id, p)      un cazador se movió: { x, y, z, yaw, pt }
 //   alTesoro(i, id)        el tesoro `i` se lo llevó el cazador `id` (puede ser yo, o llegué tarde)
 //   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
-//   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado }]
+//   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
+//   alGolpe(i, daño)       (anfitrión) un invitado le pegó al enemigo `i`
+//   alDano(n, causa)       (invitado) un enemigo me hirió
+//   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado, tesoros, resueltos }]
 //   alPerderse(motivo)     se cayó la conexión con la sala
 export class Sala {
   constructor(peer, soyAnfitrion, codigo) {
@@ -55,7 +58,7 @@ export class Sala {
     this.enPartida = false;
     this.cerrada = false;
     this.duenos = new Map();     // solo el anfitrión: tesoro -> quién se lo llevó
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = () => {};
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -123,7 +126,7 @@ export class Sala {
       this.conexiones.get(id).send({ t: 'sala', yo: id, config: this.config, jugadores: this.jugadores });
       this.#difundirSala();
     } else if (m.t === 'p') {
-      const p = { x: +m.x, y: +m.y, z: +m.z, yaw: +m.yaw, pt: m.pt | 0 };
+      const p = { x: +m.x, y: +m.y, z: +m.z, yaw: +m.yaw, pt: m.pt | 0, m: m.m | 0 };
       this.alPosicion(id, p);
       this.#aviso({ t: 'p', id, ...p }, id);
     } else if (m.t === 'estado') {
@@ -131,6 +134,8 @@ export class Sala {
       if (j && ['sala', 'jugando'].includes(m.e)) { j.estado = m.e; this.#difundirSala(); }
     } else if (m.t === 'fin') {
       this.#registrarFin(id, m);
+    } else if (m.t === 'golpe') {
+      this.alGolpe(m.i | 0, Math.min(60, Math.max(0, m.d | 0)));
     } else if (m.t === 'toma') {
       this.#reclamar(m.i | 0, id);
     } else if (m.t === 'suelta') {
@@ -176,7 +181,7 @@ export class Sala {
   empezar(partida) {
     this.enPartida = true;
     this.duenos.clear();
-    for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; }
+    for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; j.tesoros = j.resueltos = null; }
     this.#aviso({ t: 'empezar', ...partida });
     this.alEmpezar(partida);
   }
@@ -186,11 +191,13 @@ export class Sala {
     if (!j) return;
     j.puntos = m.puntos | 0;
     j.fin = m.escapo ? 'escapó' : 'atrapado';
+    const ids = l => (Array.isArray(l) ? l : []).slice(0, 80).map(x => String(x).slice(0, 40));
+    j.tesoros = ids(m.tesoros); j.resueltos = ids(m.resueltos);
     this.#difundirMarcador();
   }
 
   #difundirMarcador() {
-    const lista = this.jugadores.map(({ id, nombre, color, puntos, fin }) => ({ id, nombre, color, puntos, estado: fin || 'jugando' }));
+    const lista = this.jugadores.map(({ id, nombre, color, puntos, fin, tesoros, resueltos }) => ({ id, nombre, color, puntos, estado: fin || 'jugando', tesoros, resueltos }));
     this.#aviso({ t: 'marcador', lista });
     this.alMarcador(lista);
   }
@@ -212,6 +219,10 @@ export class Sala {
       this.alPosicion(m.id, null);
     } else if (m.t === 'marcador') {
       this.alMarcador(m.lista);
+    } else if (m.t === 'en') {
+      this.alEnemigos(m);
+    } else if (m.t === 'dano') {
+      this.alDano(m.n | 0, String(m.c || '').slice(0, 60));
     } else if (m.t === 'tomado') {
       this.alTesoro(m.i, m.id);
     } else if (m.t === 'suelto') {
@@ -223,9 +234,24 @@ export class Sala {
 
   // Mi posición, unas veces por segundo.
   enviarPosicion(p) {
-    const m = { t: 'p', x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +p.yaw.toFixed(2), pt: p.pt };
+    const m = { t: 'p', x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +p.yaw.toFixed(2), pt: p.pt, m: p.m ? 1 : 0 };
     if (this.soyAnfitrion) this.#aviso({ ...m, id: 0 });
     else this.conexion?.open && this.conexion.send(m);
+  }
+
+  // El anfitrión reparte dónde está cada enemigo (unas 10 veces por segundo).
+  enviarEnemigos(s) {
+    if (this.soyAnfitrion) this.#aviso({ t: 'en', ...s });
+  }
+
+  // Un invitado le pega al enemigo `i`: el anfitrión le resta la vida.
+  golpear(i, d) {
+    this.conexion?.open && this.conexion.send({ t: 'golpe', i, d });
+  }
+
+  // El anfitrión le avisa a un invitado que un enemigo lo hirió.
+  danar(id, n, c) {
+    this.conexiones.get(id)?.send({ t: 'dano', n, c });
   }
 
   // Pido el tesoro `i`; la respuesta llega por alTesoro(i, quién se lo llevó).
@@ -247,9 +273,11 @@ export class Sala {
   }
 
   // Mi resultado al terminar.
-  terminar(puntos, escapo) {
-    if (this.soyAnfitrion) this.#registrarFin(0, { puntos, escapo });
-    else this.conexion?.open && this.conexion.send({ t: 'fin', puntos, escapo });
+  // `detalle`: los tesoros que reuní y los acertijos que resolví, para el resumen de todos.
+  terminar(puntos, escapo, detalle = {}) {
+    const m = { puntos, escapo, tesoros: detalle.tesoros, resueltos: detalle.resueltos };
+    if (this.soyAnfitrion) this.#registrarFin(0, m);
+    else this.conexion?.open && this.conexion.send({ t: 'fin', ...m });
   }
 
   #caida(motivo) {

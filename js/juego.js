@@ -13,6 +13,9 @@ const MAX_CABECEO = 0.45;
 const PASO = 0.45;            // el escalón más alto que se sube caminando
 const CAIDA_ENEMIGO = 0.5;    // los enemigos tampoco bajan desniveles mayores
 
+// cómo se nombran los estados de un enemigo al mandarlos por la red
+const ESTADOS_RED = ['dormido', 'oculto', 'surge', 'caza', 'dolor', 'embiste', 'lanza', 'ataca', 'muerto'];
+
 const ENEMIGOS = {
   momia: { vida: 60, vel: 1.05, daño: [8, 14], alcance: 0.95, espera: 1.2, vista: 11 },
   esqueleto: { vida: 35, vel: 1.8, daño: [5, 9], alcance: 0.9, espera: 0.8, vista: 13 },
@@ -82,6 +85,9 @@ export class Juego {
     this.vidaInicial = this.mods.has('herido') ? 60 : 100;
     this.reloj = 0;
     this.real = !!opciones.real;
+    this.rol = opciones.rol || null;   // en una sala: 'anfitrion' (simula a los enemigos) o 'invitado' (los copia del anfitrión)
+    this.blancos = [];                 // el anfitrión: los otros cazadores, que los enemigos también persiguen
+    this.soloRemotos = false;
     this.inicioReal = Date.now();
     this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
@@ -94,6 +100,7 @@ export class Juego {
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
     this.objetos = m.objetos.map((o, n) => ({ ...o, n, fase: Math.random() * 6 }));   // `n`: el puesto fijo del objeto, igual para todos en una sala
     this.guardian = this.colocarGuardian();
+    this.enemigosIniciales = this.enemigos.length;   // los que se suman después (siervos del guardián) viajan con su tipo
     if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
     this.tesoros = [];
     this.secretos = 0;
@@ -324,7 +331,11 @@ export class Juego {
     this.fogonazo = Math.max(0, this.fogonazo - dt * 6);
     this.animarPuertas(dt);
     this.avanzarReloj(dt);
-    if (j.muerto) { if (this.reaparecer > 0 && (this.reaparecer -= dt) <= 0) this.revivir(); return; }
+    if (j.muerto) {
+      if (this.reaparecer > 0 && (this.reaparecer -= dt) <= 0) this.revivir();
+      this.enemigosAunque(dt);   // en una sala el mundo sigue aunque yo haya caído
+      return;
+    }
 
     j.yaw += ent.giro + ent.giroTeclas * GIRO_TECLAS * dt;
     j.cabeceo = Math.max(-MAX_CABECEO, Math.min(MAX_CABECEO, j.cabeceo + ent.cabeceo));
@@ -368,8 +379,7 @@ export class Juego {
     this.temblor = Math.max(0, this.temblor - dt);
     this.recoger();
     this.peligros(dt);
-    this.actualizarEnemigos(dt);
-    this.actualizarProyectiles(dt);
+    this.enemigosAunque(dt);
     this.actualizarParticulas(dt);
     this.actualizarAmbiente(dt);
     this.sentirCorrientes(dt);
@@ -437,8 +447,7 @@ export class Juego {
     this.particulas = this.particulas.filter(q => q.vida > 0);
   }
 
-  lanzarFuego(e) {
-    const j = this.j;
+  lanzarFuego(e, j = this.j) {
     const dx = j.x - e.x, dz = j.z - e.z, d = Math.hypot(dx, dz);
     this.proyectiles.push({ x: e.x + dx / d * 0.4, z: e.z + dz / d * 0.4, y: e.y + 0.55, vx: dx / d * VEL_FUEGO, vz: dz / d * VEL_FUEGO, daño: e.fuego, vida: 4 });
     sonar('fuego');
@@ -452,9 +461,12 @@ export class Juego {
       const cx = Math.floor(f.x), cz = Math.floor(f.z);
       if (m.solida(cx, cz) || m.piso(cx, cz) > f.y) {
         f.vida = 0; this.salpicar(f.x - f.vx * 0.02, f.y, f.z - f.vz * 0.02, 'chispa', 8); sonar('golpe');
-      } else if (!j.muerto && Math.hypot(f.x - j.x, f.z - j.z) < 0.38 && Math.abs(f.y - (j.y + 0.5)) < 0.7) {
-        f.vida = 0; this.salpicar(f.x, f.y, f.z, 'chispa', 8);
-        this.dañarJugador(azar(f.daño), 'Te alcanzó una bola de fuego.');
+      } else {
+        const blanco = [this.soloRemotos ? null : j, ...this.blancos].find(b => b && !b.muerto && Math.hypot(f.x - b.x, f.z - b.z) < 0.38 && Math.abs(f.y - (b.y + 0.5)) < 0.7);
+        if (blanco) {
+          f.vida = 0; this.salpicar(f.x, f.y, f.z, 'chispa', 8);
+          this.dañar(blanco, azar(f.daño), 'Te alcanzó una bola de fuego.');
+        }
       }
     }
     this.proyectiles = this.proyectiles.filter(f => f.vida > 0);
@@ -590,6 +602,13 @@ export class Juego {
   }
 
   herir(e, daño) {
+    // el invitado solo avisa al anfitrión, que es quien resta la vida; aquí se ve el golpe
+    if (this.rol === 'invitado') {
+      this.ev.golpear(this.enemigos.indexOf(e), daño);
+      e.golpe = 0.12;
+      this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
+      return;
+    }
     e.vida -= daño;
     e.golpe = 0.12;
     this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
@@ -767,13 +786,98 @@ export class Juego {
   // El tesoro volvió al suelo (su dueño cayó y lo soltó).
   reponer(o, x, z) { Object.assign(o, { cogido: false, pendiente: false, nota: null, notaVista: false, x, z }); }
 
-  actualizarEnemigos(dt) {
+  // Enemigos y bolas de fuego: los simula quien juega solo o el anfitrión; los invitados copian lo que él manda.
+  enemigosAunque(dt) {
+    if (this.rol === 'invitado') this.actualizarCopias(dt);
+    else { this.actualizarEnemigos(dt); this.actualizarProyectiles(dt); }
+  }
+
+  // El anfitrión ya terminó pero los demás siguen: los enemigos solo persiguen a los que quedan.
+  simularRemotos(dt) {
+    this.soloRemotos = true;
+    this.tiempo += dt;
+    this.actualizarEnemigos(dt);
+    this.actualizarProyectiles(dt);
+  }
+
+  // A quién persigue un enemigo: al cazador más cercano que siga en pie.
+  blancoDe(e) {
     const j = this.j;
+    let mejor = this.soloRemotos || j.muerto ? null : j, md = mejor ? Math.hypot(e.x - j.x, e.z - j.z) : Infinity;
+    for (const b of this.blancos) {
+      if (b.muerto) continue;
+      const d = Math.hypot(e.x - b.x, e.z - b.z);
+      if (d < md) { mejor = b; md = d; }
+    }
+    return mejor;
+  }
+
+  // Daño a un cazador: al mío directo, a los demás por la red.
+  dañar(b, n, causa) {
+    if (b === this.j) this.dañarJugador(n, causa);
+    else this.ev.dañarA?.(b.id, Math.round(n), causa);
+  }
+
+  // Lo que ven los invitados: dónde está cada enemigo y qué hace, y las bolas de fuego en el aire.
+  instantanea() {
+    const r = v => Math.round(v * 100) / 100;
+    return {
+      e: this.enemigos.map((e, i) => [r(e.x), r(e.z), r(e.y), ESTADOS_RED.indexOf(e.estado), Math.max(0, Math.round(e.vida)), i >= this.enemigosIniciales ? e.tipo : 0]),
+      f: this.proyectiles.map(f => [r(f.x), r(f.z), r(f.y), r(f.vx), r(f.vz)]),
+    };
+  }
+
+  recibirEnemigos(s) {
+    s.e.forEach((d, i) => {
+      let e = this.enemigos[i];
+      if (!e) {
+        const base = ENEMIGOS[d[5]];
+        if (!base || i !== this.enemigos.length) return;
+        e = this.enemigos[i] = { tipo: d[5], x: d[0], z: d[1], y: d[2], ...base, vidaMax: base.vida, estado: 'caza', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: 0, alerta: true, tVoz: 5 };
+        this.salpicar(d[0], d[2] + 0.3, d[1], 'polvo', 10);
+      }
+      Object.assign(e, { tx: d[0], tz: d[1], ty: d[2], vida: d[4] });
+      const estado = ESTADOS_RED[d[3]];
+      if (estado && estado !== e.estado) this.cambioRemoto(e, estado);
+    });
+    this.proyectiles = s.f.map(([x, z, y, vx, vz]) => ({ x, z, y, vx, vz, vida: 1 }));
+  }
+
+  // Un enemigo cambió de estado en el anfitrión: aquí se oye y se ve lo mismo.
+  cambioRemoto(e, nuevo) {
+    const antes = e.estado;
+    e.estado = nuevo;
+    if (nuevo === 'muerto') {
+      e.tMuerte = 0; this.abatidos++; this.voz(e, 'muerte');
+      if (e.jefe) {
+        this.ev.mensaje(`¡Cayó ${e.nombre}!`, 4);
+        this.temblor = 0.6;
+        this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
+      }
+    } else if (nuevo === 'dolor') { e.golpe = 0.12; this.voz(e, 'dolor'); }
+    else if (nuevo === 'surge') this.voz(e, 'surgir');
+    else if (nuevo === 'caza' && (antes === 'dormido' || antes === 'oculto' || antes === 'surge')) { e.alerta = true; this.voz(e, 'alerta'); }
+    else if (nuevo === 'ataca' || nuevo === 'embiste' || nuevo === 'lanza') this.voz(e, 'ataque');
+  }
+
+  actualizarCopias(dt) {
+    const k = 1 - Math.exp(-dt * 12);
+    for (const e of this.enemigos) {
+      e.golpe = Math.max(0, (e.golpe || 0) - dt);
+      if (e.estado === 'muerto') e.tMuerte += dt; else e.anim += dt;
+      if (e.tx !== undefined) { e.x += (e.tx - e.x) * k; e.z += (e.tz - e.z) * k; e.y += (e.ty - e.y) * k; }
+    }
+    for (const f of this.proyectiles) { f.x += f.vx * dt; f.z += f.vz * dt; }
+  }
+
+  actualizarEnemigos(dt) {
     for (const e of this.enemigos) {
       e.golpe = Math.max(0, (e.golpe || 0) - dt);
       if (e.estado === 'muerto') { e.tMuerte += dt; continue; }
       e.anim += dt;
       e.espera = Math.max(0, e.espera - dt);
+      const j = this.blancoDe(e);
+      if (!j) continue;
       const dx = j.x - e.x, dz = j.z - e.z, d = Math.hypot(dx, dz);
       e.sinVerte += dt;
       if (e.estado === 'dormido') {
@@ -798,20 +902,20 @@ export class Juego {
         const antes = { x: e.x, z: e.z };
         this.mover(e, e.carga.x * EMBESTIDA.vel * dt, e.carga.z * EMBESTIDA.vel * dt, e.radio, true);
         this.apoyar(e, e.radio, dt);
-        if (!e.golpeo && d < e.alcance && Math.abs(e.y - j.y) < 0.7) { e.golpeo = true; this.dañarJugador(azar(EMBESTIDA.daño), `${e.nombre} te arrolló.`); this.temblor = 0.35; }
+        if (!e.golpeo && d < e.alcance && Math.abs(e.y - j.y) < 0.7) { e.golpeo = true; this.dañar(j, azar(EMBESTIDA.daño), `${e.nombre} te arrolló.`); if (j === this.j) this.temblor = 0.35; }
         const atascado = Math.hypot(e.x - antes.x, e.z - antes.z) < EMBESTIDA.vel * dt * 0.3;
         if (e.t <= 0 || atascado) { e.estado = 'caza'; e.espera = 1.4; if (atascado) { this.temblor = 0.2; sonar('golpe'); } }
         continue;
       }
       if (e.estado === 'lanza') {
         e.t -= dt;
-        if (e.t <= 0) { if (this.seVe(e, j)) this.lanzarFuego(e); e.estado = 'caza'; }
+        if (e.t <= 0) { if (this.seVe(e, j)) this.lanzarFuego(e, j); e.estado = 'caza'; }
         continue;
       }
       if (e.estado === 'ataca') {
         e.t -= dt;
         if (e.t <= 0) {
-          if (d < e.alcance + 0.25 && Math.abs(e.y - j.y) < 0.7) this.dañarJugador(azar(e.daño), 'Has caído en la cripta.');
+          if (d < e.alcance + 0.25 && Math.abs(e.y - j.y) < 0.7) this.dañar(j, azar(e.daño), 'Has caído en la cripta.');
           e.estado = 'caza'; e.espera = e.espera || 0.6;
         }
         continue;
@@ -864,6 +968,7 @@ export class Juego {
 
   // La voz de un enemigo, con su distancia y de qué lado está.
   voz(e, momento) {
+    if (this.soloRemotos) return;
     const j = this.j, dx = e.x - j.x, dz = e.z - j.z;
     const d = Math.hypot(dx, dz);
     sonarEnemigo(e.tipo, momento, d, d > 0.01 ? (dx * -Math.sin(j.yaw) + dz * Math.cos(j.yaw)) / d : 0);

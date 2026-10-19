@@ -288,6 +288,10 @@ body.jugando #escena { display: none; }
 #resumen-marcador li.yo b { color: var(--oro); }
 #resumen-marcador small { margin-left: auto; color: var(--suave); }
 #resumen-marcador li:first-child span { color: var(--oro); }
+#resumen-sala .rotulo { margin-top: 10px; }
+.detalle { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 15px; }
+.detalle li { display: flex; align-items: center; gap: 8px; }
+.detalle .quienes { margin-left: auto; display: flex; gap: 4px; align-items: center; color: var(--suave); font-size: 13px; }
 #pausa-sala { max-width: 340px; text-align: center; }
 
 /* ---------- Juego ---------- */
