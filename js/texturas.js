@@ -57,10 +57,6 @@ function lienzo() {
   };
 }
 
-function ruido(b, r, cantidad) {
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) b.tinte(x, y, 1 + (r() - 0.5) * cantidad);
-}
-
 // Ruido suave (interpolado) para manchas grandes dentro de cada pieza, que se repite sin costuras.
 function ruidoSuave(r, celdas = 8) {
   const v = Array.from({ length: celdas * celdas }, () => r());
@@ -72,43 +68,6 @@ function ruidoSuave(r, celdas = 8) {
   };
 }
 
-function ladrillos(b, r, base, { alto = 16, ancho = 32, mortero = [38, 32, 28], variacion = 0.25 } = {}) {
-  b.rect(0, 0, T, T, mortero);
-  const mancha = ruidoSuave(r, 8), grano = ruidoSuave(r, 32);
-  for (let fila = 0; fila < T / alto; fila++) {
-    const desfase = fila % 2 ? Math.floor(ancho / 2) : 0;
-    for (let k = -1; k < T / ancho + 1; k++) {
-      const x0 = k * ancho + desfase, y0 = fila * alto;
-      const f = 1 + (r() - 0.5) * variacion;
-      const c = base.map(v => v * f);
-      for (let y = y0 + 1; y < y0 + alto - 1; y++) for (let x = x0 + 1; x < x0 + ancho - 1; x++) {
-        if (x < 0 || x >= T) continue;
-        // bisel redondeado de 2 píxeles: luz arriba a la izquierda, sombra abajo a la derecha
-        const arriba = y - y0 - 1, izq = x - x0 - 1, abajo = y0 + alto - 2 - y, der = x0 + ancho - 2 - x;
-        let s = 1;
-        if (arriba === 0 || izq === 0) s = 1.24; else if (arriba === 1 || izq === 1) s = 1.1;
-        if (abajo === 0 || der === 0) s = 0.66; else if (abajo === 1 || der === 1) s = 0.84;
-        s *= 0.9 + mancha(x, y) * 0.2 + (grano(x, y) - 0.5) * 0.1;
-        b.set(x, y, c[0] * s, c[1] * s, c[2] * s);
-      }
-      // la junta bajo cada ladrillo queda en sombra
-      for (let x = x0; x < x0 + ancho; x++) if (x >= 0 && x < T) { b.tinte(x, y0 + alto - 1, 0.7); }
-      // desconchones con borde iluminado
-      for (let n = 0; n < 3; n++) {
-        const cx = x0 + 3 + Math.floor(r() * (ancho - 6)), cy = y0 + 3 + Math.floor(r() * (alto - 6));
-        b.tinte(cx, cy, 0.55); b.tinte(cx + 1, cy, 0.7); b.tinte(cx, cy + 1, 1.15);
-      }
-    }
-  }
-}
-
-function grieta(b, r, x, y, pasos) {
-  for (let i = 0; i < pasos; i++) {
-    b.tinte(x, y, 0.35); b.tinte(x + 1, y, 0.75);
-    y += 1; x += Math.floor(r() * 3) - 1;
-  }
-}
-
 function aCanvas(b) {
   const c = document.createElement('canvas');
   c.width = c.height = T;
@@ -116,103 +75,298 @@ function aCanvas(b) {
   return c;
 }
 
-// ---------- Muros, suelos y techos ----------
+// ---------- Superficies con relieve ----------
+// Cada textura se arma con un campo de alturas (0 = junta honda, 1 = cara del bloque, más de 1 = lo que
+// sobresale) y un color por píxel. `superficie` saca la normal, ilumina desde arriba a la izquierda,
+// oscurece lo hundido y reduce los tonos con trama ordenada: pixel art con volumen que se repite sin costuras.
 
-const PIEDRA = [104, 96, 86], ARENISCA = [176, 140, 92];
+const envolver = v => ((v % T) + T) % T;
+const suave = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+const mezclar = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const escalar = (c, f) => [c[0] * f, c[1] * f, c[2] * f];
+const LUZ_T = (() => { const v = [-0.5, -0.7, 0.85], l = Math.hypot(...v); return v.map(x => x / l); })();
+const PLANO = 0.3 + LUZ_T[2] * 0.85;
+const TRAMA_T = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 
-function dibujaPiedra(b, r) { ladrillos(b, r, PIEDRA); ruido(b, r, 0.22); }
-function dibujaArenisca(b, r) {
-  ladrillos(b, r, ARENISCA, { alto: 21, ancho: 32, mortero: [92, 70, 44], variacion: 0.18 });
-  ruido(b, r, 0.16);
-  // jeroglíficos tallados
-  for (let n = 0; n < 4; n++) {
-    const x = 4 + Math.floor(r() * 52), y = 3 + Math.floor(r() * 50);
-    const forma = Math.floor(r() * 3);
-    for (let i = 0; i < 6; i++) {
-      if (forma === 0) b.tinte(x + i, y + 2, 0.6);
-      if (forma === 1) { b.tinte(x + 2, y + i, 0.6); b.tinte(x + (i % 3), y, 0.6); }
-      if (forma === 2) b.tinte(x + i, y + Math.abs(3 - i), 0.6);
+// Ruido fractal: varias capas de ruido suave, cada una al doble de detalle y la mitad de fuerza.
+function fbm(r, base = 4, octavas = 3) {
+  // se calcula una vez por píxel y luego solo se consulta (siempre con coordenadas enteras)
+  const tabla = new Float32Array(T * T), curva = new Float32Array(T);
+  let norma = 0;
+  for (let k = 0; k < octavas; k++) {
+    const n = base << k, lado = T / n, peso = 0.5 ** k, v = Array.from({ length: n * n }, () => r());
+    norma += peso;
+    for (let p = 0; p < T; p++) { const t = (p % lado) / lado; curva[p] = t * t * (3 - 2 * t); }
+    for (let y = 0; y < T; y++) {
+      const j = Math.floor(y / lado), j2 = (j + 1) % n, ty = curva[y];
+      for (let x = 0; x < T; x++) {
+        const i = Math.floor(x / lado), i2 = (i + 1) % n, tx = curva[x];
+        const a = v[j * n + i] + (v[j * n + i2] - v[j * n + i]) * tx, b = v[j2 * n + i] + (v[j2 * n + i2] - v[j2 * n + i]) * tx;
+        tabla[y * T + x] += (a + (b - a) * ty) * peso;
+      }
     }
+  }
+  for (let i = 0; i < T * T; i++) tabla[i] /= norma;
+  return (x, y) => tabla[(y & (T - 1)) * T + (x & (T - 1))];
+}
+
+// color(x, y, altura, i) devuelve [r, g, b] y, si quiere, un cuarto valor con el brillo especular.
+// emite(x, y, i) devuelve un color que se pinta tal cual, sin sombrear (llamas, lava, luz de la salida).
+function superficie(b, alto, color, { fuerza = 2.4, hondo = 0.5, brillo = 0, niveles = 32, emite } = {}) {
+  const H = new Float32Array(T * T);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) H[y * T + x] = Math.max(0, Math.min(1.6, alto(x, y)));
+  const M = T - 1, paso = 255 / niveles, c = [0, 0, 0];
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x, v = H[i];
+    const e = emite && emite(x, y, i);
+    if (e) { c[0] = e[0]; c[1] = e[1]; c[2] = e[2]; } else {
+      const fa = ((y - 1) & M) * T, fb = ((y + 1) & M) * T, f2a = ((y - 2) & M) * T, f2b = ((y + 2) & M) * T, fy = y * T;
+      const xa = (x - 1) & M, xb = (x + 1) & M;
+      const nx = (H[fy + xa] - H[fy + xb]) * fuerza, ny = (H[fa + x] - H[fb + x]) * fuerza;
+      const dif = Math.max(0, (nx * LUZ_T[0] + ny * LUZ_T[1] + LUZ_T[2]) / Math.sqrt(nx * nx + ny * ny + 1));
+      // oclusión: lo que queda por debajo de sus vecinos recibe menos luz
+      const media = (H[fy + ((x - 2) & M)] + H[fy + ((x + 2) & M)] + H[f2a + x] + H[f2b + x] + H[fa + xa] + H[fb + xb] + H[fb + xa] + H[fa + xb]) / 8;
+      const oc = Math.max(0.3, 1 - Math.max(0, media - v) * hondo * 3);
+      const f = (0.3 + dif * 0.85) / PLANO * oc * (1 - hondo * 0.5 + hondo * 0.5 * Math.min(1.3, v));
+      const base = color(x, y, v, i);
+      const esp = base[3] ?? brillo, luz = esp ? Math.pow(dif, 14) * esp * 200 : 0;
+      c[0] = base[0] * f + luz; c[1] = base[1] * f + luz; c[2] = base[2] * f + luz;
+    }
+    const u = (TRAMA_T[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+    for (let k = 0; k < 3; k++) { const q = Math.min(255, Math.max(0, c[k])) / paso, n = Math.floor(q); c[k] = Math.min(255, (n + (q - n > u ? 1 : 0)) * paso); }
+    b.set(x, y, c[0], c[1], c[2]);
   }
 }
 
-registrar('piedra', b => dibujaPiedra(b, rng(11)));
-registrar('piedra_grieta', b => { dibujaPiedra(b, rng(11)); const r = rng(5); grieta(b, r, 30, 6, 26); grieta(b, r, 22, 34, 22); });
-registrar('musgo', b => {
-  const r = rng(13); dibujaPiedra(b, r);
-  for (let n = 0; n < 140; n++) {
-    const x = Math.floor(r() * T), y = Math.floor(Math.pow(r(), 1.8) * T);
-    b.set(x, T - 1 - y, 52 + r() * 30, 86 + r() * 40, 38, 255);
+// Aparejo de bloques: filas de `alto` px y bloques de `ancho` px; cada fila se corre `corrido` de bloque.
+// Da la altura (bisel redondeado, bordes algo mellados) y un número por bloque para variar su tono.
+function bloques(r, { alto = 16, ancho = 32, corrido = 0.5, junta = 0.8, bisel = 2.5, mella = 1 } = {}) {
+  const filas = Math.round(T / alto), cols = Math.round(T / ancho);
+  alto = T / filas; ancho = T / cols;
+  const bx = fbm(r, 8, 2), by = fbm(r, 8, 2);
+  const a = new Float32Array(T * T), id = new Int32Array(T * T), fila = new Int32Array(T * T);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const i = y * T + x;
+    const wy = envolver(y + 0.5 + (by(x, y) - 0.5) * mella * 2), f = Math.min(filas - 1, Math.floor(wy / alto));
+    const wx = envolver(x + 0.5 + (bx(x, y) - 0.5) * mella * 2 + f * corrido * ancho), c = Math.min(cols - 1, Math.floor(wx / ancho));
+    const lx = wx - c * ancho, ly = wy - f * alto;
+    a[i] = suave((Math.min(lx, ancho - lx, ly, alto - ly) - junta) / bisel);
+    id[i] = f * cols + c; fila[i] = f;
   }
+  return { a, id, fila, tono: Array.from({ length: filas * cols }, () => r()) };
+}
+
+// Piedras irregulares (celdas de Voronoi que se repiten): `n` x `n` piedras por casilla.
+function adoquines(r, n, { junta = 1, bisel = 3, mella = 1.5 } = {}) {
+  const lado = T / n;
+  const p = [];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) p.push([(i + 0.2 + r() * 0.6) * lado, (j + 0.2 + r() * 0.6) * lado]);
+  const bx = fbm(r, 8, 2), by = fbm(r, 8, 2);
+  const a = new Float32Array(T * T), id = new Int32Array(T * T), fila = new Int32Array(T * T);
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
+    const wx = envolver(x + 0.5 + (bx(x, y) - 0.5) * mella * 2), wy = envolver(y + 0.5 + (by(x, y) - 0.5) * mella * 2);
+    const ci = Math.floor(wx / lado), cj = Math.floor(wy / lado);
+    let d1 = Infinity, d2 = Infinity, k1 = 0;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      const ii = ci + di, jj = cj + dj, mi = ((ii % n) + n) % n, mj = ((jj % n) + n) % n, k = mj * n + mi;
+      const d = Math.hypot(p[k][0] + (ii - mi) / n * T - wx, p[k][1] + (jj - mj) / n * T - wy);
+      if (d < d1) { d2 = d1; d1 = d; k1 = k; } else if (d < d2) d2 = d;
+    }
+    const i = y * T + x;
+    a[i] = suave(((d2 - d1) / 2 - junta) / bisel); id[i] = k1; fila[i] = Math.floor(k1 / n);
+  }
+  return { a, id, fila, tono: p.map(() => r()) };
+}
+
+// Grietas: trazos que bajan zigzagueando; devuelve cuánto se hunde cada píxel.
+function grietas(r, trazos) {
+  const m = new Float32Array(T * T);
+  for (let [x, y, pasos] of trazos) for (let k = 0; k < pasos; k++) {
+    m[envolver(y) * T + envolver(x)] = 1;
+    const j = envolver(y) * T + envolver(x + 1); m[j] = Math.max(m[j], 0.4);
+    y += 1; x += Math.floor(r() * 3) - 1;
+  }
+  return m;
+}
+const unir = (a, b) => !a ? b : !b ? a : a.map((v, i) => Math.max(v, b[i]));
+
+// Una capa añade cosas sobre una superficie: alto(x, y, v, i, B) y color(x, y, v, c, i, B) devuelven el
+// valor nuevo, y emite(x, y, i) un color sin sombra. Dos capas se aplican una sobre otra.
+function componer(a, b) {
+  if (!a) return b; if (!b) return a;
+  return {
+    alto: (x, y, v, i, B) => { if (a.alto) v = a.alto(x, y, v, i, B); return b.alto ? b.alto(x, y, v, i, B) : v; },
+    color: (x, y, v, c, i, B) => { if (a.color) c = a.color(x, y, v, c, i, B); return b.color ? b.color(x, y, v, c, i, B) : c; },
+    emite: (x, y, i) => (b.emite && b.emite(x, y, i)) || (a.emite && a.emite(x, y, i)),
+  };
+}
+
+// Muro, suelo o techo de bloques (o de piedras sueltas con `adoquines: n`), con manchas, poros y grietas.
+function muro(b, r, base, op = {}) {
+  const B = op.adoquines ? adoquines(r, op.adoquines, op) : bloques(r, op);
+  const mortero = op.mortero ?? escalar(base, 0.4), variacion = op.variacion ?? 0.2;
+  const mancha = fbm(r, 4, 3), grano = ruidoSuave(r, 32), poro = ruidoSuave(r, 64);
+  const capa = op.capa ?? {}, marcas = op.marcas;
+  superficie(b,
+    (x, y) => {
+      const i = y * T + x;
+      let v = B.a[i] * (0.88 + grano(x, y) * 0.12);
+      if (poro(x, y) > 0.975) v *= 0.82;
+      if (marcas) v -= marcas[i] * 0.6;
+      return capa.alto ? capa.alto(x, y, v, i, B) : v;
+    },
+    (x, y, v, i) => {
+      const t = 1 + (B.tono[B.id[i]] - 0.5) * variacion * 2;
+      let c = mezclar(mortero, escalar(base, t * (0.8 + mancha(x, y) * 0.34)), suave(B.a[i] * 3));
+      if (marcas && marcas[i]) c = escalar(c, 1 - marcas[i] * 0.35);
+      return capa.color ? capa.color(x, y, v, c, i, B) : c;
+    },
+    { ...op, emite: capa.emite });
+  return B;
+}
+
+const semilla = r => rng(Math.floor(r() * 4294967296));
+
+// ---------- Muros ----------
+
+const PIEDRA = [104, 96, 86], ARENISCA = [178, 142, 94];
+
+function dibujaPiedra(b, r, capa, marcas) { muro(b, r, PIEDRA, { mortero: [40, 35, 31], capa, marcas }); }
+
+// Jeroglíficos de 5 x 7 tallados en la arenisca.
+const GLIFOS = [
+  ['.###.', '#...#', '.###.', '..#..', '#####', '..#..', '..#..'],   // anj
+  ['.....', '.###.', '#.#.#', '.###.', '...#.', '..#..', '.....'],   // ojo
+  ['#.#..', '.#.#.', '..#.#', '.....', '#.#..', '.#.#.', '..#.#'],   // agua
+  ['..##.', '.###.', '###..', '.####', '..##.', '..#.#', '.#..#'],   // ave
+  ['.#...', '.#.#.', '.###.', '.#...', '.#...', '.#...', '###..'],   // junco
+];
+function jeroglificos(r, filas, cuantos = 4) {
+  const m = new Float32Array(T * T), alto = T / filas;
+  for (let n = 0; n < cuantos; n++) {
+    const g = GLIFOS[Math.floor(r() * GLIFOS.length)];
+    const x0 = 4 + Math.floor(r() * 7) * 8, y0 = Math.floor((n % filas) * alto + (alto - 7) / 2);
+    g.forEach((fila, j) => [...fila].forEach((ch, i) => { if (ch === '#') m[(y0 + j) * T + envolver(x0 + i)] = 0.7; }));
+  }
+  return m;
+}
+function dibujaArenisca(b, r, capa, marcas) {
+  muro(b, r, ARENISCA, {
+    alto: T / 3, ancho: 32, mortero: [98, 74, 46], variacion: 0.14, bisel: 2,
+    marcas: unir(jeroglificos(semilla(r), 3), marcas),
+    capa: componer({ color: (x, y, v, c) => escalar(c, 1 + Math.sin(y * 0.8 + x * 0.05) * 0.03) }, capa),
+  });
+}
+
+registrar('piedra', b => dibujaPiedra(b, rng(11)));
+registrar('piedra_grieta', b => dibujaPiedra(b, rng(11), null, grietas(rng(5), [[30, 6, 26], [22, 34, 22]])));
+registrar('musgo', b => {
+  const r = rng(13), m = fbm(semilla(r), 4, 3), mota = ruidoSuave(semilla(r), 64);
+  const cuanto = (x, y) => suave((m(x, y) + y / T * 0.7 - 0.78) * 5);
+  dibujaPiedra(b, r, {
+    alto: (x, y, v) => v + cuanto(x, y) * (0.18 + mota(x, y) * 0.12),
+    color: (x, y, v, c) => { const k = cuanto(x, y); return k ? mezclar(c, mota(x, y) > 0.7 ? [92, 122, 52] : [54, 84, 38], k) : c; },
+  });
 });
 registrar('arenisca', b => dibujaArenisca(b, rng(21)));
-registrar('arenisca_grieta', b => { dibujaArenisca(b, rng(21)); const r = rng(7); grieta(b, r, 33, 4, 30); grieta(b, r, 12, 30, 24); });
+registrar('arenisca_grieta', b => dibujaArenisca(b, rng(21), null, grietas(rng(7), [[33, 4, 30], [12, 30, 24]])));
+
+// Llama dibujada con capas de color y bordes en trama (sin sombra: se pinta encima tal cual).
+function llama(x, y, cx, arriba, abajo, ancho) {
+  const dx = (x + 0.5 - cx) / ancho, dy = (y + 0.5 - abajo) / (abajo - arriba);
+  if (dy > 0.15 || dy < -1) return null;
+  const lado = dy < 0 ? Math.pow(-dy, 0.55) * (1 + dy) * 2.1 : 1 - dy / 0.15;
+  const d = Math.abs(dx) / Math.max(0.01, lado);
+  if (d >= 1) return null;
+  const t = (1 - d) * (dy < 0 ? 1 - Math.pow(-dy, 1.6) * 0.6 : 1) + (TRAMA_T[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * 0.25;
+  return t > 0.8 ? [255, 250, 214] : t > 0.55 ? [255, 214, 92] : t > 0.3 ? [250, 146, 40] : [196, 70, 26];
+}
 
 registrar('antorcha', b => {
-  const r = rng(11); dibujaPiedra(b, r);
-  b.rect(28, 30, 8, 3, [40, 34, 30]); b.rect(30, 33, 4, 12, [70, 46, 28]);
-  for (let y = 12; y < 30; y++) for (let x = 24; x < 40; x++) {
-    const dx = (x - 32) / 7, dy = (y - 26) / 14;
-    const d = dx * dx + dy * dy * (1 + (30 - y) / 10);
-    if (d < 1) {
-      const t = 1 - d;
-      b.set(x, y, 255, 120 + t * 135, 30 + t * 160);
-    }
+  const r = rng(11), oxido = fbm(rng(12), 8, 2);
+  const zona = new Uint8Array(T * T);
+  dibujaPiedra(b, r, {
+    alto: (x, y, v, i) => {
+      // placa clavada al muro, brazo y copa de hierro, mango de madera
+      if (x >= 29 && x < 35 && y >= 36 && y < 48) { zona[i] = 1; return 1.2 + suave(Math.min(x - 29, 34 - x, y - 36, 47 - y) / 1.5) * 0.15; }
+      if (x >= 31 && x < 33 && y >= 31 && y < 36) { zona[i] = 1; return 1.35; }
+      const ancho = 4 + (31 - y) * 0.6;
+      if (y >= 26 && y < 31 && Math.abs(x + 0.5 - 32) < ancho) { zona[i] = 1; return 1.3 + (1 - Math.abs(x + 0.5 - 32) / ancho) * 0.2; }
+      if (y >= 22 && y < 26 && Math.abs(x + 0.5 - 32) < 2) { zona[i] = 2; return 1.45; }
+      return v;
+    },
+    color: (x, y, v, c, i) => {
+      if (zona[i] === 1) return [...mezclar([62, 58, 54], [116, 62, 34], suave((oxido(x, y) - 0.55) * 5)), 0.7];
+      if (zona[i] === 2) return [96, 62, 34];
+      // resplandor cálido alrededor de la llama
+      const d = Math.hypot(x + 0.5 - 32, y + 0.5 - 16);
+      const k = Math.max(0, 1 - d / 30);
+      return [c[0] * (0.78 + k * 0.6), c[1] * (0.74 + k * 0.42), c[2] * (0.7 + k * 0.2)];
+    },
+  });
+  // la llama va encima, sin sombrear
+  for (let y = 4; y < 27; y++) for (let x = 22; x < 42; x++) {
+    const c = llama(x, y, 32, 4, 24, 6.5);
+    if (c) b.set(x, y, ...c);
   }
 });
 
 registrar('puerta', b => {
-  const r = rng(31);
-  for (let x = 0; x < T; x++) {
-    const tabla = Math.floor(x / 11);
-    const f = 0.85 + (tabla % 3) * 0.08;
-    for (let y = 0; y < T; y++) {
-      const veta = Math.sin((y + tabla * 7) * 0.35 + x * 0.6) * 0.06;
-      const c = (x % 11 === 0) ? 0.55 : f + veta + (r() - 0.5) * 0.1;
-      b.set(x, y, 112 * c, 72 * c, 40 * c);
+  const r = rng(31), veta = fbm(r, 4, 3), oxido = fbm(semilla(r), 8, 2), tono = Array.from({ length: 6 }, () => r());
+  const TABLA = T / 6, BANDAS = [[8, 15], [49, 56]];
+  const zona = new Uint8Array(T * T);
+  superficie(b, (x, y) => {
+    const i = y * T + x, px = x + 0.5, py = y + 0.5;
+    // argolla y su placa
+    const ra = Math.abs(Math.hypot(px - 46, py - 39) - 5);
+    if (ra < 1.4 && py > 35) { zona[i] = 2; return 1.4 + (1.4 - ra) * 0.15; }
+    if (Math.abs(px - 46) < 3.5 && Math.abs(py - 33) < 3) { zona[i] = 2; return 1.22 + suave(Math.min(3.5 - Math.abs(px - 46), 3 - Math.abs(py - 33)) / 1.2) * 0.12; }
+    for (const [y0, y1] of BANDAS) if (y >= y0 && y < y1) {
+      zona[i] = 2;
+      for (let xc = TABLA / 2; xc < T; xc += TABLA) {
+        const d = Math.hypot(px - xc, py - (y0 + y1) / 2);
+        if (d < 1.8) return 1.3 + Math.sqrt(1 - (d / 1.8) ** 2) * 0.25;
+      }
+      return 1.15 + suave(Math.min(py - y0, y1 - py) / 1.5) * 0.12;
     }
-  }
-  for (const yb of [9, 50]) {
-    b.rect(0, yb, T, 5, [62, 60, 58]);
-    b.rect(0, yb, T, 1, [110, 106, 100]);
-    for (let x = 4; x < T; x += 12) b.rect(x, yb + 2, 2, 2, [150, 146, 140]);
-  }
-  // argolla
-  for (let a = 0; a < 40; a++) {
-    const t = a / 40 * Math.PI * 2;
-    b.set(Math.round(48 + Math.cos(t) * 4), Math.round(34 + Math.sin(t) * 5), 150, 140, 120);
-  }
+    zona[i] = 1;
+    const lx = px - Math.floor(x / TABLA) * TABLA;
+    return suave((Math.min(lx, TABLA - lx) - 0.6) / 1.8) * (0.94 + Math.sin(px * 1.4 + veta(x, y) * 14) * 0.04);
+  }, (x, y, v, i) => {
+    if (zona[i] === 2) return [...mezclar([70, 68, 66], [118, 64, 34], suave((oxido(x, y) - 0.55) * 4)), 0.8];
+    const t = 0.86 + tono[Math.floor(x / TABLA)] * 0.2;
+    const g = 0.86 + Math.sin(x * 1.25 + veta(x, y) * 16) * 0.1;
+    return escalar([116, 74, 42], t * g);
+  });
 });
 
-// Sello: losa con un círculo de metal y un glifo. glifo: ojo | runa | ancla | sol
+// Sello: losa con un aro de metal en relieve y un glifo. glifo: ojo | runa | ancla | sol
+function enGlifo(glifo, dx, dy, d) {
+  if (glifo === 'ojo') { if (d < 3.5) return 'hueco'; return Math.abs(dy) < 7 * Math.sqrt(Math.max(0, 1 - (dx / 13) ** 2)) && !(d < 5.5 && d > 3.5) ? 'si' : ''; }
+  if (glifo === 'runa') return (Math.abs(dx) < 2 && dy > -14 && dy < 15) || (dy < 0 && dy > -14 && Math.abs(Math.abs(dx) + dy * 0.9) < 2 && Math.abs(dx) < 12) ? 'si' : '';
+  if (glifo === 'ancla') return (Math.abs(dx) < 2 && dy > -10 && dy < 12) || (Math.abs(dy + 7) < 2 && Math.abs(dx) < 8) ||
+    (Math.abs(Math.hypot(dx, dy - 2) - 11) < 2 && dy > 4) || Math.abs(Math.hypot(dx, dy + 13) - 3) < 1.5 ? 'si' : '';
+  if (glifo === 'sol') { if (d < 3) return 'hueco'; return d < 7 || (d < 16 && Math.cos(Math.atan2(dy, dx) * 8) > 0.6) ? 'si' : ''; }
+  return '';
+}
 function dibujaSello(b, base, metal, glifo) {
-  const r = rng(41);
-  b.rect(0, 0, T, T, base); ruido(b, r, 0.2);
-  b.rect(0, 0, T, 2, base.map(v => v * 0.55)); b.rect(0, T - 2, T, 2, base.map(v => v * 0.55));
-  const oscuro = metal.map(v => v * 0.45);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const d = Math.hypot(x - 32, y - 32);
-    if (d > 19 && d < 23) b.set(x, y, ...metal);
-    if (d <= 19) b.tinte(x, y, 0.8);
-    if (d >= 19) continue;
-    const dx = x - 32, dy = y - 32;
-    let dentro = false;
-    if (glifo === 'ojo') {
-      dentro = Math.abs(dy) < 7 * Math.sqrt(Math.max(0, 1 - (dx / 13) ** 2));
-      if (d < 3.5) { b.set(x, y, ...oscuro); continue; }
-    } else if (glifo === 'runa') {
-      // runa «Algiz»: un tronco con dos brazos
-      dentro = (Math.abs(dx) < 2 && dy > -14 && dy < 15) || (dy < 0 && dy > -14 && Math.abs(Math.abs(dx) + dy * 0.9) < 2 && Math.abs(dx) < 12);
-    } else if (glifo === 'ancla') {
-      dentro = (Math.abs(dx) < 2 && dy > -10 && dy < 12) || (Math.abs(dy + 7) < 2 && Math.abs(dx) < 8) ||
-        (Math.abs(Math.hypot(dx, dy - 2) - 11) < 2 && dy > 4) || Math.abs(Math.hypot(dx, dy + 13) - 3) < 1.5;
-    } else if (glifo === 'sol') {
-      const ang = Math.atan2(dy, dx);
-      dentro = d < 7 || (d < 16 && Math.cos(ang * 8) > 0.6);
-      if (d < 3) { b.set(x, y, ...oscuro); continue; }
+  const r = rng(41), m = fbm(r, 4, 3), g = ruidoSuave(semilla(r), 32);
+  const zona = new Uint8Array(T * T);
+  superficie(b, (x, y) => {
+    const i = y * T + x, dx = x + 0.5 - 32, dy = y + 0.5 - 32, d = Math.hypot(dx, dy);
+    if (d > 18.5 && d < 23.5) { zona[i] = 1; return 1.12 + suave(Math.min(d - 18.5, 23.5 - d) / 1.6) * 0.25; }
+    if (d <= 18.5) {
+      const e = enGlifo(glifo, dx, dy, d);
+      if (e === 'hueco') { zona[i] = 3; return 0.45; }
+      if (e) { zona[i] = 1; return 1.0; }
+      zona[i] = 2; return 0.72 + g(x, y) * 0.04;
     }
-    if (dentro) b.set(x, y, ...metal);
-  }
+    return suave(Math.min(y, T - 1 - y) / 2.5) * (0.9 + g(x, y) * 0.1);
+  }, (x, y, v, i) => {
+    if (zona[i] === 1) return [...escalar(metal, 0.86 + m(x, y) * 0.24), 1];
+    if (zona[i] === 3) return escalar(metal, 0.3);
+    return escalar(base, (zona[i] === 2 ? 0.72 : 0.84) + m(x, y) * 0.32);
+  }, { fuerza: 3 });
 }
 
 registrar('sello', b => dibujaSello(b, [86, 80, 74], [200, 160, 60], 'ojo'));
@@ -220,248 +374,307 @@ registrar('sello_runa', b => dibujaSello(b, [120, 150, 170], [210, 235, 250], 'r
 registrar('sello_ancla', b => dibujaSello(b, [90, 64, 40], [190, 160, 90], 'ancla'));
 registrar('sello_sol', b => dibujaSello(b, [80, 96, 70], [230, 180, 50], 'sol'));
 
-// Tablilla: placa clara con líneas grabadas sobre el muro de cada mazmorra.
-function dibujaTablilla(b, fondo, placa) {
-  fondo(b);
-  const claro = placa.map(v => Math.min(255, v * 1.25)), oscuro = placa.map(v => v * 0.55);
-  b.rect(10, 8, 44, 48, placa);
-  b.rect(10, 8, 44, 2, claro); b.rect(10, 54, 44, 2, oscuro);
-  b.rect(10, 8, 2, 48, claro); b.rect(52, 8, 2, 48, oscuro);
-  const r2 = rng(43);
+// Tablilla: placa en relieve con renglones grabados, encima del muro de cada mazmorra, y su sombra.
+function capaTablilla(placa) {
+  const r = rng(43), m = fbm(r, 4, 3);
+  const surco = new Uint8Array(T * T);
   for (let fila = 0; fila < 6; fila++) {
     let x = 15;
     while (x < 48) {
-      const w = 2 + Math.floor(r2() * 6);
-      b.rect(x, 14 + fila * 7, Math.min(w, 49 - x), 2, placa.map(v => v * 0.6));
+      const w = 2 + Math.floor(r() * 6), y = 14 + fila * 7;
+      for (let k = x; k < Math.min(x + w, 49); k++) { surco[y * T + k] = 1; surco[(y + 1) * T + k] = 1; }
+      if (r() < 0.4) { surco[(y - 1) * T + x] = 1; surco[(y - 2) * T + x] = 1; }
       x += w + 2;
     }
   }
+  const dentro = (x, y) => x >= 10 && x < 54 && y >= 8 && y < 56;
+  return {
+    alto: (x, y, v, i) => {
+      if (!dentro(x, y)) return v;
+      const e = Math.min(x - 10, 53 - x, y - 8, 55 - y);
+      return 1.08 + suave(e / 2.5) * 0.22 - (surco[i] ? 0.26 : 0);
+    },
+    color: (x, y, v, c, i) => {
+      if (dentro(x, y)) return escalar(placa, 0.84 + m(x, y) * 0.28);
+      if ((x >= 54 && x < 57 && y >= 10 && y < 58) || (y >= 56 && y < 59 && x >= 12 && x < 57)) return escalar(c, 0.6);
+      return c;
+    },
+  };
 }
 
-registrar('tablilla', b => dibujaTablilla(b, b => dibujaPiedra(b, rng(11)), [150, 138, 112]));
-registrar('tablilla_arenisca', b => dibujaTablilla(b, b => dibujaArenisca(b, rng(21)), [196, 170, 120]));
-registrar('tablilla_hielo', b => dibujaTablilla(b, b => dibujaHielo(b, rng(101)), [150, 170, 184]));
-registrar('tablilla_roca', b => dibujaTablilla(b, b => dibujaRoca(b, rng(111)), [140, 120, 96]));
-registrar('tablilla_madera', b => dibujaTablilla(b, b => dibujaMadera(b, rng(121)), [178, 150, 104]));
-registrar('tablilla_selva', b => dibujaTablilla(b, b => dibujaSelva(b, rng(131)), [130, 140, 112]));
+registrar('tablilla', b => dibujaPiedra(b, rng(11), capaTablilla([150, 138, 112])));
+registrar('tablilla_arenisca', b => dibujaArenisca(b, rng(21), capaTablilla([196, 170, 120])));
+registrar('tablilla_hielo', b => dibujaHielo(b, rng(101), capaTablilla([150, 170, 184])));
+registrar('tablilla_roca', b => dibujaRoca(b, rng(111), capaTablilla([140, 120, 96])));
+registrar('tablilla_madera', b => dibujaMadera(b, rng(121), capaTablilla([178, 150, 104])));
+registrar('tablilla_selva', b => dibujaSelva(b, rng(131), capaTablilla([130, 140, 112])));
 
 // ---------- Glaciar ----------
 
-function dibujaHielo(b, r) {
-  ladrillos(b, r, [150, 190, 214], { alto: 21, ancho: 32, mortero: [90, 120, 140], variacion: 0.15 });
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    if ((x + y * 2) % 23 === 0 || (x * 3 - y) % 31 === 0) b.tinte(x, y, 1.18); // vetas brillantes
-  }
-  ruido(b, r, 0.12);
+function dibujaHielo(b, r, capa, marcas) {
+  const prof = fbm(semilla(r), 2, 3);
+  muro(b, r, [156, 196, 220], {
+    alto: T / 3, ancho: 32, mortero: [78, 108, 132], variacion: 0.12, bisel: 4, mella: 0.6, fuerza: 1.8, marcas,
+    capa: componer({
+      color: (x, y, v, c) => {
+        let k = mezclar([84, 128, 170], c, 0.4 + prof(x, y) * 0.7);
+        if (envolver(x * 2 - y + 7) % 23 < 1 || envolver(x - y * 2) % 37 < 1) k = escalar(k, 1.2);   // vetas
+        return [...k, 0.9];
+      },
+    }, capa),
+  });
 }
 registrar('hielo', b => dibujaHielo(b, rng(101)));
-registrar('hielo_grieta', b => { dibujaHielo(b, rng(101)); const r = rng(9); grieta(b, r, 28, 3, 30); grieta(b, r, 40, 30, 24); });
+registrar('hielo_grieta', b => dibujaHielo(b, rng(101), null, grietas(rng(9), [[28, 3, 30], [40, 30, 24]])));
 registrar('nieve', b => {
-  const r = rng(103);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const v = 214 + Math.sin(x * 0.3 + y * 0.17) * 8 + Math.sin(y * 0.5) * 5;
-    b.set(x, y, v * 0.93, v * 0.97, v);
-  }
-  ruido(b, r, 0.08);
-  for (let n = 0; n < 30; n++) b.tinte(Math.floor(r() * T), Math.floor(r() * T), 0.85);
+  const r = rng(103), duna = fbm(r, 2, 4), chispa = ruidoSuave(semilla(r), 64), pisada = fbm(semilla(r), 4, 2);
+  superficie(b, (x, y) => 0.55 + duna(x, y) * 0.45 - suave((pisada(x, y) - 0.72) * 6) * 0.12,
+    (x, y) => [218, 226, 238, 0.35],
+    { fuerza: 3, hondo: 0.3, niveles: 40, emite: (x, y) => chispa(x, y) > 0.985 ? [255, 255, 255] : null });
 });
 registrar('techo_hielo', b => {
-  const r = rng(105);
-  b.rect(0, 0, T, T, [96, 124, 140]); ruido(b, r, 0.25);
-  for (let n = 0; n < 8; n++) { const x = Math.floor(r() * T); for (let y = 0; y < 10 + r() * 20; y++) b.tinte(x, y, 1.25); }
+  const r = rng(105), rugoso = fbm(r, 4, 4), escarcha = ruidoSuave(semilla(r), 64);
+  const raiz = Array.from({ length: 8 }, () => [Math.floor(r() * T), 3 + r() * 3]);
+  superficie(b, (x, y) => {
+    let v = 0.5 + rugoso(x, y) * 0.5;
+    for (const [cx, w] of raiz) { const d = Math.abs(envolver(x - cx + 32) - 32); if (d < w) v += (1 - d / w) * 0.35; }
+    return v;
+  }, (x, y, v) => [...mezclar([70, 96, 116], [170, 200, 218], suave(v - 0.35)), 0.6], { fuerza: 2,
+    emite: (x, y) => escarcha(x, y) > 0.99 ? [230, 244, 255] : null });
 });
 
 // ---------- Cueva pirata ----------
 
-function dibujaRoca(b, r) {
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const v = 0.75 + 0.25 * Math.sin(x * 0.21 + Math.sin(y * 0.13) * 3) * Math.cos(y * 0.17 + x * 0.05);
-    b.set(x, y, 98 * v, 86 * v, 74 * v);
-  }
-  for (let n = 0; n < 6; n++) { const x = Math.floor(r() * T); grieta(b, r, x, Math.floor(r() * 40), 6 + Math.floor(r() * 14)); }
-  ruido(b, r, 0.25);
+function dibujaRoca(b, r, capa, marcas) {
+  const bulto = fbm(semilla(r), 4, 3);
+  muro(b, r, [104, 90, 76], {
+    adoquines: 3, junta: 1.2, bisel: 7, mella: 3, mortero: [42, 34, 28], variacion: 0.32, fuerza: 3, marcas,
+    capa: componer({ alto: (x, y, v) => v + (bulto(x, y) - 0.5) * 0.4 }, capa),
+  });
 }
-function dibujaMadera(b, r) {
-  for (let y = 0; y < T; y++) {
-    const tabla = Math.floor(y / 8);
-    const f = 0.8 + ((tabla * 37) % 5) * 0.05;
-    for (let x = 0; x < T; x++) {
-      const veta = Math.sin(x * 0.4 + tabla * 5 + Math.sin(y)) * 0.05;
-      const c = y % 8 === 0 ? 0.45 : f + veta;
-      b.set(x, y, 104 * c, 70 * c, 44 * c);
-    }
-    if (y % 8 === 4) for (const x of [6 + (Math.floor(y / 8) % 2) * 26, 38 + (Math.floor(y / 8) % 2) * 20]) b.set(x % T, y, 60, 56, 50);
-  }
-  ruido(b, r, 0.12);
+// Tablones horizontales con vetas y clavos en las juntas.
+function dibujaMadera(b, r, capa) {
+  const veta = fbm(semilla(r), 4, 3);
+  const clavo = (x, y, B, i) => {
+    const f = B.fila[i], cy = f * 8 + 4, costura = envolver(-(f * 32));
+    for (const cx of [costura + 3.5, costura - 3.5]) { const d = Math.hypot(envolver(x + 0.5 - cx + 32) - 32, y + 0.5 - cy); if (d < 1.4) return d; }
+    return -1;
+  };
+  muro(b, r, [108, 72, 44], {
+    alto: 8, ancho: 64, corrido: 0.5, junta: 0.6, bisel: 1.6, mella: 0.3, mortero: [34, 22, 14], variacion: 0.3,
+    capa: componer({
+      alto: (x, y, v, i, B) => { const d = clavo(x, y, B, i); return d >= 0 ? 1.25 : v; },
+      color: (x, y, v, c, i, B) => clavo(x, y, B, i) >= 0 ? [62, 58, 54, 0.25] : escalar(c, 0.88 + Math.sin(y * 1.9 + veta(x, y) * 12 + x * 0.04) * 0.1),
+    }, capa),
+  });
 }
 registrar('roca', b => dibujaRoca(b, rng(111)));
-registrar('roca_grieta', b => { dibujaRoca(b, rng(111)); const r = rng(13); grieta(b, r, 30, 2, 40); grieta(b, r, 31, 2, 40); });
+registrar('roca_grieta', b => dibujaRoca(b, rng(111), null, grietas(rng(13), [[30, 2, 40], [31, 2, 40]])));
 registrar('madera', b => dibujaMadera(b, rng(121)));
 registrar('cubierta', b => {
-  const r = rng(123);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const tabla = Math.floor(x / 16);
-    const c = x % 16 === 0 ? 0.5 : 0.85 + ((tabla * 3) % 4) * 0.05 + Math.sin(y * 0.3 + tabla) * 0.04;
-    b.set(x, y, 120 * c, 86 * c, 52 * c);
-  }
-  ruido(b, r, 0.1);
+  const r = rng(123), veta = fbm(semilla(r), 4, 3), gasto = fbm(semilla(r), 2, 2);
+  muro(b, r, [122, 88, 54], {
+    alto: 64, ancho: 16, junta: 0.6, bisel: 1.6, mella: 0.3, mortero: [36, 24, 14], variacion: 0.25,
+    capa: {
+      alto: (x, y, v) => { const lx = envolver(x) % 16, d = Math.hypot(lx + 0.5 - 8, envolver(y + 0.5 - 4 + 32) - 32); return d < 1.3 ? 1.2 : v; },
+      color: (x, y, v, c) => {
+        const lx = x % 16; if (Math.hypot(lx + 0.5 - 8, envolver(y + 0.5 - 4 + 32) - 32) < 1.3) return [62, 58, 54, 0.25];
+        return escalar(c, (0.88 + Math.sin(x * 1.6 + veta(x, y) * 12) * 0.1) * (0.92 + gasto(x, y) * 0.16));
+      },
+    },
+  });
 });
 registrar('techo_madera', b => {
-  const r = rng(125);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const viga = y % 32 < 8;
-    const c = viga ? 0.55 : 0.72;
-    b.set(x, y, 96 * c, 64 * c, 40 * c);
-  }
-  ruido(b, r, 0.15);
+  const r = rng(125), veta = fbm(semilla(r), 4, 3);
+  muro(b, r, [92, 62, 38], {
+    alto: 8, ancho: 64, corrido: 0.5, junta: 0.6, bisel: 1.4, mella: 0.3, mortero: [26, 16, 10], variacion: 0.3,
+    capa: {
+      alto: (x, y, v) => { const ly = y % 32; return ly < 10 ? 1.25 + suave(Math.min(ly, 9 - ly) / 2) * 0.15 : v * 0.9; },
+      color: (x, y, v, c) => (y % 32 < 10 ? escalar([84, 54, 32], 0.9 + Math.sin(y * 2.1 + veta(x, y) * 10) * 0.08) : escalar(c, 0.8)),
+    },
+  });
 });
 registrar('arena_humeda', b => {
-  const r = rng(127);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const v = 0.85 + Math.sin(x * 0.25 + y * 0.1) * 0.05;
-    b.set(x, y, 150 * v, 128 * v, 92 * v);
-  }
-  ruido(b, r, 0.2);
+  const r = rng(127), onda = fbm(r, 2, 3), mojado = fbm(semilla(r), 4, 2), guijarro = ruidoSuave(semilla(r), 64);
+  superficie(b, (x, y) => 0.6 + Math.sin((x * 6 / T + onda(x, y) * 1.4) * Math.PI * 2) * 0.12 + (guijarro(x, y) > 0.99 ? 0.3 : 0),
+    (x, y, v) => {
+      if (guijarro(x, y) > 0.99) return [150, 140, 128, 0.4];
+      const k = suave((mojado(x, y) - 0.45) * 3);
+      return [...mezclar([164, 140, 100], [104, 88, 64], k), k * 0.6];
+    }, { fuerza: 3, hondo: 0.3 });
 });
-registrar('techo_roca', b => { const r = rng(129); dibujaRoca(b, r); for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) b.tinte(x, y, 0.7); });
+registrar('techo_roca', b => {
+  const r = rng(129), bulto = fbm(semilla(r), 4, 3);
+  muro(b, r, [72, 62, 54], { adoquines: 4, junta: 1, bisel: 6, mella: 2.5, mortero: [26, 20, 16], variacion: 0.3, fuerza: 3,
+    capa: { alto: (x, y, v) => v + (bulto(x, y) - 0.5) * 0.4 } });
+});
 
 // ---------- Templo de la selva ----------
 
-function dibujaSelva(b, r) {
-  ladrillos(b, r, [104, 112, 92], { alto: 16, ancho: 32, mortero: [44, 50, 38], variacion: 0.22 });
-  ruido(b, r, 0.2);
-  // enredaderas que cuelgan
+function dibujaSelva(b, r, capa, marcas) {
+  const r2 = semilla(r), musgo = fbm(semilla(r), 4, 3);
+  const liana = new Uint8Array(T * T);
   for (let n = 0; n < 5; n++) {
-    let x = Math.floor(r() * T);
-    const largo = 10 + Math.floor(r() * 40);
+    let x = Math.floor(r2() * T);
+    const largo = 10 + Math.floor(r2() * 40);
     for (let y = 0; y < largo; y++) {
-      b.set(x, y, 40 + r() * 20, 96 + r() * 40, 36);
-      if (r() < 0.25) b.set(x + 1, y, 60, 130, 40);
-      if (r() < 0.15) x += r() < 0.5 ? -1 : 1;
+      liana[y * T + envolver(x)] = 1;
+      if (r2() < 0.18) { for (const [dx, dy] of [[1, 0], [2, 0], [1, 1], [2, -1]]) if (y + dy >= 0) liana[(y + dy) * T + envolver(x + dx)] = 2; }
+      if (r2() < 0.15) x += r2() < 0.5 ? -1 : 1;
     }
   }
+  const verdin = (x, y) => suave((musgo(x, y) - 0.55) * 5);
+  muro(b, r, [104, 112, 92], {
+    mortero: [44, 50, 38], variacion: 0.22, marcas,
+    capa: componer({
+      alto: (x, y, v, i) => liana[i] ? 1.3 : v + verdin(x, y) * 0.1,
+      color: (x, y, v, c, i) => liana[i] === 1 ? [52, 98, 38] : liana[i] === 2 ? [78, 136, 48] : mezclar(c, [62, 92, 44], verdin(x, y) * 0.8),
+    }, capa),
+  });
 }
 registrar('selva', b => dibujaSelva(b, rng(131)));
-registrar('selva_grieta', b => { dibujaSelva(b, rng(131)); const r = rng(17); grieta(b, r, 26, 18, 40); grieta(b, r, 38, 6, 30); });
+registrar('selva_grieta', b => dibujaSelva(b, rng(131), null, grietas(rng(17), [[26, 18, 40], [38, 6, 30]])));
 registrar('losa_selva', b => {
-  const r = rng(133);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const junta = x % 21 === 0 || y % 21 === 0;
-    const f = junta ? 0.45 : 1;
-    b.set(x, y, 96 * f, 100 * f, 82 * f);
-  }
-  ruido(b, r, 0.25);
-  for (let n = 0; n < 60; n++) b.set(Math.floor(r() * T), Math.floor(r() * T), 50, 100, 40);
+  const r = rng(133), hierba = ruidoSuave(semilla(r), 64);
+  muro(b, r, [98, 102, 84], { adoquines: 3, junta: 1.4, bisel: 3, mella: 1.5, mortero: [40, 60, 30], variacion: 0.2,
+    capa: {
+      alto: (x, y, v, i, B) => B.a[i] < 0.3 && hierba(x, y) > 0.6 ? 0.55 : v,
+      color: (x, y, v, c, i, B) => B.a[i] < 0.3 && hierba(x, y) > 0.6 ? (hierba(x, y) > 0.8 ? [96, 140, 54] : [56, 96, 40]) : c,
+    } });
 });
-registrar('techo_selva', b => { const r = rng(135); b.rect(0, 0, T, T, [62, 66, 54]); ruido(b, r, 0.35); });
+registrar('techo_selva', b => {
+  const r = rng(135), musgo = fbm(semilla(r), 4, 3), bulto = fbm(semilla(r), 4, 3);
+  const verdin = (x, y) => suave((musgo(x, y) - 0.5) * 4);
+  muro(b, r, [66, 70, 58], { adoquines: 3, junta: 1.2, bisel: 6, mella: 2.5, mortero: [30, 36, 24], variacion: 0.25, fuerza: 3,
+    capa: { alto: (x, y, v) => v + (bulto(x, y) - 0.5) * 0.35, color: (x, y, v, c) => mezclar(c, [50, 76, 38], verdin(x, y) * 0.7) } });
+});
 
 registrar('salida', b => {
-  const r = rng(51); dibujaPiedra(b, r);
-  for (let y = 6; y < T; y++) for (let x = 12; x < 52; x++) {
-    const arco = y > 22 || Math.hypot(x - 32, y - 22) < 20;
-    if (arco) {
-      const t = 1 - (y - 6) / 70;
-      b.set(x, y, 255, 236 * t + 20, 170 * t + 40);
-    }
-  }
+  const r = rng(51);
+  const abierto = (x, y) => y >= 7 && x >= 14 && x < 50 && (y > 24 || Math.hypot(x + 0.5 - 32, y + 0.5 - 25) < 18);
+  const marco = (x, y) => !abierto(x, y) && y >= 2 && x >= 9 && x < 55 && (y > 24 || Math.hypot(x + 0.5 - 32, y + 0.5 - 25) < 23);
+  dibujaPiedra(b, r, {
+    alto: (x, y, v) => {
+      if (!marco(x, y)) return v;
+      // dovelas: piezas en abanico en el arco y bloques en las jambas
+      const ang = Math.atan2(y + 0.5 - 25, x + 0.5 - 32), dd = Math.abs(Math.sin(ang * 6.5));
+      const junta = y <= 24 ? dd < 0.12 : (y % 10 === 0);
+      return junta ? 0.4 : 1.2;
+    },
+    color: (x, y, v, c) => marco(x, y) ? escalar(c, 1.18) : c,
+    emite: (x, y) => {
+      if (!abierto(x, y)) return null;
+      // luz del exterior que entra: blanca arriba, dorada abajo, con el suelo que se ve a lo lejos
+      const t = (y - 7) / 57 + (TRAMA_T[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * 0.08;
+      return t < 0.5 ? mezclar([255, 252, 236], [255, 226, 160], t * 2) : mezclar([255, 226, 160], [214, 170, 100], (t - 0.5) * 2);
+    },
+  });
 });
+
+// ---------- Suelos y techos ----------
 
 registrar('losa', b => {
-  const r = rng(61);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const junta = x % 32 === 0 || y % 32 === 0;
-    const bloque = (Math.floor(x / 32) + Math.floor(y / 32)) % 2;
-    const f = junta ? 0.5 : (bloque ? 0.92 : 1);
-    b.set(x, y, 92 * f, 86 * f, 78 * f);
-  }
-  ruido(b, r, 0.25);
+  const r = rng(61), gasto = fbm(semilla(r), 2, 3);
+  muro(b, r, [94, 88, 80], { alto: 32, ancho: 32, junta: 1, bisel: 3, mella: 0.8, mortero: [34, 30, 27], variacion: 0.16,
+    marcas: grietas(rng(62), [[40, 36, 12], [12, 6, 9]]), capa: { color: (x, y, v, c) => escalar(c, 0.9 + gasto(x, y) * 0.2) } });
 });
-
 registrar('arena', b => {
-  const r = rng(71);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const junta = x % 32 === 0 || (y + (x < 32 ? 0 : 16)) % 32 === 0;
-    const f = junta ? 0.6 : 1;
-    b.set(x, y, 168 * f, 134 * f, 88 * f);
-  }
-  ruido(b, r, 0.2);
+  const r = rng(71), polvo = fbm(semilla(r), 4, 3);
+  const k = (x, y) => suave((polvo(x, y) - 0.5) * 3);
+  muro(b, r, [170, 136, 90], { alto: 32, ancho: 32, junta: 1, bisel: 2.5, mortero: [104, 80, 52], variacion: 0.14,
+    capa: { alto: (x, y, v) => v * (1 - k(x, y)) + k(x, y) * 0.8, color: (x, y, v, c) => mezclar(c, [196, 164, 112], k(x, y)) } });
 });
-
 registrar('techo', b => {
-  const r = rng(81);
-  b.rect(0, 0, T, T, [58, 54, 50]); ruido(b, r, 0.35);
-  for (let x = 0; x < T; x++) { b.tinte(x, 0, 0.5); b.tinte(x, 31, 0.6); }
+  muro(b, rng(81), [62, 58, 54], { alto: 32, ancho: 64, junta: 1, bisel: 3, mortero: [22, 20, 18], variacion: 0.2 });
 });
-
 registrar('techo_arena', b => {
-  const r = rng(91);
-  b.rect(0, 0, T, T, [110, 86, 58]); ruido(b, r, 0.3);
-  for (let x = 0; x < T; x++) { b.tinte(x, 0, 0.55); b.tinte(0, x, 0.55); }
+  // losas del techo con estrellas grabadas, como en las tumbas egipcias
+  const r = rng(91), estrellas = new Float32Array(T * T);
+  for (let n = 0; n < 6; n++) {
+    const cx = 4 + Math.floor(r() * 56), cy = 4 + Math.floor(r() * 56);
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, -2], [1, 2], [-1, 2]]) estrellas[(cy + dy) * T + cx + dx] = 0.6;
+  }
+  muro(b, r, [118, 92, 62], { alto: 32, ancho: 32, corrido: 0, junta: 1, bisel: 2.5, mortero: [52, 38, 24], variacion: 0.15, marcas: estrellas });
 });
 
 // ---------- Templo maldito ----------
 
-function dibujaVolcanica(b, r) {
-  ladrillos(b, r, [92, 58, 48], { alto: 16, ancho: 32, mortero: [36, 20, 16], variacion: 0.25 });
-  ruido(b, r, 0.22);
-  for (let n = 0; n < 6; n++) { const x = Math.floor(r() * T), y = Math.floor(r() * T); b.set(x, y, 220, 90, 30); b.set(x + 1, y, 180, 60, 20); }
+function dibujaVolcanica(b, r, capa, marcas) {
+  const brasa = ruidoSuave(semilla(r), 64);
+  const vetas = unir(grietas(semilla(r), [[10, 40, 10], [50, 8, 8]]), marcas);
+  muro(b, r, [86, 54, 44], {
+    mortero: [30, 16, 12], variacion: 0.25, marcas: vetas,
+    capa: componer({
+      emite: (x, y, i) => vetas[i] >= 1 ? ((x + y) & 1 ? [255, 132, 34] : [222, 82, 22]) : brasa(x, y) > 0.992 ? [255, 160, 60] : null,
+    }, capa),
+  });
 }
 registrar('volcanica', b => dibujaVolcanica(b, rng(141)));
-registrar('volcanica_grieta', b => { dibujaVolcanica(b, rng(141)); const r = rng(19); grieta(b, r, 31, 2, 40); grieta(b, r, 20, 30, 26); });
-registrar('tablilla_volcanica', b => dibujaTablilla(b, b => dibujaVolcanica(b, rng(141)), [150, 112, 84]));
+registrar('volcanica_grieta', b => dibujaVolcanica(b, rng(141), null, grietas(rng(19), [[31, 2, 40], [20, 30, 26]])));
+registrar('tablilla_volcanica', b => dibujaVolcanica(b, rng(141), capaTablilla([150, 112, 84])));
 registrar('losa_roja', b => {
-  const r = rng(143);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const junta = x % 32 === 0 || y % 32 === 0;
-    const f = junta ? 0.5 : 1;
-    b.set(x, y, 110 * f, 70 * f, 56 * f);
-  }
-  ruido(b, r, 0.25);
+  const r = rng(143), hollin = fbm(semilla(r), 4, 3);
+  muro(b, r, [112, 70, 56], { alto: 32, ancho: 32, junta: 1, bisel: 3, mella: 0.8, mortero: [36, 20, 16], variacion: 0.18,
+    capa: { color: (x, y, v, c) => escalar(c, 0.7 + hollin(x, y) * 0.45) } });
 });
 registrar('lava', b => {
-  const r = rng(145);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-    const v = Math.sin(x * 0.2 + Math.sin(y * 0.15) * 3) + Math.sin(y * 0.23 + Math.cos(x * 0.1) * 2);
-    const t = (v + 2) / 4;
-    if (t < 0.35) b.set(x, y, 90, 20, 8);
-    else b.set(x, y, 200 + t * 55, 60 + t * 150, 10 + t * 40);
-  }
-  ruido(b, r, 0.1);
+  // costra oscura partida en placas, con lava viva en las juntas
+  const r = rng(145), B = adoquines(r, 4, { junta: 0.6, bisel: 4, mella: 2.5 }), calor = fbm(semilla(r), 4, 2);
+  superficie(b, (x, y) => B.a[y * T + x] * (0.8 + calor(x, y) * 0.2),
+    (x, y, v, i) => mezclar([110, 40, 22], [58, 36, 30], suave(B.a[i] * 2.5)),
+    { fuerza: 3, emite: (x, y, i) => {
+      const a = B.a[i];
+      if (a > 0.32) return null;
+      const t = 1 - a / 0.32 + (TRAMA_T[(y & 3) * 4 + (x & 3)] / 16 - 0.5) * 0.3;
+      return t > 0.75 ? [255, 236, 120] : t > 0.4 ? [255, 160, 40] : [226, 84, 20];
+    } });
 });
 registrar('agujeros', b => {
-  const r = rng(147);
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) b.set(x, y, 92, 86, 78);
-  ruido(b, r, 0.25);
-  for (let j = 0; j < 4; j++) for (let i = 0; i < 4; i++) { b.rect(5 + i * 16, 5 + j * 16, 5, 5, [16, 12, 10]); b.rect(5 + i * 16, 5 + j * 16, 5, 1, [50, 44, 40]); }
+  const hueco = (x, y) => x % 16 >= 5 && x % 16 < 10 && y % 16 >= 5 && y % 16 < 10;
+  muro(b, rng(147), [94, 88, 80], { alto: 32, ancho: 32, junta: 1, bisel: 3, mortero: [34, 30, 27], variacion: 0.16,
+    capa: { alto: (x, y, v) => hueco(x, y) ? 0 : v, color: (x, y, v, c) => hueco(x, y) ? [14, 10, 8] : c } });
 });
 registrar('abismo', b => {
-  const r = rng(149);
-  b.rect(0, 0, T, T, [14, 12, 12]); ruido(b, r, 0.6);
+  const r = rng(149), niebla = fbm(r, 2, 4);
+  superficie(b, (x, y) => niebla(x, y), (x, y, v) => escalar([20, 17, 18], 0.5 + v * 0.9), { hondo: 0, fuerza: 0.6, niveles: 64 });
 });
 registrar('abismo_puente', b => {
-  const r = rng(149);
-  b.rect(0, 0, T, T, [14, 12, 12]); ruido(b, r, 0.6);
   // el puente se camufla con el fondo: solo lo delatan juntas casi invisibles
-  for (let x = 0; x < T; x++) { b.tinte(x, 0, 1.6); b.tinte(x, 32, 1.4); }
+  const r = rng(149), niebla = fbm(r, 2, 4);
+  superficie(b, (x, y) => niebla(x, y), (x, y, v) => escalar([20, 17, 18], (0.5 + v * 0.9) * (y === 0 || y === 32 ? 1.5 : 1)), { hondo: 0, fuerza: 0.6, niveles: 64 });
 });
 
 // ---------- Tumba del cruzado ----------
 
-function dibujaCatacumba(b, r) {
-  ladrillos(b, r, [140, 128, 108], { alto: 16, ancho: 32, mortero: [70, 62, 52], variacion: 0.2 });
-  ruido(b, r, 0.18);
-  // nicho con calaveras
-  b.rect(12, 22, 40, 20, [30, 24, 20]);
-  for (let i = 0; i < 4; i++) {
-    const x = 14 + i * 9;
-    b.rect(x, 30, 7, 7, [214, 204, 180]); b.rect(x + 1, 37, 5, 3, [214, 204, 180]);
-    b.set(x + 1, 32, 30, 24, 20); b.set(x + 2, 32, 30, 24, 20); b.set(x + 4, 32, 30, 24, 20); b.set(x + 5, 32, 30, 24, 20);
-  }
-  for (let x = 14; x < 50; x += 3) b.rect(x, 25, 2, 3, [190, 180, 156]);
+// Nicho con cuatro calaveras y una hilera de huesos encima.
+const capaNicho = {
+  alto: (x, y, v) => {
+    const px = x + 0.5, py = y + 0.5;
+    if (px < 12 || px >= 52 || py < 22 || py >= 42) return v;
+    for (let k = 0; k < 4; k++) {
+      const cx = 17.5 + k * 9.6;
+      const d = Math.hypot((px - cx) / 3.6, (py - 32.5) / 3.8);
+      if (d < 1) {
+        if (Math.hypot(px - cx + 1.5, py - 32.5) < 1.1 || Math.hypot(px - cx - 1.5, py - 32.5) < 1.1) return 0.45;   // cuencas
+        return 0.55 + Math.sqrt(1 - d * d) * 0.6;
+      }
+      if (Math.abs(px - cx) < 2.6 && py >= 35.5 && py < 38.5) return py > 37.4 && Math.round(px) % 2 ? 0.6 : 0.85;  // mandíbula
+    }
+    if (py >= 24 && py < 28) { const ly = py - 24; return 0.5 + Math.sqrt(Math.max(0, 1 - ((ly % 2) - 1) ** 2)) * 0.4; }   // huesos apilados
+    return 0.18 + suave(Math.min(px - 12, 52 - px, py - 22, 42 - py) / 2) * 0.02;
+  },
+  color: (x, y, v, c) => {
+    if (x < 12 || x >= 52 || y < 22 || y >= 42) return c;
+    return v > 0.3 ? [214, 204, 180] : [34, 28, 24];
+  },
+};
+function dibujaCatacumba(b, r, capa, marcas) {
+  muro(b, r, [140, 128, 108], { mortero: [70, 62, 52], variacion: 0.2, marcas, capa: componer(capaNicho, capa) });
 }
 registrar('catacumba', b => dibujaCatacumba(b, rng(151)));
-registrar('catacumba_grieta', b => { dibujaCatacumba(b, rng(151)); const r = rng(23); grieta(b, r, 6, 2, 18); grieta(b, r, 56, 44, 18); });
-registrar('tablilla_catacumba', b => dibujaTablilla(b, b => dibujaCatacumba(b, rng(151)), [176, 164, 136]));
+registrar('catacumba_grieta', b => dibujaCatacumba(b, rng(151), null, grietas(rng(23), [[6, 2, 18], [56, 44, 18]])));
+registrar('tablilla_catacumba', b => dibujaCatacumba(b, rng(151), capaTablilla([176, 164, 136])));
+
 
 // ---------- Sprites (fondo transparente) ----------
 
