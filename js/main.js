@@ -7,6 +7,7 @@ import { dibujarAutomapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
+import { recortarZonas } from './laberinto.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 
@@ -26,6 +27,18 @@ progreso.opciones ||= {};
 function guardar() { try { localStorage.setItem(CLAVE, JSON.stringify(progreso)); } catch (e) { /* sin almacenamiento */ } }
 
 const CALIDADES = { alta: 1, media: 0.75, retro: 0.4 };
+// Antes de entrar se elige el modo, el tamaño (cuántas zonas de la mazmorra) y, en el contrarreloj,
+// el tiempo, que depende del tamaño.
+const TAMANOS = {
+  pequena: { zonas: 1, minutos: [3, 4, 6] },
+  mediana: { zonas: 2, minutos: [5, 8, 11] },
+  grande: { zonas: Infinity, minutos: [8, 12, 16] },
+};
+const RITMOS = ['Corto', 'Normal', 'Largo'];
+const prep = { modo: progreso.opciones.modo || 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
+let elegida = null;   // la mazmorra de la pantalla de preparación
+let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
+const recordDe = (def, tamano, seg) => (progreso.records || {})[`${def.id}:${tamano}:${seg}`] || 0;
 let calidad = progreso.opciones.calidad || 'alta';
 
 // ---------- Inicio ----------
@@ -85,6 +98,46 @@ function destello(clase) {
 
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
+// ---------- Preparar la expedición ----------
+
+// las mazmorras sin zonas tienen un solo tamaño
+const tamanoDe = def => def.sectores ? prep.tamano : 'grande';
+const limiteDe = def => prep.modo === 'contrarreloj' ? TAMANOS[tamanoDe(def)].minutos[prep.ritmo] * 60 : 0;
+const minuscula = t => t[0].toLowerCase() + t.slice(1);
+
+function abrirPreparar(def) {
+  elegida = def;
+  pintarPreparar();
+  mostrar('preparar');
+}
+function pintarPreparar() {
+  const def = elegida, Z = def.sectores, tam = tamanoDe(def), contra = prep.modo === 'contrarreloj';
+  $('#preparar h2').textContent = def.nombre;
+  $('#prep-desc').textContent = def.descripcion;
+  for (const b of document.querySelectorAll('[data-modo]')) b.classList.toggle('activo', b.dataset.modo === prep.modo);
+  $('#prep-titulo-tamano').hidden = $('#prep-tamanos').hidden = !Z;
+  for (const b of document.querySelectorAll('[data-tamano]')) b.classList.toggle('activo', b.dataset.tamano === tam);
+  const n = TAMANOS[tam].zonas, z = Z?.zonas || [];
+  $('#nota-tamano').textContent = !Z ? ''
+    : n === 1 ? `Solo la primera zona: ${minuscula(z[0].nombre)}. La salida se esconde en ella.`
+    : n === 2 ? `Las dos primeras zonas: ${minuscula(z[0].nombre)} y ${minuscula(z[1].nombre)}.`
+    : `Las ${z.length} zonas, con ${minuscula(z.at(-1).nombre)} tras un pasadizo secreto.`;
+  $('#prep-tiempo').hidden = !contra;
+  document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
+    b.textContent = `${RITMOS[i]} · ${TAMANOS[tam].minutos[i]} min`;
+    b.classList.toggle('activo', i === prep.ritmo);
+  });
+  const seg = limiteDe(def), rec = recordDe(def, tam, seg);
+  $('#nota-modo').textContent = contra
+    ? `Tienes ${seg / 60} minutos para reunir el botín más valioso y salir. Si se apaga la última antorcha antes de escapar, pierdes la mitad de los puntos.${rec ? ` Récord: ${rec} puntos.` : ''}`
+    : 'Explora sin apuro: cada tesoro que encuentres va a tu colección.';
+}
+const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave] = valor; guardar(); pintarPreparar(); };
+for (const b of document.querySelectorAll('[data-modo]')) b.onclick = () => elegir('modo', b.dataset.modo);
+for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
+for (const b of document.querySelectorAll('[data-ritmo]')) b.onclick = () => elegir('ritmo', +b.dataset.ritmo);
+$('#btn-entrar').onclick = () => empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
+
 function pintarMazmorras() {
   const lista = $('#lista-mazmorras');
   lista.innerHTML = '';
@@ -97,7 +150,7 @@ function pintarMazmorras() {
     b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><strong>${m.nombre}</strong><span>${m.descripcion}</span>
       <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
       <small>Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}</small>`;
-    b.onclick = () => empezar(m);
+    b.onclick = () => abrirPreparar(m);
     lista.appendChild(b);
   }
 }
@@ -213,12 +266,15 @@ $('#btn-musica').onclick = () => { progreso.opciones.sinMusica = alternarMusica(
 
 // ---------- Partida ----------
 
-function empezar(def) {
+function empezar(def, tamano = 'grande', limite = 0) {
   if (!render) return;
   activarAudio();
-  juego = new Juego(def, {
+  actual = { def, tamano, limite };
+  juego = new Juego(recortarZonas(def, TAMANOS[tamano].zonas), {
     mensaje,
     tesoro(t, r) {
+      // en el contrarreloj el botín va a la colección solo si escapas con él
+      if (juego.limite) { mensaje(`${t.nombre} (${r.nombre}): +${r.valor}`, 4); destello('oro'); return; }
       const nuevo = !progreso.tesoros.includes(t.id);
       if (nuevo) { progreso.tesoros.push(t.id); guardar(); }
       mensaje(`${nuevo ? '¡Tesoro!' : 'Ya lo tenías:'} ${t.nombre} (${r.nombre})`, 4);
@@ -229,8 +285,12 @@ function empezar(def) {
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     salida: r => terminar(r, true),
-    muerte: r => setTimeout(() => terminar(r, false), 1400),
-  });
+    muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
+    tiempoAgotado: r => terminar(r, false),
+  }, undefined, { limite });
+  $('#hud-reloj').hidden = !limite;
+  $('#caja-puntos').hidden = !limite;
+  document.body.classList.toggle('contrarreloj', !!limite);
   render.construir(juego.mapa);
   capaMapa.hidden = true;
   iniciarAmbiente(def.ambiente);
@@ -283,7 +343,9 @@ function abrirPanelTablilla(a) {
 
 function terminar(r, exito) {
   pausar();
-  if (exito) {
+  $('#panel').hidden = true;
+  if (r.limite) return terminarContrarreloj(r, exito);
+  if (exito && actual.tamano === 'grande') {
     const est = progreso.mazmorras[r.mazmorra.id] ||= {};
     est.completada = true;
     est.secretos = Math.max(est.secretos || 0, r.secretos);
@@ -298,7 +360,31 @@ function terminar(r, exito) {
     <li>Enemigos: <b>${r.abatidos}/${r.totalEnemigos}</b></li>
     <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b></li>`;
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre}</span>`).join('');
-  $('#btn-reintentar').onclick = () => empezar(r.mazmorra);
+  $('#btn-reintentar').textContent = 'Jugar de nuevo';
+  $('#btn-reintentar').onclick = () => empezar(actual.def, actual.tamano, actual.limite);
+  mostrar('resumen');
+  detenerAmbiente();
+  document.body.classList.remove('jugando');
+}
+
+// Al escapar te llevas todos los puntos y los tesoros van a tu colección; si se acaba el tiempo adentro, la mitad de los puntos y ningún tesoro.
+function terminarContrarreloj(r, exito) {
+  const puntos = exito ? r.puntos : Math.floor(r.puntos / 2);
+  if (exito) for (const id of r.tesoros) if (!progreso.tesoros.includes(id)) progreso.tesoros.push(id);
+  const clave = `${r.mazmorra.id}:${actual.tamano}:${r.limite}`, antes = recordDe(r.mazmorra, actual.tamano, r.limite);
+  if (puntos > antes) (progreso.records ||= {})[clave] = puntos;
+  guardar();
+  const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
+  $('#resumen h2').textContent = exito ? `¡Escapaste con ${puntos} puntos!` : r.causa;
+  $('#resumen .datos').innerHTML = `
+    <li>Puntos: <b>${exito ? puntos : `${r.puntos} → ${puntos}`}</b>${exito ? '' : ' (la mitad, por no escapar)'}</li>
+    ${puntos > antes ? '<li>¡Nuevo récord!</li>' : antes ? `<li>Récord: <b>${antes}</b></li>` : ''}
+    <li>Tesoros: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
+    <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>
+    <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b> de ${r.limite / 60}:00</li>`;
+  $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre} +${RAREZAS[TESORO[id].rareza].valor}</span>`).join('');
+  $('#btn-reintentar').textContent = 'Revancha';
+  $('#btn-reintentar').onclick = () => empezar(actual.def, actual.tamano, actual.limite);
   mostrar('resumen');
   detenerAmbiente();
   document.body.classList.remove('jugando');
@@ -320,6 +406,12 @@ function actualizarHUD() {
   $('#hud-arma').textContent = j.arma === 'revolver' ? 'Revólver' : 'Látigo';
   $('#hud-balas').textContent = j.arma === 'revolver' ? `${j.tambor} | ${j.reserva}` : (j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : '—');
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
+  if (juego.limite) {
+    const r = Math.ceil(juego.restante()), rel = $('#hud-reloj');
+    rel.textContent = `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
+    rel.classList.toggle('urgente', r <= 60);
+    $('#hud-puntos').textContent = juego.puntos();
+  }
   // en las mazmorras por zonas: «Zona 2 · Las galerías: 1 de 4 reliquias»
   const z = juego.zonaActual(), hz = $('#hud-zona');
   hz.hidden = !z;
@@ -346,12 +438,13 @@ function cuadro(t) {
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
   if (ent.pulsos.has('mapa') && !pausado) capaMapa.hidden = !capaMapa.hidden;
-  if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, juego.tension()); }
+  if (!pausado) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
+  else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
   render.ajustarTamano(CALIDADES[calidad]);
   // la antorcha titila
   const linterna = juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025;
-  render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo });
+  render.dibujar(juego.camara(), juego.sprites(), { linterna, fogonazo: juego.fogonazo, penumbra: juego.penumbra() });
 
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(capaArma.clientWidth * dpr), h = Math.round(capaArma.clientHeight * dpr);

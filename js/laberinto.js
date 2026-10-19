@@ -307,6 +307,24 @@ export function conLaberinto(def, azar = Math.random) {
 //   entrada: [x, y] casilla del borde del primer bloque que da al plano fijo (puerta).
 //   salida: [zonas posibles] la salida se esconde en un ramal hondo de una de ellas, al azar.
 // }
+// Una mazmorra más chica: solo sus primeras `n` zonas, sin la cámara extra. La última zona que queda
+// no tiene tablilla hacia la siguiente y la salida se esconde en alguna de las que quedan.
+export function recortarZonas(def, n) {
+  const Z = def.sectores;
+  if (!Z || n >= Z.zonas.length) return def;
+  const salida = Z.salida.filter(i => i < n);
+  return {
+    ...def,
+    sectores: {
+      ...Z, extra: -1,
+      zonas: Z.zonas.slice(0, n).map((z, i) => i === n - 1 ? { ...z, acertijo: undefined } : z),
+      bloques: Z.bloques.filter(b => b.zona < n),
+      pasos: Z.pasos.filter(([, hacia]) => hacia < n),
+      salida: salida.length ? salida : [n - 1],
+    },
+  };
+}
+
 const CARACTERES_TESORO = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
 
 export function conZonas(def, azar = Math.random) {
@@ -340,7 +358,7 @@ export function conZonas(def, azar = Math.random) {
   }
 
   // un acertijo por zona que abre el paso a la siguiente
-  const ultima = Z.zonas.length - 1;
+  const ultima = Z.extra ?? Z.zonas.length - 1;   // la cámara extra (-1 si se recortó)
   const selloDe = {};
   Z.zonas.forEach((z, i) => {
     if (!z.acertijo || i === ultima) return;

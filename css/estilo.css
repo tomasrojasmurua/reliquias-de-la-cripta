@@ -217,6 +217,10 @@ body.retro #vista { image-rendering: pixelated; }
 #hud-zona.completa em { color: #7fe0a0; }
 @media (max-width: 620px) { #hud-zona span { display: none; } }
 
+#prep-tiempo { display: flex; flex-direction: column; align-items: center; }
+/* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
+#hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }
+#hud-reloj.urgente { color: #ff5a4a; border-color: #8a2a1a; animation: latido 1s infinite; }
 #hud { position: absolute; left: 50%; bottom: max(8px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; z-index: 2; }
 #hud .caja { min-width: 84px; text-align: center; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; padding: 3px 10px; }
 #hud small { display: block; color: var(--suave); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
@@ -276,6 +280,7 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 #t-recargar { width: 56px; height: 56px; right: calc(116px + env(safe-area-inset-right)); bottom: calc(164px + env(safe-area-inset-bottom)); }
 #t-arma { width: 56px; height: 56px; right: calc(42px + env(safe-area-inset-right)); bottom: calc(195px + env(safe-area-inset-bottom)); }
 #t-mapa { width: 50px; height: 50px; right: calc(12px + env(safe-area-inset-right)); top: calc(40px + env(safe-area-inset-top)); }
+body.contrarreloj #t-mapa { top: calc(58px + env(safe-area-inset-top)); }
 .solo-tactil { display: none; }
 body.tactil .solo-tactil { display: flex; }
 body.tactil p.solo-tactil { display: block; }

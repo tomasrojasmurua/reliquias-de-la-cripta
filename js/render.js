@@ -221,7 +221,8 @@ export class Render {
     gl.uniform1f(this.loc.uLinterna, efectos.linterna);
     gl.uniform1f(this.loc.uFogonazo, efectos.fogonazo);
     gl.uniform1f(this.loc.uBandas, this.bandas ? 1 : 0);
-    gl.uniform3fv(this.loc.uTinte, this.tinte);
+    const p = efectos.penumbra ?? 1;
+    gl.uniform3fv(this.loc.uTinte, this.tinte.map(c => c * p));
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufFijo);
     this.atributos();
