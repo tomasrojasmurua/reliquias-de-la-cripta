@@ -20,6 +20,10 @@ const LEYENDA_BASE = {
   'b': { tipo: 'suelo', objeto: 'balas' },
   'v': { tipo: 'suelo', objeto: 'vendas' },
   'w': { tipo: 'suelo', objeto: 'barreta' },
+  'z': { tipo: 'suelo', objeto: 'escopeta' },
+  'q': { tipo: 'suelo', objeto: 'cartuchos' },
+  // muro de una trampa de dardos: dispara a lo largo del pasillo recto que tiene delante
+  'ð': { tipo: 'muro', tex: 'dardos', dardos: true },
   'm': { tipo: 'suelo', enemigo: 'momia' },
   'k': { tipo: 'suelo', enemigo: 'esqueleto' },
   'g': { tipo: 'suelo', enemigo: 'draugr' },
@@ -34,6 +38,7 @@ const LEYENDA_BASE = {
   'f': { tipo: 'suelo', objeto: 'falso' },
 };
 
+const V4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const ALTO = 1.25;       // altura de un tramo de muro (igual que ALTO_MURO en render.js)
 export const HONDO = 6.25; // profundidad del abismo
 
@@ -89,7 +94,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
         piso: 0, techoY: ALTO, // alturas del suelo y del techo de la casilla
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
-        antorcha: !!l.antorcha,
+        antorcha: !!l.antorcha, dardos: !!l.dardos,
         trampa: l.trampa || null, peligro: l.peligro || null, texto: l.texto || null,
         zona: 0,
       };
@@ -185,6 +190,20 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
       if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.6 * (1 - d / 4.5)));
     }
   }
+
+  // Trampas de dardos: hacia dónde dispara cada una y hasta dónde llega (hasta el primer obstáculo, 14 casillas como mucho).
+  mapa.dardos = [];
+  celdas.forEach((c, i) => {
+    if (!c.dardos) return;
+    const x = i % ancho, y = Math.floor(i / ancho);
+    const libres = V4.filter(([dx, dy]) => { const v = mapa.celda(x + dx, y + dy); return v && v.tipo === 'suelo' && !v.peligro; });
+    if (libres.length !== 1) return;
+    const [dx, dy] = libres[0];
+    let largo = 0;
+    for (let k = 1; k <= 14; k++) { const v = mapa.celda(x + dx * k, y + dy * k); if (!v || v.tipo !== 'suelo' || v.peligro === 'abismo') break; largo = k; }
+    if (largo < 3) return;
+    mapa.dardos.push({ x: x + 0.5, z: y + 0.5, dx, dz: dy, largo: largo - 0.2, y: mapa.piso(x + dx, y + dy), fase: (x * 0.37 + y * 0.61) % 3.4 });
+  });
 
   // Pinturas, relieves y estatuas en las salas de los laberintos (con su propio azar, para no
   // cambiar la mazmorra que sale de la semilla).

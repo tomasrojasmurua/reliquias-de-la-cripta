@@ -15,6 +15,7 @@ const VACIO = 0.22;      // queda vacío (y el monstruo aparece en otra parte)
 const BESTIA = 0.3;      // sale una de las bestias de la partida en vez del enemigo propio
 const COLOSO = 0.07;     // sale el coloso (solo en las partidas que lo tienen, y uno o dos como mucho)
 const ESCONDIDO = { propio: 0.25, bestia: 0.6, coloso: 0.8 };
+const ARQUERO = 0.14;    // sale un arquero en vez del enemigo propio
 const EXTRA = 0.12;      // monstruos de más, en casillas cualquiera, por cada sitio del plano
 const LEJOS = 7;         // nada aparece tan cerca del inicio
 
@@ -33,6 +34,7 @@ export function repartirEnemigos(m, azar) {
     const r = azar();
     if (colosos && r < COLOSO) { colosos--; return ['coloso', 'coloso']; }
     if (bestias.length && r < COLOSO + BESTIA) return [elegir(bestias), 'bestia'];
+    if (azar() < ARQUERO) return ['arquero', 'propio'];
     return [elegir(propios), 'propio'];
   };
   const ocupadas = new Set(m.objetos.map(o => `${Math.floor(o.x)},${Math.floor(o.z)}`));
