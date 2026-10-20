@@ -168,6 +168,12 @@ body.jugando #escena { display: none; }
 #resumen-coleccion { color: #d8c49a; font-style: italic; margin: 0; }
 
 /* Vitrinas de la colección: más adornadas cuanto más raro es lo que guardan */
+#modo-museo { width: min(420px, 100%); margin: 0 auto 14px; }
+.sala-museo .mazmorra-sala { margin: 0 6px 4px; font: 700 12px Cinzel, Georgia, serif; letter-spacing: .08em; color: var(--oro); }
+.sala-museo .lore-sala { margin: 0 6px 10px; font: italic 13px/1.45 'IM Fell English', Georgia, serif; color: var(--texto-c); opacity: .8; }
+.sala-museo.completa .cornisa small::after { content: ' ✓'; color: #7fe0a0; }
+.sala-museo .pieza::after { border-top: 3px solid var(--rareza, transparent); }
+#ficha .lore { font: italic 14px/1.5 'IM Fell English', Georgia, serif; opacity: .85; }
 #vitrinas { display: flex; flex-direction: column; gap: 26px; width: min(900px, 100%); }
 .vitrina {
   --marco: #5a3a1a; --marco2: #3a2410; --fondo: #22160c; --tabla: #6b4524; --canto: #8a5a30; --brillo: transparent; --texto-c: #d8c8a6;
@@ -502,7 +508,13 @@ body.tactil #hud .arma small { display: block; font-size: 9px; }
 body.tactil #caja-vendas { display: none; }
 #t-curar { width: 48px; height: 48px; right: calc(52px + env(safe-area-inset-right)); bottom: calc(232px + env(safe-area-inset-bottom)); }
 #t-curar[hidden] { display: none; }
-body.tactil #hud .arma.cambiando { border-color: var(--oro); }
+/* en táctil el recuadro del arma es el botón de recargar */
+body.tactil #hud .arma:not(.sin-municion) { pointer-events: auto; }
+body.tactil #hud .arma:not(.sin-municion)::after { content: '⟳'; position: absolute; top: -8px; right: -8px; width: 18px; height: 18px; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); color: var(--oro); font: 700 12px/16px Georgia, serif; text-align: center; }
+body.tactil #hud .arma.pulsado { border-color: var(--oro); background: rgba(232, 184, 58, .3); }
+#hud .arma.vacia:not(.recargando) { border-color: #ff5a4a; animation: alarma 1s infinite; }
+#hud .arma.recargando .carga b { animation: latido .5s infinite; color: #ffd25a; }
+#hud .arma.recargando::before { content: 'Recargando…'; position: absolute; left: 0; right: 0; bottom: 100%; margin-bottom: 3px; text-align: center; font: 700 10px Cinzel, Georgia, serif; letter-spacing: .08em; color: #ffd25a; text-shadow: 0 1px 2px #000; }
 @media (max-width: 620px) { #hud { gap: 5px; } #hud .caja { min-height: 44px; padding: 3px 8px 3px 6px; gap: 6px; } #hud .icono { width: 26px; height: 26px; } #hud .arma .icono { width: 34px; height: 34px; } #hud b { font-size: 19px; } #hud .medidor { width: 64px; height: 13px; } #hud .reserva { font-size: 12px; } #hud .arma .dato { min-width: 54px; } #hud .pips .tira { width: 50px; } }
 @media (max-width: 420px) {
   .menu .pieza, .menu .pieza:hover { width: 70px; height: 82px; }

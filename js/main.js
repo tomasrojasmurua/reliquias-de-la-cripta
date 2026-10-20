@@ -13,6 +13,7 @@ import { recortarZonas, azarConSemilla } from './laberinto.js';
 import { Sala, COLORES, HZ_POSICION, codigoValido, normalizarCodigo, enlaceDeSala, enlaceWhatsApp } from './red.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
+import { SALAS, LORE_FORMA, LORE_RAREZA } from '../datos/museo.js';
 import { lienzoEmblema } from '../datos/emblemas.js';
 import { hayRanking, mejoresDel, subir } from './ranking.js';
 import { expedicion, racha, textoCompartir, MODIFICADORES, TAMANO_DIARIA, MINUTOS_DIARIA } from './diaria.js';
@@ -72,6 +73,7 @@ const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
 const ctxMini = $('#minimapa').getContext('2d');
+$('#hud-arma').closest('.caja').dataset.tactil = 'recargar';   // en táctil, tocar el recuadro del arma recarga
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
@@ -244,33 +246,55 @@ const VITRINAS = [
 function mazmorraDe(id) {
   return MAZMORRAS.find(m => tesorosDe(m).includes(id));
 }
+// Una pieza en su repisa: se toca para abrir su ficha. Con `marca` lleva debajo el color de su rareza.
+function piezaMuseo(t, lo, i, marca) {
+  const b = document.createElement('button');
+  b.className = 'pieza' + (lo ? '' : ' oculta');
+  b.style.setProperty('--retraso', (i % 5) * -0.7 + 's');
+  if (marca) b.style.setProperty('--rareza', RAREZAS[t.rareza].color);
+  b.setAttribute('aria-label', lo ? t.nombre : 'Tesoro sin descubrir');
+  b.appendChild(miniatura(atlas, 'tesoro_' + t.id, 1));
+  b.onclick = () => abrirFicha(t, lo);
+  return b;
+}
+const ORDEN_RAREZA = ['legendario', 'epico', 'raro', 'comun'];
+// Museo: por mazmorra (una sala con su historia, del más raro al más común) o por rareza (las vitrinas de siempre).
 function pintarColeccion() {
   const cont = $('#vitrinas');
   cont.innerHTML = '';
   const tengo = new Set(progreso.tesoros);
-  let valor = 0;
-  for (const [rareza, titulo, lema] of VITRINAS) {
-    const lista = TESOROS.filter(t => t.rareza === rareza);
-    const hallados = lista.filter(t => tengo.has(t.id)).length;
-    const v = document.createElement('section');
-    v.className = 'vitrina v-' + rareza;
-    v.innerHTML = `<header class="cornisa"><h3>${titulo}</h3><small>${hallados} de ${lista.length}</small></header><p class="lema-vitrina">${lema}</p><div class="cristal"><div class="repisa"></div></div><div class="zocalo"></div>`;
-    const repisa = v.querySelector('.repisa');
-    lista.forEach((t, i) => {
-      const lo = tengo.has(t.id);
-      if (lo) valor += RAREZAS[rareza].valor;
-      const b = document.createElement('button');
-      b.className = 'pieza' + (lo ? '' : ' oculta');
-      b.style.setProperty('--retraso', (i % 5) * -0.7 + 's');
-      b.setAttribute('aria-label', lo ? t.nombre : 'Tesoro sin descubrir');
-      b.appendChild(miniatura(atlas, 'tesoro_' + t.id, 1));
-      b.onclick = () => abrirFicha(t, lo);
-      repisa.appendChild(b);
-    });
-    cont.appendChild(v);
+  const modo = progreso.opciones.museo || 'salas';
+  for (const b of document.querySelectorAll('[data-museo]')) b.classList.toggle('activo', b.dataset.museo === modo);
+  const valor = TESOROS.filter(t => tengo.has(t.id)).reduce((s, t) => s + RAREZAS[t.rareza].valor, 0);
+  if (modo === 'salas') {
+    for (const m of MAZMORRAS) {
+      const lista = tesorosDe(m).map(id => TESORO[id]).filter(Boolean).sort((a, b) => ORDEN_RAREZA.indexOf(a.rareza) - ORDEN_RAREZA.indexOf(b.rareza));
+      const hallados = lista.filter(t => tengo.has(t.id)).length, sala = SALAS[m.id] || {};
+      const v = document.createElement('section');
+      v.className = 'vitrina sala-museo' + (hallados === lista.length && lista.length ? ' completa' : '');
+      v.innerHTML = `<header class="cornisa"><h3></h3><small>${hallados} de ${lista.length}</small></header><p class="mazmorra-sala"></p><p class="lore-sala"></p><div class="cristal"><div class="repisa"></div></div><div class="zocalo"></div>`;
+      v.querySelector('h3').textContent = sala.sala || m.nombre;
+      v.querySelector('.mazmorra-sala').textContent = m.nombre + (m.guardian ? ` · custodia: ${m.guardian.nombre}` : '');
+      v.querySelector('.lore-sala').textContent = sala.lore || m.descripcion || '';
+      const repisa = v.querySelector('.repisa');
+      lista.forEach((t, i) => repisa.appendChild(piezaMuseo(t, tengo.has(t.id), i, true)));
+      cont.appendChild(v);
+    }
+  } else {
+    for (const [rareza, titulo, lema] of VITRINAS) {
+      const lista = TESOROS.filter(t => t.rareza === rareza);
+      const hallados = lista.filter(t => tengo.has(t.id)).length;
+      const v = document.createElement('section');
+      v.className = 'vitrina v-' + rareza;
+      v.innerHTML = `<header class="cornisa"><h3>${titulo}</h3><small>${hallados} de ${lista.length}</small></header><p class="lema-vitrina">${lema}</p><div class="cristal"><div class="repisa"></div></div><div class="zocalo"></div>`;
+      const repisa = v.querySelector('.repisa');
+      lista.forEach((t, i) => repisa.appendChild(piezaMuseo(t, tengo.has(t.id), i, false)));
+      cont.appendChild(v);
+    }
   }
   $('#resumen-coleccion').textContent = `${tengo.size} de ${TESOROS.length} tesoros · valor ${valor}`;
 }
+for (const b of document.querySelectorAll('[data-museo]')) b.onclick = () => { progreso.opciones.museo = b.dataset.museo; guardar(); pintarColeccion(); };
 // ---------- Cuaderno del cazador ----------
 // progreso.cuaderno[id de pista] = { n: veces descifrada, mejor: segundos, ayudas: menos ayudas usadas, u: última vez }
 function anotarEnCuaderno(p, segundos, ayudas) {
@@ -322,6 +346,8 @@ function abrirFicha(t, lo) {
   f.querySelector('h3').textContent = lo ? t.nombre : '???';
   f.querySelector('em').textContent = r.nombre;
   f.querySelector('p').textContent = lo ? t.descripcion : 'Aún no lo encuentras.';
+  // el lore de la pieza: su forma, su rareza y la mazmorra donde se esconde (solo una vez hallada)
+  f.querySelector('.lore').textContent = lo ? [LORE_FORMA[t.forma], LORE_RAREZA[t.rareza], m && SALAS[m.id] ? `Se expone en la ${SALAS[m.id].sala}${m.guardian ? `, la que vigilaba ${m.guardian.nombre}` : ''}.` : ''].filter(Boolean).join(' ') : '';
   f.querySelector('small').textContent = m ? (lo ? 'Hallado en ' : 'Se esconde en ') + m.nombre : '';
   f.hidden = false;
 }
@@ -357,15 +383,6 @@ function vibrar(ms) {
   try { navigator.vibrate?.(ms); } catch (e) { /* sin vibración */ }
 }
 aplicarControles();
-// En táctil no hay botón de recargar: el revólver se recarga solo al vaciarse o tras un momento sin atacar.
-function recargaAutomatica() {
-  const j = juego.j;
-  const esc = j.arma === 'escopeta', tom = j.arma === 'tommy';
-  if (!document.body.classList.contains('tactil') || j.muerto || (j.arma !== 'revolver' && !esc && !tom) || j.recargando > 0) return;
-  const cargadas = tom ? j.cargador : esc ? j.tubo : j.tambor;
-  if (cargadas === (tom ? 30 : esc ? 2 : 6) || !(tom ? j.reservaT : esc ? j.reservaE : j.reserva)) return;
-  if (!cargadas || performance.now() - entrada.ultimoAtaque > 1500) juego.recargar();
-}
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-ir]');
@@ -1069,6 +1086,7 @@ function actualizarHUD() {
   caja.dataset.arma = j.arma;
   caja.classList.toggle('sin-municion', !datos);
   caja.classList.toggle('vacia', !!datos && datos[1] === 0);
+  caja.classList.toggle('recargando', j.recargando > 0);
   $('#hud-arma').textContent = datos ? datos[0] : 'Látigo';
   if (datos) {
     const [, carga, reserva, cabe] = datos;
@@ -1153,7 +1171,6 @@ function cuadro(t) {
   if (capaMapa.hidden && document.body.classList.contains('tactil')) dibujarMinimapa(ctxMini, 192, juego);
   $('#t-mapa').classList.toggle('aviso', !!juego.avisoMapa && capaMapa.hidden);
   botonUsar.classList.toggle('listo', juego.puedeUsar());
-  recargaAutomatica();
 
   fpsN++; fpsT += dt;
   if (fpsT > 1) { $('#fps').textContent = `${Math.round(fpsN / fpsT)} fps`; fpsN = 0; fpsT = 0; }

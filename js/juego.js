@@ -376,7 +376,8 @@ export class Juego {
     this.asistir = ent.asistir;
     if (ent.asistir) this.imantar(dt);
 
-    const vel = j.cayendo !== undefined ? 0 : VEL * dt;
+    // al recargar caminas más lento: es el momento vulnerable
+    const vel = j.cayendo !== undefined ? 0 : VEL * dt * (j.recargando > 0 ? 0.55 : 1);
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
     const rx = -fz, rz = fx;
     let mx = fx * ent.adelante + rx * ent.lado, mz = fz * ent.adelante + rz * ent.lado;
@@ -665,18 +666,18 @@ export class Juego {
     if (j.arma === 'tommy') {
       if (j.cargador === CARGADOR) return;
       if (!j.reservaT) { this.ev.mensaje('No te quedan balas de Tommy.'); return; }
-      j.recargando = 1.6; j.recargaArma = 'tommy'; sonar('recargaT');
+      j.recargando = j.recargaTotal = 1.9; j.recargaArma = 'tommy'; sonar('recargaT');
       return;
     }
     if (j.arma === 'escopeta') {
       if (j.tubo === TUBO) return;
       if (!j.reservaE) { this.ev.mensaje('No te quedan cartuchos.'); return; }
-      j.recargando = 1.1; j.recargaArma = 'escopeta'; sonar('recargaE');
+      j.recargando = j.recargaTotal = 1.5; j.recargaArma = 'escopeta'; sonar('recargaE');
       return;
     }
     if (j.arma !== 'revolver' || j.tambor === 6) return;
     if (!j.reserva) { this.ev.mensaje('No te quedan balas.'); return; }
-    j.recargando = 1.1; j.recargaArma = 'revolver'; sonar('recarga');
+    j.recargando = j.recargaTotal = 1.5; j.recargaArma = 'revolver'; sonar('recarga');
   }
 
   atacar() {

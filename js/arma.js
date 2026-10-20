@@ -86,32 +86,41 @@ function manga(g, x, y, w, giro = 0) {
   g.restore();
 }
 
-// Mano empuñando un mango: el eje del mango pasa por (x, y) y gira `ang`; los cuatro dedos cruzan por delante
-// del mango y el pulgar lo abraza desde arriba, así mano y objeto se leen como una sola pieza.
+// Mano empuñando un mango, vista desde atrás como la ves al sostener algo: el eje del mango pasa por (x, y) y gira `ang`.
+// Se ve el dorso de la mano con sus tendones, la fila de nudillos que se curva alrededor del mango (los dedos
+// quedan del otro lado, sin yemas ni uñas a la vista) y el pulgar que lo cruza por arriba.
 // `espejo` da la mano izquierda. El antebrazo sale hacia abajo y gira con `brazo` respecto del mango.
 // Se llama después de dibujar el mango y antes de pixelar.
 function empunar(g, x, y, ang, espejo = false, brazo = 0) {
   g.save(); g.translate(x, y); g.rotate(ang);
   if (espejo) g.scale(-1, 1);
-  g.save(); g.rotate(brazo); manga(g, -24, 20, 52, 0); g.restore();
-  // dorso de la mano, detrás de los dedos
-  g.fillStyle = radial(g, 12, 0, 2, 30, [[0, PIEL[2]], [0.55, PIEL[1]], [1, PIEL[0]]], -6, -6);
-  g.beginPath(); g.roundRect(0, -20, 30, 42, 11); g.fill();
-  // el mango asoma entre los dedos: sombra de contacto bajo cada nudillo
-  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(-12, -19, 6, 40);
-  // cuatro dedos en fila cruzando el mango, cada uno un cilindro con su nudillo
+  g.save(); g.rotate(brazo); manga(g, -22, 20, 50, 0); g.restore();
+  // los dedos doblados asoman apenas por el lado izquierdo del mango, en sombra (los envuelven desde atrás)
   for (let i = 0; i < 4; i++) {
-    const fy = -19 + i * 9.5, fx = -11 + (i % 2) * 1.5, largo = 36 - i * 1.5;
-    g.fillStyle = lineal(g, 0, fy, 0, fy + 9.5, [[0, PIEL[2]], [0.4, PIEL[1]], [1, PIEL[0]]]);
-    g.beginPath(); g.roundRect(fx, fy, largo, 9.5, 4.7); g.fill();
-    g.fillStyle = 'rgba(60,25,8,.55)'; g.fillRect(fx + 6, fy + 1, 1, 8);      // pliegue de la falange
-    g.fillStyle = PIEL_PLIEGUE; g.fillRect(fx + 3, fy + 9, largo - 7, 1);     // hueco entre dedos
-    g.fillStyle = 'rgba(255,235,210,.5)'; g.fillRect(fx + largo - 11, fy + 2, 3, 2); // nudillo
+    const fy = -17 + i * 9;
+    g.fillStyle = lineal(g, -15, 0, -7, 0, [[0, PIEL[0]], [1, PIEL[1]]]);
+    g.beginPath(); g.roundRect(-16, fy, 10, 8.5, 4); g.fill();
+    g.fillStyle = PIEL_PLIEGUE; g.fillRect(-15, fy + 8, 8, 1);
   }
-  // pulgar por encima del índice, apuntando hacia la yema de los dedos
-  g.fillStyle = lineal(g, 0, -29, 0, -17, [[0, PIEL[2]], [0.5, PIEL[1]], [1, PIEL[0]]]);
-  g.beginPath(); g.roundRect(-10, -29, 30, 11, 5.5); g.fill();
-  g.fillStyle = '#e8c0a0'; g.fillRect(-8, -27, 5, 4);
+  // dorso de la mano: ancho, de cara a ti, con la luz arriba a la izquierda
+  g.fillStyle = radial(g, 6, -2, 2, 30, [[0, PIEL[2]], [0.5, PIEL[1]], [1, PIEL[0]]], -6, -8);
+  g.beginPath(); g.moveTo(-9, -22); g.quadraticCurveTo(10, -27, 20, -16); g.lineTo(22, 16); g.quadraticCurveTo(8, 26, -8, 22); g.closePath(); g.fill();
+  // tendones: líneas suaves de la muñeca a cada nudillo
+  g.strokeStyle = 'rgba(255,225,190,.35)'; g.lineWidth = 1.2;
+  for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(6 + i * 2, 20); g.quadraticCurveTo(2, 2 - i * 4, -6, -15 + i * 9); g.stroke(); }
+  // fila de nudillos en el borde izquierdo del dorso, cada uno con su brillo
+  for (let i = 0; i < 4; i++) {
+    const ny = -16 + i * 9;
+    g.fillStyle = radial(g, -7, ny + 4, 0, 6, [[0, PIEL[2]], [1, PIEL[1]]], -1, -2);
+    g.beginPath(); g.ellipse(-7, ny + 4, 4.5, 4.2, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(90,40,15,.5)'; g.fillRect(-10, ny + 8, 7, 1);
+  }
+  // pulgar: sale del lado del dorso y cruza el mango por arriba, en diagonal
+  g.save(); g.translate(14, -18); g.rotate(-2.55);
+  g.fillStyle = lineal(g, 0, -5, 0, 5, [[0, PIEL[2]], [0.5, PIEL[1]], [1, PIEL[0]]]);
+  g.beginPath(); g.roundRect(0, -5, 28, 10, 5); g.fill();
+  g.fillStyle = 'rgba(90,40,15,.5)'; g.fillRect(13, -4, 1, 8);   // pliegue de la articulación
+  g.restore();
   g.restore();
 }
 
@@ -372,8 +381,13 @@ export function dibujarArma(ctx, w, h, j) {
   const escala = Math.max(2, Math.round(Math.min(h * 0.5 / H, w * 0.42 / W)));
   const bobX = Math.cos(j.paso * 0.5) * 6 * escala / 3;
   const bobY = Math.abs(Math.sin(j.paso * 0.5)) * 5 * escala / 3;
-  let dy = 0;
-  if (j.recargando > 0) dy = Math.sin(Math.min(1, j.recargando / 1.1) * Math.PI) * H * 0.6;
+  // recarga: el arma baja, se ladea hacia la izquierda y vuelve a subir; a mitad de camino tiembla al meter las balas
+  let dy = 0, giro = 0;
+  if (j.recargando > 0) {
+    const p = 1 - j.recargando / (j.recargaTotal || 1.5), arco = Math.sin(Math.min(1, p * 1.15) * Math.PI);
+    dy = arco * H * 0.42 + (p > 0.35 && p < 0.7 ? Math.sin(p * 60) * 1.5 : 0);
+    giro = -arco * 0.55;
+  }
   const x = w / 2 - (W * escala) / 2 + bobX + (j.arma === 'latigo' ? w * 0.12 : w * 0.08);
   const y = h - H * escala + bobY + dy * escala + escala * 2;
 
@@ -391,6 +405,7 @@ export function dibujarArma(ctx, w, h, j) {
   ctx.drawImage(SPRITES.antorcha, ax, ay, W * escala, H * escala);
   ctx.drawImage(llama(t), ax + (px - LW / 2) * escala, ay + (py - LH + 4) * escala, LW * escala, LH * escala);
 
+  if (giro) { ctx.save(); const cx = x + W * escala * 0.5, cy = y + H * escala * 0.85; ctx.translate(cx, cy); ctx.rotate(giro); ctx.translate(-cx, -cy); }
   if (j.arma === 'revolver') {
     const fuego = j.ataque > 0.32;
     const retroceso = j.ataque > 0.2 ? (j.ataque - 0.2) * 40 * escala : 0;
@@ -420,4 +435,5 @@ export function dibujarArma(ctx, w, h, j) {
       }
     }
   }
+  if (giro) ctx.restore();
 }
