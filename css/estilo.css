@@ -280,10 +280,7 @@ body.jugando #escena { display: none; }
 #hud-sala { position: absolute; z-index: 2; top: calc(max(10px, env(safe-area-inset-top)) + 38px); left: max(8px, env(safe-area-inset-left)); margin: 0; padding: 2px 6px; list-style: none; display: flex; flex-direction: column; gap: 1px; background: rgba(18, 13, 8, .55); border: 1px solid var(--borde); border-radius: 5px; font-size: 11px; color: #f1e4c8; pointer-events: none; }
 #hud-sala li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 #hud-sala b { margin-left: auto; padding-left: 10px; color: var(--oro); font-family: 'Courier New', monospace; }
-#emotes { position: absolute; z-index: 2; left: max(8px, env(safe-area-inset-left)); bottom: 100px; display: none; flex-direction: column; gap: 4px; }
-body.tactil #emotes:not([hidden]) { display: flex; }
-#emotes button { padding: 5px 10px; font-size: 12px; opacity: .8; }
-#hud-sala li.fuera { opacity: .45; }
+body.tactil #hud-sala li.fuera { opacity: .45; }
 #hud-sala li.yo span { color: var(--oro); }
 #resumen-sala { width: min(420px, 100%); }
 #resumen-marcador { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
@@ -320,8 +317,7 @@ body.retro #vista { image-rendering: pixelated; }
 #alerta-dano { position: absolute; z-index: 9; top: calc(max(14px, env(safe-area-inset-top)) + 46px); left: 50%; transform: translateX(-50%); max-width: 90%; padding: 5px 14px; background: rgba(120, 12, 8, .88); border: 1px solid #ff6a4a; border-radius: 6px; color: #ffe2d8; font: 700 16px Georgia, serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s; }
 #alerta-dano.visible { opacity: 1; }
 /* con el mapa abierto el automapa muestra el estado: los indicadores de la partida se esconden para no taparlo */
-body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala, body.mapa-abierto #emotes, body.mapa-abierto #hud-jefe, body.mapa-abierto #fps { visibility: hidden; }
-#mensaje { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); max-width: 90%; text-align: center; padding: 8px 14px; background: rgba(18, 13, 8, .75); border: 1px solid var(--borde); border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 17px; }
+body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala, body.mapa-abierto #mensaje { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); max-width: 90%; text-align: center; padding: 8px 14px; background: rgba(18, 13, 8, .75); border: 1px solid var(--borde); border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 17px; }
 #mensaje.visible { opacity: 1; }
 #fps { position: absolute; right: 8px; top: 6px; font: 11px monospace; color: rgba(255, 255, 255, .4); pointer-events: none; }
 #btn-pausa { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px 12px; opacity: .75; z-index: 3; }

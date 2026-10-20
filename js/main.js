@@ -560,7 +560,6 @@ function enlazarSala(s) {
   s.alTesoro = (i, id) => tesoroDeSala(i, id);
   s.alEnlace = ok => { if (enPartidaDeSala()) mensaje(ok ? 'Volviste a la sala.' : 'Se cortó la conexión con la sala. Reconectando…', ok ? 3 : 6); };
   s.alConexion = (id, ok) => { if (enPartidaDeSala()) mensaje(`${s.jugadores.find(j => j.id === id)?.nombre || 'Un cazador'} ${ok ? 'volvió a la cripta' : 'perdió la conexión'}`, 3); };
-  s.alEmote = (id, k) => { if (enPartidaDeSala()) { mensaje(`${s.jugadores.find(j => j.id === id)?.nombre || 'Un cazador'}: ${EMOTES[k]}`, 2.5); sonar('menu_alternar'); } };
   s.alEnemigos = snap => { if (enPartidaDeSala()) juego.recibirEnemigos(snap); };
   s.alGolpe = (i, daño) => { const e = enPartidaDeSala(true) && juego.enemigos[i]; if (e && e.estado !== 'muerto') juego.herir(e, daño); };
   s.alPvp = (de, d) => { if (enPartidaDeSala()) juego.recibirGolpe(d, { id: de, nombre: nombreDe(de) }); };
@@ -592,7 +591,7 @@ function perderSala(motivo) {
   clearInterval(cuentaAtras);
   $('#cuenta').hidden = true;
   const donde = document.querySelector('.pantalla:not([hidden])')?.id;
-  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = $('#emotes').hidden = true; if (juego) juego.rol = null; }   // sin anfitrión, cada enemigo lo simula uno mismo
+  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = true; if (juego) juego.rol = null; }   // sin anfitrión, cada enemigo lo simula uno mismo
   else if (donde === 'resumen') pintarMarcador();
   else { abrirUnirse(); $('#unirse-error').textContent = motivo; }
 }
@@ -663,7 +662,7 @@ function comenzarCuenta(p) {
 function iniciarPartidaEnSala() {
   cazadores.clear();
   envioT = 0; hudSalaClave = ''; ultimoMarcador = null;
-  $('#hud-sala').hidden = $('#emotes').hidden = !actual.sala;
+  $('#hud-sala').hidden = !actual.sala;
   if (actual.sala) sala?.ponerEstado('jugando');
 }
 
@@ -708,21 +707,7 @@ function acertijoDeSala(id, quien) {
   juego.resolverAcertijo(a, 0, nombre, tarde);
 }
 
-// Mensajes rápidos para los demás: botones en el celular, Z X C V en el computador.
 const HEX_CAZADOR = { rojo: '#ff5a48', azul: '#4f8cff', verde: '#4fd070', amarillo: '#ffd23a' };   // más vivos que los del sombrero, para verse sobre el mapa
-const EMOTES = ['¡Aquí!', '¡Cuidado!', '¡Ayuda!', '¡Es mío!'];
-let emoteT = 0;
-function mandarEmote(k) {
-  if (!enPartidaDeSala() || !sala || performance.now() - emoteT < 1200) return;
-  emoteT = performance.now();
-  sala.emote(k);
-  mensaje(`Tú: ${EMOTES[k]}`, 2);
-}
-for (const b of document.querySelectorAll('[data-emote]')) b.addEventListener('click', () => mandarEmote(+b.dataset.emote));
-addEventListener('keydown', e => {
-  const k = ['KeyZ', 'KeyX', 'KeyC', 'KeyV'].indexOf(e.code);
-  if (k >= 0 && !e.repeat && $('#panel').hidden && !e.target.closest?.('input, textarea')) mandarEmote(k);
-});
 
 // ¿Hay una partida de sala en curso? (`aunqueTermine`: el anfitrión sigue simulando a los enemigos para los demás)
 const enPartidaDeSala = (aunqueTermine = false) => !!juego && !!actual?.sala && (aunqueTermine || !actual.sala.fin);
@@ -985,7 +970,7 @@ function abrirPanelTablilla(a) {
 }
 
 function terminar(r, exito) {
-  if (actual.sala) { actual.sala.fin = true; $('#hud-sala').hidden = $('#emotes').hidden = true; }
+  if (actual.sala) { actual.sala.fin = true; $('#hud-sala').hidden = true; }
   pausar();
   sonar(exito ? 'victoria' : 'derrota');
   $('#panel').hidden = true;

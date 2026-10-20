@@ -63,7 +63,6 @@ function cargarPeerJS() {
 //   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
 //   alEnlace(enLinea)      (invitado) se cortó la conexión con el anfitrión (false) o volvió (true)
 //   alConexion(id, enLinea) otro cazador perdió la conexión o volvió
-//   alEmote(id, k)         un cazador mandó el mensaje rápido `k`
 //   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
 //   alGolpe(i, daño)       (anfitrión) un invitado le pegó al enemigo `i`
 //   alDano(n, causa)       (invitado) un enemigo me hirió
@@ -91,7 +90,7 @@ export class Sala {
     this.ficha = Math.random().toString(36).slice(2) + Date.now().toString(36);   // la mía, si soy invitado
     this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
     this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
-    this.alEnlace = this.alConexion = this.alEmote = () => {};
+    this.alEnlace = this.alConexion = () => {};
     this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alPvp = this.alBaja = this.alResuelto = () => {};
   }
 
@@ -263,11 +262,7 @@ export class Sala {
   }
 
   #mensajeDeInvitado(id, m) {
-    if (m.t === 'emote') {
-      const k = Math.min(3, Math.max(0, m.k | 0));
-      this.alEmote(id, k);
-      this.#aviso({ t: 'emote', id, k }, id);
-    } else if (m.t === 'p') {
+    if (m.t === 'p') {
       const p = { x: +m.x, y: +m.y, z: +m.z, yaw: +m.yaw, pt: m.pt | 0, m: m.m | 0 };
       this.alPosicion(id, p);
       this.#aviso({ t: 'p', id, ...p }, id);
@@ -391,8 +386,6 @@ export class Sala {
       this.alPosicion(m.id, null);
     } else if (m.t === 'marcador') {
       this.alMarcador(m.lista);
-    } else if (m.t === 'emote') {
-      this.alEmote(m.id, m.k | 0);
     } else if (m.t === 'conexion') {
       this.alConexion(m.id, !!m.ok);
     } else if (m.t === 'tomados') {
@@ -462,12 +455,6 @@ export class Sala {
   // El anfitrión le avisa a un invitado que un enemigo lo hirió.
   danar(id, n, c) {
     this.conexiones.get(id)?.send({ t: 'dano', n, c });
-  }
-
-  // Un mensaje rápido (0 a 3) para los demás.
-  emote(k) {
-    if (this.soyAnfitrion) this.#aviso({ t: 'emote', id: 0, k });
-    else this.conexion?.open && this.conexion.send({ t: 'emote', k });
   }
 
   // Pido el tesoro `i`; la respuesta llega por alTesoro(i, quién se lo llevó).
