@@ -10,6 +10,7 @@ let salida = null;   // efectos → eco y altavoz
 let eco = null;      // {envio, realim, ret}: retardo con realimentación
 let busMusica = null;
 let reverb = null;
+let reverbFx = null;
 let musica = null;          // el tema que suena
 let temaPedido = null;      // el que debería sonar (aunque el audio aún no esté activo)
 let reloj = 0;
@@ -41,6 +42,11 @@ export function activarAudio() {
     salida.connect(envio).connect(ret).connect(filtro).connect(realim).connect(ret);
     filtro.connect(maestro);
     eco = { envio, realim, ret };
+    // sala de piedra: una cola corta de reverb para disparos, puertas y golpes
+    reverbFx = crearReverb(ctx, 1.9);
+    const enviarRev = ctx.createGain(); enviarRev.gain.value = 0.2;
+    const volverRev = ctx.createGain(); volverRev.gain.value = 0.8;
+    salida.connect(enviarRev).connect(reverbFx).connect(volverRev).connect(maestro);
     // música: su propio volumen y una sala grande
     busMusica = ctx.createGain(); busMusica.gain.value = sinMusica ? 0 : MUSICA_VOL;
     busMusica.connect(maestro);
@@ -80,8 +86,16 @@ export function tocarMusica(nombre) {
   temaPedido = nombre;
   if (ctx) arrancarTema(nombre);
 }
+// Durante la introducción el tema espera: suena después, con el golpe del título.
+let musicaRetenida = false;
+export function retenerMusica(si) {
+  musicaRetenida = si;
+  if (!si && ctx && temaPedido && !musica) arrancarTema(temaPedido);
+}
 function arrancarTema(nombre) {
   musica?.detener();
+  musica = null;
+  if (musicaRetenida) return;
   musica = nombre ? new Musica({ ctx, ruido: ruidoBuf }, nombre, busMusica, reverb) : null;
 }
 
@@ -177,30 +191,64 @@ function silbido(dur, vol, destino, retardo = 0, frec = 5000) { ruido(dur, frec,
 
 const c = () => ({ ctx, ruido: ruidoBuf });
 
+// Un disparo se arma en capas: el chasquido seco, el estallido, el golpe grave en el pecho, el
+// metal que zumba y la cola que rebota en la piedra. `v` da la fuerza y `g` lo grave.
+function estampido({ v = 1, g = 1, cola = 0.9, brillo = 1 }) {
+  const r = 0.92 + Math.random() * 0.16;
+  ruido(0.012, 7000, 0.6, 0.9 * v * brillo, 'highpass');
+  ruido(0.05, 3200 * r, 0.8, 0.7 * v * brillo, 'highpass', 0, salida, 1800);
+  ruido(0.12 + 0.12 * v, 2400 * r, 0.6, 0.75 * v, 'lowpass', 0.002, salida, 380);
+  tono(200 * g * r, 0.12 + 0.18 * v, 0.7 * v, 'sine', 0, 34);
+  tono(100 * g * r, 0.25 + 0.25 * v, 0.5 * v, 'triangle', 0.005, 28);
+  ruido(cola, 700, 0.5, 0.15 * v, 'lowpass', 0.07, salida, 150);
+  ruido(cola * 0.6, 1600, 0.6, 0.06 * v, 'bandpass', 0.16, salida, 400);   // rebote en las paredes
+}
+
+// Una vaina que cae y rebota en el piso de piedra.
+function vaina(retardo, grave = 1) {
+  const f = (3400 + Math.random() * 1200) * grave;
+  for (let i = 0; i < 3; i++) {
+    const t = retardo + i * (0.07 - i * 0.015);
+    tono(f * (1 - i * 0.07), 0.05, 0.07 / (1 + i), 'sine', t);
+    ruido(0.012, f, 4, 0.06 / (1 + i), 'bandpass', t);
+  }
+}
+
 const SONIDOS = {
   disparo() {
-    ruido(0.05, 3000, 0.6, 0.7, 'highpass');
-    ruido(0.5, 1400, 0.7, 0.55, 'lowpass', 0, salida, 300);
-    tono(150, 0.25, 0.55, 'sine', 0, 38);
-    ruido(0.9, 500, 0.5, 0.12, 'lowpass', 0.12);
+    estampido({ v: 0.95, g: 1, cola: 0.9 });
+    metal([1250, 2870, 4300], 0.45, 0.05, salida, 0.01);
+    vaina(0.55);
   },
   escopeta() {
-    ruido(0.06, 2500, 0.5, 0.85, 'highpass');
-    ruido(0.7, 1100, 0.7, 0.75, 'lowpass', 0, salida, 260);
-    tono(110, 0.35, 0.7, 'sine', 0, 30);
-    ruido(1.2, 400, 0.5, 0.18, 'lowpass', 0.15);
+    estampido({ v: 1.35, g: 0.62, cola: 1.5, brillo: 0.9 });
+    tono(58, 0.7, 0.75, 'sine', 0, 22);
+    ruido(0.35, 120, 1, 0.5, 'lowpass', 0.02, salida, 50);
+    // el cerrojo corredizo que amartilla: clac-clac
+    tono(210, 0.05, 0.2, 'square', 0.5, 120); ruido(0.06, 1500, 2, 0.28, 'bandpass', 0.5);
+    tono(340, 0.06, 0.22, 'square', 0.66, 180); ruido(0.07, 2000, 2, 0.3, 'bandpass', 0.66);
+    ruido(0.05, 500, 1, 0.3, 'lowpass', 0.9); tono(150, 0.06, 0.22, 'triangle', 0.9, 80);   // el cartucho cae
   },
   tommy() {
-    ruido(0.04, 2800, 0.6, 0.55, 'highpass');
-    ruido(0.18, 1500, 0.8, 0.45, 'lowpass', 0, salida, 400);
-    tono(170, 0.1, 0.4, 'sine', 0, 55);
+    const r = 0.9 + Math.random() * 0.2;
+    ruido(0.01, 7500, 0.6, 0.6, 'highpass');
+    ruido(0.04, 3500 * r, 0.8, 0.5, 'highpass', 0, salida, 1500);
+    ruido(0.1, 2000 * r, 0.7, 0.5, 'lowpass', 0.001, salida, 450);
+    tono(230 * r, 0.09, 0.5, 'sine', 0, 55);
+    tono(1800 * r, 0.02, 0.1, 'square', 0.035, 900); ruido(0.02, 2600, 3, 0.15, 'bandpass', 0.04);   // el cerrojo
+    ruido(0.25, 650, 0.5, 0.08, 'lowpass', 0.06, salida, 200);
+    if (Math.random() < 0.45) vaina(0.18 + Math.random() * 0.1, 1.1);
   },
-  recargaT() {
-    // se saca el tambor, se mete otro y se monta el cerrojo
-    tono(300, 0.05, 0.14, 'square'); ruido(0.08, 1800, 2, 0.2, 'bandpass');
-    ruido(0.1, 900, 1, 0.25, 'lowpass', 0.6); tono(200, 0.08, 0.2, 'square', 0.62, 120);
-    tono(520, 0.04, 0.14, 'square', 1.2); ruido(0.05, 3000, 3, 0.2, 'bandpass', 1.2);
-    tono(260, 0.06, 0.2, 'square', 1.45, 150); ruido(0.08, 1200, 1, 0.3, 'lowpass', 1.45);
+  // la bala pega en el muro: un zumbido que rebota y un golpe seco de piedra
+  rebote() {
+    const f = 2500 + Math.random() * 1500;
+    tono(f, 0.35, 0.09, 'sine', 0.01, f * 0.4); tono(f * 1.5, 0.2, 0.04, 'sine', 0.01, f * 0.5);
+    ruido(0.06, 3000, 2, 0.25, 'bandpass'); ruido(0.1, 500, 1, 0.2, 'lowpass', 0.01);
+  },
+  // la bala pega en carne o hueso
+  impacto() {
+    ruido(0.09, 450 + Math.random() * 150, 1.2, 0.5, 'lowpass'); tono(95, 0.12, 0.4, 'sine', 0, 45);
+    ruido(0.05, 2200, 2, 0.15, 'bandpass', 0.005);
   },
   teleport() { tono(1400, 0.35, 0.16, 'sine', 0, 180); ruido(0.3, 4000, 2, 0.12, 'bandpass', 0.02, salida, 500); tono(180, 0.25, 0.14, 'triangle', 0.12, 900); },
   roca() { ruido(0.6, 180, 1, 0.5, 'lowpass', 0, salida, 90); tono(52, 0.5, 0.35, 'sine', 0, 38); },
@@ -219,23 +267,42 @@ const SONIDOS = {
     tono(500, 0.05, 0.12, 'square', 0.48); ruido(0.05, 1800, 2, 0.15, 'bandpass', 0.48);
   },
   latigo() {
-    ruido(0.14, 900, 1, 0.12, 'bandpass', 0, salida, 3500);
-    ruido(0.04, 4200, 1.5, 0.6, 'bandpass', 0.11);
-    tono(2600, 0.03, 0.12, 'square', 0.11, 900);
+    // el cuero silba, se curva y restalla en el aire
+    ruido(0.16, 700, 1.2, 0.14, 'bandpass', 0, salida, 3800);
+    ruido(0.012, 6500, 1, 0.8, 'highpass', 0.13); ruido(0.05, 4200, 1.5, 0.6, 'bandpass', 0.13, salida, 2500);
+    tono(2800, 0.04, 0.14, 'square', 0.13, 700); tono(160, 0.1, 0.3, 'sine', 0.13, 60);
+    ruido(0.4, 900, 0.6, 0.06, 'lowpass', 0.16, salida, 250);
   },
-  golpe() { ruido(0.1, 500, 1, 0.5); tono(110, 0.08, 0.2, 'sine', 0, 60); },
+  golpe() {
+    ruido(0.12, 500, 1, 0.55); tono(115, 0.12, 0.3, 'sine', 0, 48); ruido(0.04, 2400, 2, 0.2, 'bandpass');
+    ruido(0.3, 300, 0.6, 0.08, 'lowpass', 0.05, salida, 120);
+  },
   palanca() { tono(1250, 0.05, 0.12, 'square'); tono(1870, 0.1, 0.1, 'triangle', 0.04); tono(90, 0.12, 0.2, 'sine', 0, 60); ruido(0.1, 5000, 2, 0.05, 'highpass', 0.02); },
   forzar() {
     tono(200, 0.3, 0.18, 'sawtooth', 0, 80); ruido(0.3, 350, 1, 0.4, 'lowpass');
     tono(1500, 0.04, 0.2, 'square', 0.3); ruido(0.12, 1400, 3, 0.5, 'bandpass', 0.3); tono(70, 0.2, 0.3, 'sine', 0.3, 40);
   },
-  recoger() { tono(660, 0.08, 0.15, 'triangle'); tono(990, 0.14, 0.15, 'triangle', 0.07); ruido(0.08, 6000, 1, 0.04, 'highpass'); },
+  recoger() { tono(660, 0.08, 0.15, 'triangle'); tono(990, 0.14, 0.15, 'triangle', 0.07); tono(1980, 0.2, 0.04, 'sine', 0.08); ruido(0.1, 6000, 1, 0.05, 'highpass', 0.02); },
   tesoro() {
-    [523, 659, 784, 1047, 1319].forEach((f, i) => tono(f, 0.3, 0.13, 'triangle', i * 0.08));
-    INSTRUMENTOS.campana(c(), ctx.currentTime + 0.42, 1047, 2, 0.08, salida);
-    for (let i = 0; i < 6; i++) tono(2000 + Math.random() * 2500, 0.15, 0.025, 'sine', 0.35 + i * 0.07);
+    [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => { tono(f, 0.35, 0.12, 'triangle', i * 0.07); tono(f * 2, 0.2, 0.025, 'sine', i * 0.07 + 0.01); });
+    INSTRUMENTOS.campana(c(), ctx.currentTime + 0.4, 1047, 2.5, 0.09, salida);
+    INSTRUMENTOS.campana(c(), ctx.currentTime + 0.5, 1568, 2, 0.04, salida);
+    for (let i = 0; i < 9; i++) tono(2400 + Math.random() * 3000, 0.18, 0.025, 'sine', 0.3 + i * 0.06);
+    ruido(0.5, 6500, 1, 0.03, 'highpass', 0.3);
   },
-  puerta() { ruido(1.1, 220, 1, 0.4, 'lowpass', 0, salida, 120); tono(62, 1, 0.2, 'sawtooth', 0, 44); ruido(0.15, 160, 1, 0.4, 'lowpass', 1.0); },
+  puerta() {
+    // losa de piedra que se arrastra: roce áspero que tiembla, retumbo y el golpe final
+    const t = ctx.currentTime;
+    const s = ctx.createBufferSource(); s.buffer = ruidoBuf; s.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.setValueAtTime(260, t); f.frequency.linearRampToValueAtTime(140, t + 1.2); f.Q.value = 2.5;
+    const m = ctx.createGain(); m.gain.value = 0.5;
+    const l = ctx.createOscillator(); l.frequency.value = 17; const k = ctx.createGain(); k.gain.value = 0.5; l.connect(k).connect(m.gain);
+    const g = ctx.createGain(); env(g, t, 0.2, 1.0, 0.55);
+    s.connect(f).connect(m).connect(g).connect(salida); s.start(t); s.stop(t + 1.4); l.start(t); l.stop(t + 1.4);
+    ruido(1.1, 220, 1, 0.3, 'lowpass', 0, salida, 100); tono(62, 1.1, 0.22, 'sawtooth', 0, 40);
+    ruido(0.18, 160, 1, 0.45, 'lowpass', 1.1); tono(50, 0.3, 0.4, 'sine', 1.1, 28);
+    for (let i = 0; i < 5; i++) ruido(0.03, 1500 + Math.random() * 1500, 2, 0.05, 'bandpass', 1.15 + i * 0.07);   // polvo y gravilla
+  },
   secreto() {
     ruido(1.6, 160, 1, 0.5, 'lowpass', 0, salida, 90);
     [392, 494, 587, 784].forEach((f, i) => tono(f, 0.4, 0.1, 'triangle', 0.5 + i * 0.13));
@@ -245,7 +312,7 @@ const SONIDOS = {
   corriente() { ruido(1.4, 900, 1.2, 0.14, 'bandpass', 0, salida, 300); },
   sellado() { tono(110, 0.25, 0.25, 'square'); tono(98, 0.3, 0.25, 'square', 0.15); },
   // el jugador
-  dolor() { vocal(240, 170, 0.22, 'u', 0.35, salida, { ataque: 0.01 }); ruido(0.08, 500, 1, 0.25); },
+  dolor() { vocal(240, 160, 0.24, 'u', 0.38, salida, { ataque: 0.01 }); ruido(0.1, 500, 1, 0.3); tono(80, 0.15, 0.3, 'sine', 0, 45); },
   ataque() { ruido(0.15, 800, 1, 0.35); },
   // algo sale de su escondite: un roce de tierra y un chillido que sube
   surgir() { ruido(0.5, 300, 1, 0.45); ruido(0.35, 2600, 1.5, 0.12, 'bandpass', 0.1); tono(70, 0.5, 0.25, 'sawtooth', 0, 160); },
@@ -280,14 +347,79 @@ const SONIDOS = {
   menu_entrar() {
     INSTRUMENTOS.campana(c(), ctx.currentTime, 147, 3, 0.12, salida);
     PERCUSION.timbal(c(), ctx.currentTime, 0.6, salida);
+    ruido(0.5, 200, 1, 0.2, 'lowpass', 0, salida, 80);
   },
   // pasos según el suelo
-  paso_piedra() { ruido(0.05, 900 + Math.random() * 300, 1.5, 0.12, 'bandpass'); },
+  paso_piedra() { ruido(0.05, 900 + Math.random() * 300, 1.5, 0.12, 'bandpass'); tono(70 + Math.random() * 15, 0.07, 0.07, 'sine', 0, 45); },
   paso_arena() { ruido(0.09, 2400, 0.6, 0.07, 'highpass'); },
   paso_nieve() { ruido(0.11, 1600 + Math.random() * 600, 0.9, 0.1, 'bandpass'); ruido(0.05, 4000, 1, 0.04, 'highpass', 0.03); },
   paso_madera() { tono(140 + Math.random() * 30, 0.08, 0.12, 'triangle'); ruido(0.04, 600, 1, 0.06); },
   paso_hierba() { ruido(0.08, 3000, 0.5, 0.05, 'bandpass'); },
 };
+
+// ---------- Introducción ----------
+// Dura TIEMPO_TITULO segundos hasta el golpe del título. Todo pasa por un bus propio para poder
+// apagarlo si el jugador se salta la introducción.
+export const TIEMPO_TITULO = 10.6;
+let busIntro = null;
+
+export function sonarIntro() {
+  if (!ctx || silencio) return;
+  try {
+    detenerIntro(0);
+    const t = ctx.currentTime;
+    const b = busIntro = ctx.createGain(); b.gain.value = 1; b.connect(salida);
+    const osc = (tipo, f0, f1, dur, vol, ataque, filtroF) => {
+      const o = ctx.createOscillator(); o.type = tipo; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+      const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(filtroF[0], t); f.frequency.exponentialRampToValueAtTime(filtroF[1], t + dur);
+      const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + ataque);
+      g.gain.setValueAtTime(vol, t + dur - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.6);
+      o.connect(f).connect(g).connect(b); o.start(t); o.stop(t + dur + 0.7);
+    };
+    // un bordón que sube desde lo hondo, con una quinta que le hace compañía
+    osc('sawtooth', 36.7, 73.4, TIEMPO_TITULO, 0.16, 5, [120, 1400]);
+    osc('sawtooth', 55, 110, TIEMPO_TITULO, 0.09, 6, [140, 1800]);
+    osc('sine', 18.4, 36.7, TIEMPO_TITULO, 0.3, 4, [200, 200]);
+    // el viento de la entrada y un retumbo de piedra
+    ruido(5, 500, 1.2, 0.2, 'bandpass', 0.3, b, 1200);
+    ruido(2.2, 140, 1, 0.5, 'lowpass', 1.2, b, 60); tono(44, 2, 0.3, 'sine', 1.2, 30, b);
+    // las antorchas se encienden: un soplo, el chisporroteo y la llama
+    for (const r of [3.3, 3.9]) {
+      ruido(0.5, 400, 1.2, 0.3, 'bandpass', r, b, 2600);
+      for (let i = 0; i < 9; i++) ruido(0.02, 2500 + Math.random() * 3000, 2, 0.1, 'bandpass', r + 0.3 + i * (0.05 + Math.random() * 0.08), b);
+      ruido(3, 900, 0.5, 0.025, 'bandpass', r + 0.3, b, 600);
+    }
+    // un latido de timbales que se acelera hasta el golpe final
+    let r = 5.2, sep = 0.9;
+    while (r < TIEMPO_TITULO - 0.3) { PERCUSION.timbal(c(), t + r, 0.25 + 0.5 * (r / TIEMPO_TITULO), b); r += sep; sep = Math.max(0.28, sep * 0.82); }
+    // la tensión sube con un chillido agudo de cuerdas y soplo
+    ruido(4, 2500, 1.5, 0.12, 'bandpass', 6.5, b, 9000);
+    tono(440, 4, 0.05, 'sawtooth', 6.5, 880, b);
+    // el título: cuerno, timbal, bombo y campana grave
+    const T = TIEMPO_TITULO;
+    ruido(0.5, 300, 1, 0.5, 'lowpass', T, b, 60);
+    PERCUSION.bombo(c(), t + T, 1, b); PERCUSION.timbal(c(), t + T, 1, b);
+    INSTRUMENTOS.campana(c(), t + T, 98, 5, 0.3, b);
+    INSTRUMENTOS.campana(c(), t + T, 147, 5, 0.12, b);
+    [[0, 146.8], [0, 220], [0, 293.7], [1.4, 349.2]].forEach(([d, f]) => INSTRUMENTOS.cuerno(c(), t + T + 0.05 + d, f, d ? 2.4 : 1.6, 0.11, b));
+    ruido(2.5, 6000, 0.7, 0.04, 'highpass', T, b, 2000);
+  } catch (e) { /* audio no disponible */ }
+}
+
+// Si se salta la introducción: lo que queda se apaga y suena solo el golpe del título.
+export function detenerIntro(golpe = 1) {
+  if (!ctx) return;
+  if (busIntro) {
+    const b = busIntro; busIntro = null;
+    b.gain.cancelScheduledValues(ctx.currentTime); b.gain.setTargetAtTime(0, ctx.currentTime, 0.06);
+    setTimeout(() => b.disconnect(), 1500);
+  }
+  if (golpe && !silencio) {
+    PERCUSION.timbal(c(), ctx.currentTime + 0.05, 0.8, salida);
+    INSTRUMENTOS.campana(c(), ctx.currentTime + 0.05, 98, 4, 0.22, salida);
+    ruido(0.4, 300, 1, 0.3, 'lowpass', 0.05, salida, 70);
+  }
+}
 
 export function sonar(nombre) {
   if (!ctx || silencio) return;
