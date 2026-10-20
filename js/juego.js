@@ -36,8 +36,8 @@ const ENEMIGOS = {
   // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
-// Encuentros más duros: más vida y golpes un poco más fuertes y seguidos (los guardianes ya eran duros).
-const ESCALA_VIDA = 1.5, ESCALA_DAÑO = 1.05, ESCALA_ESPERA = 0.96;
+// Monstruos algo más blandos: menos vida y golpes más suaves y espaciados. Los guardianes se definen después y no cambian.
+const ESCALA_VIDA = 1.15, ESCALA_DAÑO = 0.9, ESCALA_ESPERA = 1.06;
 for (const e of Object.values(ENEMIGOS)) {
   e.vida = Math.round(e.vida * ESCALA_VIDA);
   e.daño = e.daño.map(n => Math.round(n * ESCALA_DAÑO));
@@ -122,7 +122,7 @@ export class Juego {
     this.inicioJ = (opciones.puesto > 0 && m.puestos?.[opciones.puesto]) || { x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0 };   // en una sala cada cazador parte de un puesto distinto
     this.j = {
       x: this.inicioJ.x, z: this.inicioJ.z, y: m.piso(Math.floor(this.inicioJ.x), Math.floor(this.inicioJ.z)), yaw: this.inicioJ.yaw, cabeceo: 0,
-      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, cargador: 0, reservaT: 0, barreta: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
+      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, vendas: 0, cargador: 0, reservaT: 0, barreta: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
@@ -413,6 +413,7 @@ export class Juego {
     if (p.has('arma4')) this.cambiarArma('tommy');
     if (p.has('cambiarArma')) this.cambiarArma(this.siguienteArma());
     if (p.has('recargar')) this.recargar();
+    if (p.has('curar') && j.vendas && j.vida < 100 && !j.muerto) { j.vendas = 0; j.vida = Math.min(100, j.vida + 25); sonar('recoger'); this.ev.mensaje('Usaste las vendas (+25 de vida).'); }
     if (p.has('usar')) this.usar();
     if (ent.disparar) this.atacar();
 
@@ -913,7 +914,7 @@ export class Juego {
   abrirSellos(a) {
     const m = this.mapa;
     this.sellosNuevos ||= new Set();
-    m.celdas.forEach((c, i) => { if (c.tipo === 'sello' && c.acertijo === a.id) { c.abriendo = true; this.sellosNuevos.add(i); } });
+    m.celdas.forEach((c, i) => { if (c.tipo === 'sello' && c.acertijo === a.id) { c.abriendo = true; c.pulso = performance.now(); this.sellosNuevos.add(i); } });
     this.avisoMapa = true;
   }
 
@@ -1065,9 +1066,14 @@ export class Juego {
         o.cogido = true; j.reserva = Math.min(60, j.reserva + n);
         sonar('recoger'); this.ev.mensaje(`Una caja de balas (+${n}).`);
       } else if (o.tipo === 'vendas') {
-        if (j.vida >= 100) continue;
-        o.cogido = true; j.vida = Math.min(100, j.vida + 25);
-        sonar('recoger'); this.ev.mensaje('Vendas (+25 de vida).');
+        if (j.vida >= 100) {
+          if (j.vendas >= 1) continue;   // solo llevas 1 de repuesto
+          o.cogido = true; j.vendas = 1;
+          sonar('recoger'); this.ev.mensaje('Guardaste unas vendas: úsalas cuando te hieran (H o el botón de vendas).');
+        } else {
+          o.cogido = true; j.vida = Math.min(100, j.vida + 25);
+          sonar('recoger'); this.ev.mensaje('Vendas (+25 de vida).');
+        }
       } else if (o.tipo === 'falso') {
         o.cogido = true;
         sonar('error');

@@ -234,9 +234,9 @@
     <p>Cada mazmorra tiene además un <b>laberinto de túneles</b> que cambia cada vez que entras: callejones sin salida, salas llenas de monstruos y unos pocos tesoros escondidos en lo más hondo, a veces tras un muro agrietado o en una <b>cámara sellada</b> que se abre con el acertijo de alguna tablilla del laberinto.</p>
     <p>Cada mazmorra es grande: tiene <b>cuatro zonas</b>. Al entrar, la entrada se derrumba a tus espaldas, y la salida está escondida en algún ramal de las zonas del fondo, cada vez en otro lugar. Para pasar de una zona a la siguiente hay que descifrar la tablilla de la zona. Arriba a la izquierda ves cuántas reliquias de la zona llevas, y el automapa marca las zonas completas. Encontrar la salida no termina la partida: sales cuando quieras.</p>
     <h3>Computador</h3>
-    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, 1, 2, 3 y 4 o Q para cambiar de arma, Tab o M para ver el mapa, Esc para pausar.</p>
+    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, H para usar las vendas guardadas, 1, 2, 3 y 4 o Q para cambiar de arma, Tab o M para ver el mapa, Esc para pausar.</p>
     <h3>Celular</h3>
-    <p>Arrastra en la mitad izquierda para moverte. Arrastra en la derecha para mirar. Mantén el botón de atacar y arrastra el dedo sin soltarlo para apuntar mientras atacas. La puntería te ayuda a encontrar al enemigo. La mano aparece cuando hay algo que usar enfrente, el revólver, la escopeta y la Tommy gun se recargan solos y el arma se cambia tocando su recuadro abajo. En Opciones puedes cambiar la sensibilidad, activar el modo zurdo y la vibración. Se juega mejor en horizontal.</p>
+    <p>Arrastra en la mitad izquierda para moverte. Arrastra en la derecha para mirar. Mantén el botón de atacar y arrastra el dedo sin soltarlo para apuntar mientras atacas. La puntería te ayuda a encontrar al enemigo. La mano aparece cuando hay algo que usar enfrente, el revólver, la escopeta y la Tommy gun se recargan solos y el arma se cambia con el botón de flechas que está arriba del de atacar. En Opciones puedes cambiar la sensibilidad, activar el modo zurdo y la vibración. Se juega mejor en horizontal.</p>
   </div>
 </section>
 
@@ -311,6 +311,10 @@
           <path fill="none" stroke="#e6f2ff" stroke-width="1" stroke-linecap="round" d="M7.4 25 21.6 9"/>
         </svg>
       </div>
+      <div class="caja vendas solo-pc" id="caja-vendas" hidden title="Vendas guardadas: H para usarlas">
+        <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="#f4ead0" stroke="#3a2312" stroke-width="1.2"/><path d="M12 8v8M8 12h8" stroke="#c8321c" stroke-width="3" stroke-linecap="round"/></svg>
+        <b>H</b>
+      </div>
       <div class="caja puntos" id="caja-puntos" hidden title="Puntos">
         <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
           <path fill="#ff9a2a" stroke="#5a2a06" stroke-width="1" stroke-linejoin="round" d="M16 2.5l4 8.6 9.4 1.1-6.9 6.5 1.8 9.3L16 23.4 7.7 28l1.8-9.3-6.9-6.5 9.4-1.1z"/>
@@ -371,7 +375,9 @@
   <div id="botones-tactiles">
     <button id="t-disparar" data-tactil="disparar" aria-label="Atacar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4" class="fino"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5"/><circle cx="12" cy="12" r="1.5" class="lleno"/></svg></button>
     <button id="t-usar" data-tactil="usar" aria-label="Usar"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="lleno" d="M9.2 3.2c.8 0 1.4.6 1.4 1.4v6h.7V3.1c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v7.5h.7V4.2c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v7.3h.7V7c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v8.2c0 4.3-3 7.3-7.1 7.3h-.9c-2.2 0-4-1-5.3-2.7l-3.6-5c-.5-.7-.4-1.6.3-2.1.6-.5 1.5-.4 2 .2l1.7 2V4.6c0-.8.6-1.4 1.4-1.4z"/></svg></button>
-    <button id="t-mapa" data-tactil="mapa" aria-label="Mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="papel" d="M3 6.2 8.6 4l6.8 2.4L21 4.2v13.6L15.4 20l-6.8-2.4L3 19.8z"/><path d="M8.6 4v13.6M15.4 6.4V20" class="fino"/><path d="M5.5 14.5c1.5-.5 2-2 3.5-2.2s2.4 1.6 4 1.4" class="punteado"/><path d="M15.6 10.2l3 3M18.6 10.2l-3 3" class="cruz"/></svg></button>
+    <button id="t-arma" data-tactil="cambiarArma" aria-label="Cambiar de arma"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h14M14.5 4.5 18 8l-3.5 3.5"/><path d="M20 16H6M9.5 12.5 6 16l3.5 3.5"/></svg></button>
+    <button id="t-curar" data-tactil="curar" aria-label="Usar vendas" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" class="papel"/><path d="M12 8v8M8 12h8" class="cruz"/></svg></button>
+    <button id="t-mapa" data-tactil="mapa" aria-label="Mapa completo"><canvas id="minimapa" width="192" height="192"></canvas></button>
   </div>
   <div id="pausa" class="capa" hidden>
     <h2>Pausa</h2>

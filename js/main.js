@@ -4,7 +4,7 @@ import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
 import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
-import { dibujarAutomapa } from './automapa.js';
+import { dibujarAutomapa, dibujarMinimapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica } from './audio.js';
 import { abrirTablilla, elegirPista, pistaPorId, pistasDisponibles, revelar, bonoAcertijo, BONO_PALANCAS, RANGOS, rangoDe } from './acertijos.js';
@@ -71,7 +71,7 @@ const capaArma = $('#arma');
 const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
-$('#hud-arma').closest('.caja').dataset.tactil = 'cambiarArma';   // en táctil se cambia de arma tocando su recuadro
+const ctxMini = $('#minimapa').getContext('2d');
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
@@ -1083,6 +1083,8 @@ function actualizarHUD() {
   }
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;
+  $('#t-curar').hidden = !j.vendas;
+  $('#caja-vendas').hidden = !j.vendas;
   if (juego.limite) {
     const r = Math.ceil(juego.restante()), rel = $('#hud-reloj');
     rel.textContent = `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
@@ -1148,6 +1150,7 @@ function cuadro(t) {
   ad.hidden = !juego.enTiro || juego.j.muerto;
   ad.classList.toggle('disparo', juego.enTiro === 2);
   actualizarHUD();
+  if (capaMapa.hidden && document.body.classList.contains('tactil')) dibujarMinimapa(ctxMini, 192, juego);
   $('#t-mapa').classList.toggle('aviso', !!juego.avisoMapa && capaMapa.hidden);
   botonUsar.classList.toggle('listo', juego.puedeUsar());
   recargaAutomatica();
