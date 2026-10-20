@@ -36,8 +36,8 @@ const ENEMIGOS = {
   // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
-// Encuentros más duros: más vida y golpes un poco más fuertes y seguidos (los guardianes ya eran duros).
-const ESCALA_VIDA = 1.5, ESCALA_DAÑO = 1.05, ESCALA_ESPERA = 0.96;
+// Monstruos algo más blandos: menos vida y golpes más suaves y espaciados. Los guardianes se definen después y no cambian.
+const ESCALA_VIDA = 1.15, ESCALA_DAÑO = 0.9, ESCALA_ESPERA = 1.06;
 for (const e of Object.values(ENEMIGOS)) {
   e.vida = Math.round(e.vida * ESCALA_VIDA);
   e.daño = e.daño.map(n => Math.round(n * ESCALA_DAÑO));
@@ -913,7 +913,7 @@ export class Juego {
   abrirSellos(a) {
     const m = this.mapa;
     this.sellosNuevos ||= new Set();
-    m.celdas.forEach((c, i) => { if (c.tipo === 'sello' && c.acertijo === a.id) { c.abriendo = true; this.sellosNuevos.add(i); } });
+    m.celdas.forEach((c, i) => { if (c.tipo === 'sello' && c.acertijo === a.id) { c.abriendo = true; c.pulso = performance.now(); this.sellosNuevos.add(i); } });
     this.avisoMapa = true;
   }
 
