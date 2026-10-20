@@ -90,7 +90,7 @@ const SALPICA = {
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
   escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso', brujo: 'sangre',
 };
-const PUNTOS_ESTRELLA = 2, PUNTOS_AYUDA = 2;   // por cada estrella de un acertijo descifrado / por cada ayuda pedida
+const PUNTOS_ESTRELLA = 4, PUNTOS_AYUDA = 2;   // por cada estrella de un acertijo descifrado / por cada ayuda pedida
 const SALIDA_REVELADA = 0.6;   // fracción del tiempo tras la cual se marca la salida en las salas
 
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
@@ -1033,7 +1033,7 @@ export class Juego {
   resolverAcertijo(a, por = null, tarde = false) {
     a.resuelto = true;
     if (!por) {
-      // descifrarlo por tu cuenta suma (2 por estrella; las palancas valen 3 estrellas); cada ayuda pedida resta 2: usarlas no sale a cuenta
+      // descifrarlo por tu cuenta suma (4 por estrella; las palancas valen 3 estrellas); cada ayuda pedida resta 2: usarlas no sale a cuenta
       const e = a.estado || a.estadoPalancas, estrellas = a.estado?.pista?.dificultad ?? 3, pedidas = e?.ayudas || 0;
       this.bonoAcertijos += PUNTOS_ESTRELLA * estrellas - PUNTOS_AYUDA * pedidas;
       this.costoAyudas += PUNTOS_AYUDA * pedidas;
