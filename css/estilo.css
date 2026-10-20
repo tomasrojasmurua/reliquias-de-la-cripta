@@ -465,6 +465,22 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 #t-mapa.aviso { color: #ffe8a8; border-color: #f0c050; animation: aviso-mapa 1s ease-in-out infinite; }
 @keyframes aviso-mapa { 0%, 100% { box-shadow: 0 0 6px rgba(255, 200, 60, .4); } 50% { box-shadow: 0 0 22px 6px rgba(255, 200, 60, .95); } }
 body.contrarreloj #t-mapa { top: calc(62px + env(safe-area-inset-top)); }
+/* celular acostado: el reloj se corre a la izquierda del minimapa para que el botón de curar no quede detrás de él */
+@media (max-height: 460px) {
+  body.contrarreloj #t-mapa { top: calc(40px + env(safe-area-inset-top)); }
+  #hud-reloj { right: calc(112px + env(safe-area-inset-right)); }
+}
+/* con el mapa completo abierto el minimapa sobra: solo queda el botón para salir y la leyenda */
+body.mapa-abierto #t-mapa, body.mapa-abierto #botones-tactiles { display: none; }
+#panel-mapa { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+#panel-mapa[hidden] { display: none; }
+#btn-cerrar-mapa { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); right: max(10px, env(safe-area-inset-right)); pointer-events: auto; padding: 10px 18px; font-size: 14px; letter-spacing: .08em; }
+#leyenda-mapa { position: absolute; left: max(10px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); margin: 0; padding: 8px 10px; list-style: none; max-height: 86%; overflow: hidden; background: rgba(228, 207, 154, .88); border: 2px solid #3a2312; border-radius: 6px; color: #3a2312; font: 600 12px Georgia, serif; display: grid; gap: 2px; }
+#leyenda-mapa li { display: flex; align-items: center; gap: 8px; line-height: 1.1; }
+#leyenda-mapa canvas { width: 22px; height: 22px; flex: none; }
+#leyenda-mapa:not(.en-sala) li[data-solo="sala"] { display: none; }
+@media (max-height: 460px) { #leyenda-mapa { font-size: 10px; gap: 0; padding: 4px 8px; } #leyenda-mapa canvas { width: 16px; height: 16px; } #leyenda-mapa li { gap: 6px; } }
+@media (max-width: 520px) and (min-height: 461px) { #leyenda-mapa { top: auto; bottom: calc(34px + env(safe-area-inset-bottom)); transform: none; left: 8px; right: 8px; grid-template-columns: 1fr 1fr; font-size: 11px; } }
 .solo-pc { display: block; }
 body.tactil .solo-pc { display: none; }
 .solo-tactil { display: none; }
@@ -512,13 +528,13 @@ body.tactil #hud-jefe, body.tactil #aviso-dardos, body.tactil #alerta-dano { top
 body.tactil #hud .arma { position: fixed; order: 0; right: calc(112px + env(safe-area-inset-right)); bottom: calc(34px + env(safe-area-inset-bottom)); }
 body.tactil #hud .arma small { display: block; font-size: 9px; }
 #t-arma { width: 48px; height: 48px; right: calc(44px + env(safe-area-inset-right)); bottom: calc(176px + env(safe-area-inset-bottom)); }
+#t-curar { width: 48px; height: 48px; right: calc(52px + env(safe-area-inset-right)); bottom: calc(232px + env(safe-area-inset-bottom)); }
 @media (max-height: 460px) {
   body.tactil #hud .arma { right: calc(100px + env(safe-area-inset-right)); bottom: calc(24px + env(safe-area-inset-bottom)); }
   #t-arma { width: 44px; height: 44px; right: calc(40px + env(safe-area-inset-right)); bottom: calc(118px + env(safe-area-inset-bottom)); }
   #t-curar { width: 44px; height: 44px; right: calc(44px + env(safe-area-inset-right)); bottom: calc(170px + env(safe-area-inset-bottom)); }
 }
 body.tactil #caja-vendas { display: none; }
-#t-curar { width: 48px; height: 48px; right: calc(52px + env(safe-area-inset-right)); bottom: calc(232px + env(safe-area-inset-bottom)); }
 #t-curar[hidden] { display: none; }
 /* en táctil el recuadro del arma es el botón de recargar */
 body.tactil #hud .arma:not(.sin-municion) { pointer-events: auto; }

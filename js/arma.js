@@ -317,13 +317,13 @@ function latigo(golpe) {
 // ---------- Antorcha ----------
 
 // Antorcha en la mano izquierda: palo con corteza, trapos empapados en brea y mano. La llama se dibuja cada cuadro.
-const PUNTA_ANTORCHA = [70, 26]; // donde nace la llama, en píxeles de la hoja
+const PUNTA_ANTORCHA = [70, 10]; // donde nace la llama, en píxeles de la hoja
 function antorcha() {
   const [c, g] = hoja();
-  g.save(); g.translate(70, 30); g.rotate(0.12);
-  cilindro(g, -6, 0, 12, 90, MADERA);
-  g.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 6; k < 90; k += 9) g.fillRect(-6, k, 12, 1);
-  g.fillStyle = 'rgba(255,220,170,.15)'; for (let k = 10; k < 90; k += 13) g.fillRect(-2, k, 1, 5);
+  g.save(); g.translate(70, 14); g.rotate(0.12);
+  cilindro(g, -6, 0, 12, 108, MADERA);
+  g.fillStyle = 'rgba(0,0,0,.35)'; for (let k = 6; k < 108; k += 9) g.fillRect(-6, k, 12, 1);
+  g.fillStyle = 'rgba(255,220,170,.15)'; for (let k = 10; k < 108; k += 13) g.fillRect(-2, k, 1, 5);
   // trapos con vendas cruzadas, chamuscados arriba
   cilindro(g, -11, -6, 22, 22, ['#140c06', '#3a2a18', '#6a5236']);
   g.fillStyle = 'rgba(0,0,0,.45)'; for (let k = -4; k < 16; k += 4) { g.save(); g.translate(0, k); g.rotate(-0.35); g.fillRect(-12, 0, 24, 1); g.restore(); }
