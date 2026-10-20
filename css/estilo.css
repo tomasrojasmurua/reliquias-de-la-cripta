@@ -514,12 +514,16 @@ body.mapa-abierto #t-mapa, body.mapa-abierto #botones-tactiles { display: none; 
 #panel-mapa { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
 #panel-mapa[hidden] { display: none; }
 #btn-cerrar-mapa { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); right: max(10px, env(safe-area-inset-right)); pointer-events: auto; padding: 10px 18px; font-size: 14px; letter-spacing: .08em; }
-#leyenda-mapa { position: absolute; left: max(10px, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); margin: 0; padding: 8px 10px; list-style: none; max-height: 86%; overflow: hidden; background: rgba(228, 207, 154, .88); border: 2px solid #3a2312; border-radius: 6px; color: #3a2312; font: 600 12px Georgia, serif; display: grid; gap: 2px; }
+#btn-leyenda { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); right: calc(max(10px, env(safe-area-inset-right)) + 168px); pointer-events: auto; padding: 10px 18px; font-size: 14px; letter-spacing: .08em; }
+#btn-leyenda[aria-expanded="true"] { filter: brightness(1.25); }
+/* la leyenda es un desplegable a la derecha, sobre los botones: la rosa de los vientos queda libre a la izquierda */
+#leyenda-mapa { position: absolute; right: max(10px, env(safe-area-inset-right)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 56px); margin: 0; padding: 8px 10px; list-style: none; max-height: calc(100% - 120px); overflow: auto; pointer-events: auto; background: #e4cf9a; border: 2px solid #3a2312; border-radius: 6px; color: #3a2312; font: 600 12px Georgia, serif; display: grid; gap: 2px; }
+#leyenda-mapa[hidden] { display: none; }
 #leyenda-mapa li { display: flex; align-items: center; gap: 8px; line-height: 1.1; }
 #leyenda-mapa canvas { width: 22px; height: 22px; flex: none; }
 #leyenda-mapa:not(.en-sala) li[data-solo="sala"] { display: none; }
-@media (max-height: 460px) { #leyenda-mapa { font-size: 10px; gap: 0; padding: 4px 8px; } #leyenda-mapa canvas { width: 16px; height: 16px; } #leyenda-mapa li { gap: 6px; } }
-@media (max-width: 520px) and (min-height: 461px) { #leyenda-mapa { top: auto; bottom: calc(34px + env(safe-area-inset-bottom)); transform: none; left: 8px; right: 8px; grid-template-columns: 1fr 1fr; font-size: 11px; } }
+@media (max-height: 460px) { #leyenda-mapa { font-size: 10px; gap: 0; padding: 4px 8px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 48px); grid-auto-flow: column; grid-template-rows: repeat(6, auto); column-gap: 14px; } #leyenda-mapa canvas { width: 16px; height: 16px; } #leyenda-mapa li { gap: 6px; } #btn-leyenda, #btn-cerrar-mapa { padding: 7px 14px; } #btn-leyenda { right: calc(max(10px, env(safe-area-inset-right)) + 140px); } }
+@media (max-width: 520px) and (min-height: 461px) { #leyenda-mapa { left: 8px; right: 8px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 112px); grid-template-columns: 1fr 1fr; font-size: 11px; } }
 .solo-pc { display: block; }
 body.tactil .solo-pc { display: none; }
 .solo-tactil { display: none; }

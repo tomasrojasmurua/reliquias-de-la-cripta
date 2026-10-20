@@ -79,8 +79,14 @@ for (const [nombre, dibujar, solo] of LEYENDA) {
   if (solo) li.dataset.solo = solo;
   leyenda.appendChild(li);
 }
+function plegarLeyenda(abrir = false) {
+  leyenda.hidden = !abrir;
+  $('#btn-leyenda').setAttribute('aria-expanded', String(abrir));
+}
+$('#btn-leyenda').onclick = () => plegarLeyenda(leyenda.hidden);
 function alternarMapa() {
   if (!juego) return;
+  plegarLeyenda();
   capaMapa.hidden = !capaMapa.hidden;
   if (!capaMapa.hidden) juego.avisoMapa = false;
 }
@@ -922,6 +928,8 @@ function reanudar() {
 
 function pausar() {
   if (!juego || pausado) return;
+  plegarLeyenda();
+  $('#panel-mapa').hidden = true;
   // en una sala el mundo no se detiene: pausar solo suelta el ratón y muestra el menú
   if (actual?.sala && !actual.sala.fin) { entrada.soltarTodo(); if (document.pointerLockElement) document.exitPointerLock(); pausado = true; entrada.activa = false; return; }
   pausado = true;
@@ -1152,7 +1160,7 @@ function cuadro(t) {
     dibujarAutomapa(ctxMapa, w, h, juego);
   }
   document.body.classList.toggle('mapa-abierto', !capaMapa.hidden);
-  $('#panel-mapa').hidden = capaMapa.hidden;
+  $('#panel-mapa').hidden = capaMapa.hidden || pausado;
   leyenda.classList.toggle('en-sala', !!actual?.sala);
   const ad = $('#aviso-dardos');
   ad.hidden = !juego.enTiro || juego.j.muerto;
