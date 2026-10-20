@@ -29,18 +29,13 @@ const url = `http://127.0.0.1:${servidor.address().port}/`;
 const navegador = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
 const fallos = [];
 
-// Cada mazmorra por el menú y, al final, la expedición del día con sus modificadores.
+// Cada mazmorra, entrando por el menú.
 const pruebas = [
   ...MAZMORRAS.map((m, i) => ({ nombre: m.nombre, entrar: async p => {
     await p.click('#portada [data-ir="mazmorras"]');
     await p.locator('#lista-mazmorras .mazmorra').nth(i).click();
     await p.click('#btn-entrar');
   } })),
-  { nombre: 'Expedición del día', entrar: async p => {
-    await p.click('#portada [data-ir="diaria"]');
-    if (!(await p.textContent('#diaria-nombre'))) throw new Error('la pantalla no dice qué mazmorra toca hoy');
-    await p.click('#btn-diaria');
-  } },
 ];
 
 for (const prueba of pruebas) {
@@ -50,8 +45,6 @@ for (const prueba of pruebas) {
   pagina.on('console', msg => { if (msg.type() === 'error') errores.push(msg.text()); });
   // sin conexión a las fuentes de Google no pasa nada: se usan las del sistema
   await pagina.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
-  // el ranking en línea responde vacío: la prueba no lee ni escribe en la base de verdad
-  await pagina.route(/\.supabase\.co\//, r => r.request().method() === 'GET' ? r.fulfill({ json: [] }) : r.fulfill({ status: 201, body: '' }));
   try {
     await pagina.goto(url);
     await prueba.entrar(pagina);

@@ -29,25 +29,6 @@ export function pistasDisponibles() {
 
 export function pistaPorId(id) { return pistasDisponibles().find(p => p.id === id); }
 
-// Puntos extra por descifrar una inscripción sin pedir ninguna ayuda: tantos como estrellas de dificultad.
-export function bonoAcertijo(dificultad, ayudas) { return ayudas ? 0 : dificultad; }
-export const BONO_PALANCAS = 2;
-
-// Rangos del cuaderno, según cuántas pistas distintas descifraste sin ayudas.
-export const RANGOS = [
-  [0, 'Aprendiz de escriba'],
-  [3, 'Escriba'],
-  [10, 'Erudito'],
-  [25, 'Sabio de la cripta'],
-  [60, 'Gran hierofante'],
-];
-export function rangoDe(n) {
-  let i = 0;
-  while (i + 1 < RANGOS.length && n >= RANGOS[i + 1][0]) i++;
-  const sig = RANGOS[i + 1];
-  return { nombre: RANGOS[i][1], desde: RANGOS[i][0], siguiente: sig ? sig[1] : null, faltan: sig ? sig[0] - n : 0, meta: sig ? sig[0] : RANGOS[i][0] };
-}
-
 export function normalizar(s) {
   return s.toUpperCase()
     .replace(/Ñ/g, '\u0001')
@@ -56,7 +37,7 @@ export function normalizar(s) {
     .replace(/[^A-ZÑ]/g, '');
 }
 
-// `azar`: en la expedición del día, uno con semilla para que todos vean las mismas pistas.
+// `azar`: en una sala, uno con semilla para que todos vean las mismas pistas.
 export function elegirPista(dificultad, resueltas, excluir = new Set(), azar = Math.random) {
   const [min, max] = dificultad;
   const todas = pistasDisponibles().filter(p => p.dificultad >= min && p.dificultad <= max && !excluir.has(p.id));

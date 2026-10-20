@@ -217,7 +217,7 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   // estado y marcador, sobre el propio mapa (los indicadores de la partida se esconden mientras está abierto)
   const f = Math.max(12, Math.round(Math.min(w, h) / 38));
   ctx.font = `bold ${f}px Georgia, serif`; ctx.textAlign = 'center';
-  const linea = [`Vida ${Math.round(j.vida)}`, `Tesoros ${juego.tesoros.length}/${juego.totalTesoros}`, juego.limite ? `Puntos ${juego.puntos()}` : null, juego.limite ? `${Math.floor(juego.restante() / 60)}:${String(Math.ceil(juego.restante()) % 60).padStart(2, '0')}` : null].filter(Boolean).join('   ·   ');
+  const linea = [`Vida ${Math.round(j.vida)}`, `Tesoros ${juego.tesoros.length}/${juego.totalTesoros}`, juego.real ? `Puntos ${juego.puntos()}` : null, juego.limite ? `${Math.floor(juego.restante() / 60)}:${String(Math.ceil(juego.restante()) % 60).padStart(2, '0')}` : null].filter(Boolean).join('   ·   ');
   etiqueta(ctx, linea, w / 2, h - Math.max(8, margen * 0.4), COLOR.tinta, f);
   if (juego.marcador?.length) {
     ctx.textAlign = 'left';
