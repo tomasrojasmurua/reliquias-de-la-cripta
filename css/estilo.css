@@ -188,77 +188,102 @@ body.jugando #escena { display: none; }
 
 #resumen-coleccion { color: #d8c49a; font-style: italic; margin: 0; }
 
-/* Vitrinas de la colección: más adornadas cuanto más raro es lo que guardan */
-#modo-museo { width: min(420px, 100%); margin: 0 auto 14px; }
-.sala-museo .mazmorra-sala { margin: 0 6px 4px; font: 700 12px Cinzel, Georgia, serif; letter-spacing: .08em; color: var(--oro); }
-.sala-museo .lore-sala { margin: 0 6px 10px; font: italic 13px/1.45 'IM Fell English', Georgia, serif; color: var(--texto-c); opacity: .8; }
-.sala-museo.completa .cornisa small::after { content: ' ✓'; color: #7fe0a0; }
-.sala-museo .pieza::after { border-top: 3px solid var(--rareza, transparent); }
-#ficha .lore { font: italic 14px/1.5 'IM Fell English', Georgia, serif; opacity: .85; }
-#vitrinas { display: flex; flex-direction: column; gap: 26px; width: min(900px, 100%); }
+/* Museo: una vitrina de museo por mazmorra; se recorren deslizando hacia el lado */
+#coleccion { overflow: hidden; gap: 6px; }
+#coleccion::after { display: none; }
+#museo { position: relative; flex: 1 1 auto; min-height: 0; width: min(560px, 100%); }
+#vitrinas { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; touch-action: pan-x pan-y; }
+#vitrinas::-webkit-scrollbar { display: none; }
 .vitrina {
-  --marco: #5a3a1a; --marco2: #3a2410; --fondo: #22160c; --tabla: #6b4524; --canto: #8a5a30; --brillo: transparent; --texto-c: #d8c8a6;
-  position: relative; padding: 0 14px 0; border-radius: 6px 6px 3px 3px;
-  background: linear-gradient(90deg, var(--marco2), var(--marco) 12%, var(--marco) 88%, var(--marco2));
-  box-shadow: 0 14px 30px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 230, 190, .15);
+  --madera: #5a3a1a; --madera2: #2e1c0c; --metal: #c8a24a; --metal2: #7a5a1c; --fondo: #2a0f14; --fondo2: #12060a; --luz: rgba(255, 236, 190, .5); --pedestal: #3a2a1a; --texto-c: #e8d8b0;
+  flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; overflow-y: auto; padding: 0 16px 12px; box-sizing: border-box; scrollbar-width: none;
 }
-.cornisa { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 6px 4px; }
-.cornisa h3 { margin: 0; font: 800 19px Cinzel, Georgia, serif; letter-spacing: .14em; text-transform: uppercase; color: var(--texto-c); text-shadow: 0 -1px 0 rgba(0, 0, 0, .7), 0 1px 0 rgba(255, 230, 190, .15); }
-.cornisa small { font: italic 14px 'IM Fell English', Georgia, serif; color: var(--texto-c); opacity: .85; }
-.lema-vitrina { margin: 0 6px 8px; font: italic 13px 'IM Fell English', Georgia, serif; color: var(--texto-c); opacity: .7; }
-.cristal {
-  position: relative; overflow: hidden; border-radius: 2px; padding: 14px 10px 0;
-  background: radial-gradient(ellipse at 50% 0%, var(--brillo), transparent 70%), var(--fondo);
-  box-shadow: inset 0 6px 18px rgba(0, 0, 0, .75), inset 0 0 0 2px rgba(0, 0, 0, .5);
+.vitrina::-webkit-scrollbar { display: none; }
+.cartel-sala { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 4px 0; }
+.cartel-sala h3 { margin: 0; font: 800 19px Cinzel, Georgia, serif; letter-spacing: .12em; text-transform: uppercase; color: var(--oro); text-shadow: 0 2px 4px #000; }
+.cartel-sala small { font: italic 14px 'IM Fell English', Georgia, serif; color: #d8c49a; white-space: nowrap; }
+.cartel-sala .n-nuevos { color: #ffe27a; font-style: normal; }
+.vitrina.completa .cartel-sala small::after { content: ' ✓'; color: #7fe0a0; }
+.mazmorra-sala { margin: 2px 4px 10px; font: 700 12px Cinzel, Georgia, serif; letter-spacing: .08em; color: #b8a070; }
+.lore-sala { margin: 14px 6px 0; font: italic 14px/1.5 'IM Fell English', Georgia, serif; color: #d8c8a6; opacity: .85; text-align: center; }
+/* el mueble: remate con foco, caja de vidrio con marco de metal y base con placa */
+.mueble { position: relative; filter: drop-shadow(0 18px 18px rgba(0, 0, 0, .65)); }
+.remate {
+  position: relative; height: 26px; margin: 0 -6px; border-radius: 8px 8px 2px 2px;
+  background: linear-gradient(var(--madera), var(--madera2)); box-shadow: inset 0 2px 0 rgba(255, 230, 190, .22), inset 0 -3px 0 var(--metal2), 0 3px 0 var(--metal);
 }
-/* reflejo del vidrio */
-.cristal::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, .07) 38%, transparent 46%, transparent 70%, rgba(255, 255, 255, .04) 74%, transparent 78%); }
-.repisa { position: relative; display: flex; flex-wrap: wrap; justify-content: center; row-gap: 14px; }
+.remate::before { content: ''; position: absolute; inset: 5px 10px 8px; border-top: 1px solid rgba(0, 0, 0, .5); border-bottom: 1px solid rgba(255, 230, 190, .15); }
+.foco { position: absolute; left: 50%; bottom: -5px; width: 44%; height: 6px; transform: translateX(-50%); border-radius: 0 0 6px 6px; background: #fff3d0; box-shadow: 0 0 16px 6px rgba(255, 236, 190, .55); z-index: 3; }
+.caja-vidrio {
+  position: relative; overflow: hidden; padding: 20px 8px 0; margin: 0 2px;
+  background: var(--fondo2); border: 6px solid var(--madera); border-top: 0; border-bottom: 0;
+  box-shadow: inset 0 0 0 2px var(--metal), inset 0 0 0 4px rgba(0, 0, 0, .6), inset 0 14px 28px rgba(0, 0, 0, .8);
+}
+/* terciopelo al fondo, con la luz del foco cayendo en cono */
+.fondo-vit {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    conic-gradient(from 180deg at 50% -4%, transparent 158deg, var(--luz) 180deg, transparent 202deg) top / 100% 70% no-repeat,
+    radial-gradient(ellipse at 50% 0%, rgba(255, 236, 190, .28), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 3px, transparent 3px 11px),
+    linear-gradient(var(--fondo), var(--fondo2));
+}
+.repisa { position: relative; display: flex; flex-wrap: wrap; justify-content: center; row-gap: 12px; z-index: 1; }
+/* reflejos del vidrio por delante de todo */
+.vidrio { position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  background: linear-gradient(112deg, transparent 22%, rgba(255, 255, 255, .09) 30%, transparent 38%, transparent 62%, rgba(255, 255, 255, .06) 66%, transparent 72%), linear-gradient(rgba(255, 255, 255, .05), transparent 18%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.base-mueble {
+  position: relative; height: 54px; margin: 0 -6px; border-radius: 2px 2px 6px 6px;
+  background: linear-gradient(var(--madera), var(--madera2)); box-shadow: inset 0 3px 0 var(--metal), inset 0 5px 0 rgba(0, 0, 0, .4), 0 8px 0 -2px var(--madera2);
+  display: flex; align-items: center; justify-content: center;
+}
+.base-mueble::before, .base-mueble::after { content: ''; position: absolute; top: 14px; bottom: 8px; width: 18%; border: 1px solid rgba(0, 0, 0, .55); border-radius: 2px; box-shadow: inset 0 1px 0 rgba(255, 230, 190, .12); }
+.base-mueble::before { left: 8%; } .base-mueble::after { right: 8%; }
+.placa { position: relative; z-index: 1; max-width: 52%; padding: 3px 12px; border-radius: 2px; text-align: center; font: 700 10px/1.2 Cinzel, Georgia, serif; letter-spacing: .1em; text-transform: uppercase; color: #2a1606; background: linear-gradient(#f0d890, #b88a2c); box-shadow: 0 1px 0 #fff3c4 inset, 0 2px 3px rgba(0, 0, 0, .6); }
+/* una pieza sobre su pedestal, con una tablilla de vidrio por estante */
 .menu .pieza, .menu .pieza:hover, .menu .pieza:focus-visible, .menu .pieza:active {
-  all: unset; box-sizing: border-box; cursor: pointer; position: relative; width: 84px; height: 92px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14px;
+  all: unset; box-sizing: border-box; cursor: pointer; position: relative; width: 84px; height: 100px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 22px;
 }
-/* la tabla de la repisa bajo cada pieza: piezas contiguas forman una repisa continua */
-.pieza::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 12px; background: linear-gradient(var(--canto), var(--tabla) 40%, var(--tabla)); box-shadow: 0 5px 8px rgba(0, 0, 0, .55); }
+.pieza::before { content: ''; position: absolute; left: 50%; bottom: 10px; width: 50px; height: 14px; transform: translateX(-50%); border-radius: 3px 3px 1px 1px; background: linear-gradient(rgba(255, 255, 255, .18), transparent 40%), var(--pedestal); box-shadow: 0 3px 4px rgba(0, 0, 0, .6); border-top: 2px solid var(--rareza, var(--metal)); }
+.pieza::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 10px; background: linear-gradient(rgba(190, 235, 235, .55), rgba(120, 190, 200, .22)); border-top: 1px solid rgba(255, 255, 255, .6); box-shadow: 0 6px 8px rgba(0, 0, 0, .55); }
 .pieza canvas { width: 64px; height: 64px; image-rendering: pixelated; position: relative; z-index: 1; filter: drop-shadow(0 4px 2px rgba(0, 0, 0, .6)); transition: transform .2s; }
 .pieza:hover canvas, .pieza:focus-visible canvas { transform: translateY(-4px) scale(1.06); }
 .pieza.oculta canvas { filter: brightness(0) opacity(.5); }
-.pieza.oculta::before { content: '?'; position: absolute; z-index: 2; top: 30px; left: 0; right: 0; text-align: center; font: 900 22px Cinzel, Georgia, serif; color: rgba(255, 240, 210, .25); }
-.zocalo { height: 16px; margin: 0 -14px; border-radius: 0 0 3px 3px; background: linear-gradient(var(--marco), var(--marco2)); box-shadow: inset 0 2px 0 rgba(0, 0, 0, .35); }
-
-/* Común: estantería de madera tosca */
-.v-comun .cristal { background-image: repeating-linear-gradient(90deg, rgba(0, 0, 0, .18) 0 2px, transparent 2px 46px), linear-gradient(#2a1c10, #1c120a); }
-.v-comun .cristal::after { display: none; }
-/* Raro: caoba pulida, remaches de bronce y terciopelo azul */
-.v-raro { --marco: #6e2c1a; --marco2: #3e140a; --fondo: #16223e; --tabla: #5a2414; --canto: #c89a4a; --brillo: rgba(95, 168, 255, .18); --texto-c: #f0d491; }
-.v-raro::before, .v-raro::after { content: ''; position: absolute; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe0a0, #a87428 60%, #5a3a10); box-shadow: 0 1px 2px #000; }
-.v-raro::before { left: 6px; } .v-raro::after { right: 6px; }
-.v-raro .cristal { background-image: radial-gradient(ellipse at 50% 0%, var(--brillo), transparent 70%), repeating-radial-gradient(circle at 30% 40%, rgba(255, 255, 255, .02) 0 2px, transparent 2px 5px), linear-gradient(#1c2c50, #101a30); }
-.v-raro .pieza:not(.oculta) canvas { filter: drop-shadow(0 4px 2px rgba(0, 0, 0, .6)) drop-shadow(0 0 6px rgba(95, 168, 255, .45)); }
-/* Épico: ébano con filete de plata, terciopelo morado y luz de velas */
-.v-epico { --marco: #241a2e; --marco2: #0e0a14; --fondo: #22102e; --tabla: #1a1220; --canto: #c8ccd8; --brillo: rgba(199, 125, 255, .3); --texto-c: #e6dcff; outline: 2px solid #9aa0b0; outline-offset: -6px; }
-.v-epico .cristal { box-shadow: inset 0 6px 18px rgba(0, 0, 0, .75), inset 0 0 0 1px #c8ccd8, inset 0 0 40px rgba(176, 102, 240, .25); }
-.v-epico .pieza:not(.oculta) canvas { animation: flotar 3.2s ease-in-out infinite; animation-delay: var(--retraso); filter: drop-shadow(0 4px 2px rgba(0, 0, 0, .6)) drop-shadow(0 0 8px rgba(199, 125, 255, .6)); }
-/* Legendario: marco dorado, terciopelo carmesí, rayos de luz y destello en el vidrio */
-.v-legendario {
-  --marco: #c8962e; --marco2: #6a4a0e; --fondo: #3a0a10; --tabla: #e8dcc0; --canto: #ffe08a; --brillo: rgba(255, 190, 60, .35); --texto-c: #2a1606;
-  background: linear-gradient(#ffe7a0, #d8a73a 30%, #a8761f 60%, #e8b83a 85%, #7a5214);
-  box-shadow: 0 0 0 2px #3a2406, 0 0 30px rgba(255, 170, 40, .35), 0 14px 30px rgba(0, 0, 0, .6);
+.pieza.oculta::before { opacity: .55; }
+.pieza.oculta { --rareza: #4a3a28; }
+.pieza:not(.oculta) canvas { filter: drop-shadow(0 4px 2px rgba(0, 0, 0, .6)) drop-shadow(0 0 7px color-mix(in srgb, var(--rareza) 55%, transparent)); }
+.pieza.nueva { animation: nueva 1.6s ease-in-out infinite; }
+.pieza.nueva i { position: absolute; z-index: 4; top: 2px; right: 4px; padding: 1px 5px; border-radius: 3px; font: 800 9px/1.3 Cinzel, Georgia, serif; letter-spacing: .06em; color: #2a1606; background: #ffe27a; box-shadow: 0 0 8px rgba(255, 226, 122, .8); }
+@keyframes nueva { 50% { filter: brightness(1.25); } }
+@media (prefers-reduced-motion: reduce) { .pieza.nueva { animation: none; } }
+/* temas por mazmorra: cada vitrina tiene su madera, su metal y su terciopelo */
+.tema-cripta-escarabajo { --madera: #3a2a14; --madera2: #1a1008; --metal: #e8c050; --metal2: #8a6a18; --fondo: #1f3a3a; --fondo2: #0a1a1c; --pedestal: #c8a860; }
+.tema-templo-arenas { --madera: #6a4a22; --madera2: #35210e; --metal: #e0b048; --metal2: #8a5a18; --fondo: #5a3a1c; --fondo2: #241208; --pedestal: #d8b878; }
+.tema-glaciar-jarl { --madera: #3a4a5a; --madera2: #1a2430; --metal: #c8d4e0; --metal2: #6a7a8c; --fondo: #1c3050; --fondo2: #0a1220; --luz: rgba(190, 225, 255, .5); --pedestal: #8a9cb0; }
+.tema-cueva-drake { --madera: #4a2a14; --madera2: #22120a; --metal: #d8a040; --metal2: #7a4a10; --fondo: #122a3a; --fondo2: #060f18; --pedestal: #6a4a2a; }
+.tema-templo-jaguar { --madera: #2a4a30; --madera2: #12281a; --metal: #d8c060; --metal2: #6a6a20; --fondo: #1a3a24; --fondo2: #08180e; --pedestal: #5a7a50; }
+.tema-templo-maldito { --madera: #2a1818; --madera2: #0e0606; --metal: #c8402a; --metal2: #6a1a10; --fondo: #3a0e0e; --fondo2: #120404; --luz: rgba(255, 150, 90, .45); --pedestal: #4a2a24; }
+.tema-tumba-cruzado { --madera: #4a4a52; --madera2: #22222a; --metal: #c0b8a0; --metal2: #6a6658; --fondo: #2a2430; --fondo2: #100c14; --pedestal: #7a7a82; }
+/* flechas y puntos para recorrer las vitrinas */
+.flecha-museo { position: absolute; top: 50%; z-index: 5; width: 40px; height: 40px; padding: 0; border-radius: 50%; display: grid; place-items: center; transform: translateY(-50%); opacity: .85; }
+.flecha-museo[hidden] { display: none; }
+.flecha-museo.ant { left: -6px; } .flecha-museo.sig { right: -6px; }
+.flecha-museo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+#puntos-museo { display: flex; justify-content: center; gap: 4px; padding: 2px 0 max(8px, env(safe-area-inset-bottom)); }
+.menu #puntos-museo .punto { all: unset; box-sizing: content-box; cursor: pointer; width: 10px; height: 10px; border-radius: 50%; background-color: #5a4630; border: 1px solid #2a1c0e; padding: 7px; background-clip: content-box; transition: background-color .2s, transform .2s; }
+.menu #puntos-museo .punto.activo { background-color: var(--oro); transform: scale(1.3); }
+.menu #puntos-museo .punto.con-nuevos:not(.activo) { background-color: #ffe27a; opacity: .75; }
+.losas button.con-nuevos { position: relative; }
+.losas button.con-nuevos::after { content: ''; position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%; background: #ffe27a; box-shadow: 0 0 10px #ffe27a; }
+@media (max-width: 420px) {
+  .cartel-sala h3 { font-size: 16px; }
+  .menu .pieza, .menu .pieza:hover { width: 70px; height: 92px; }
+  .pieza canvas { width: 56px; height: 56px; }
+  .pieza::before { width: 44px; }
+  .vitrina { padding: 0 10px 12px; } .caja-vidrio { padding: 16px 2px 0; }
+  .flecha-museo { display: none; }
 }
-.v-legendario .cornisa h3 { text-shadow: 0 1px 0 rgba(255, 240, 200, .6); }
-.v-legendario .cristal { box-shadow: inset 0 6px 18px rgba(0, 0, 0, .75), inset 0 0 0 2px #7a5214, inset 0 0 50px rgba(255, 170, 40, .25); }
-.v-legendario .cristal::before {
-  content: ''; position: absolute; left: 50%; top: -60%; width: 220%; aspect-ratio: 1; transform: translateX(-50%); pointer-events: none;
-  background: repeating-conic-gradient(from 0deg, rgba(255, 210, 120, .09) 0 6deg, transparent 6deg 18deg);
-  animation: rayos 40s linear infinite;
-}
-.v-legendario .cristal::after { background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .14) 48%, transparent 56%); background-size: 300% 100%; animation: reflejo 6s ease-in-out infinite; }
-.v-legendario .pieza::after { background: linear-gradient(#fff4d0, #e8dcc0 30%, #b8ab90); border-top: 2px solid #e8b83a; }
-.v-legendario .pieza:not(.oculta) canvas { animation: flotar 2.8s ease-in-out infinite; animation-delay: var(--retraso); filter: drop-shadow(0 4px 2px rgba(0, 0, 0, .6)) drop-shadow(0 0 10px rgba(255, 190, 60, .75)); }
-@keyframes flotar { 50% { transform: translateY(-5px); } }
-@keyframes rayos { to { transform: translateX(-50%) rotate(360deg); } }
-@keyframes reflejo { 0%, 30% { background-position: 100% 0; } 70%, 100% { background-position: 0 0; } }
-@media (prefers-reduced-motion: reduce) { .pieza canvas, .cristal::before, .cristal::after { animation: none !important; } }
-
 /* Ficha de un tesoro */
 #ficha { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5, 3, 2, .78); }
 #ficha[hidden] { display: none; }
@@ -547,7 +572,6 @@ body.tactil #hud .arma.pulsado { border-color: var(--oro); background: rgba(232,
 @media (max-width: 420px) {
   .menu .pieza, .menu .pieza:hover { width: 70px; height: 82px; }
   .pieza canvas { width: 56px; height: 56px; }
-  .vitrina { padding: 0 8px; } .zocalo { margin: 0 -8px; } .cristal { padding: 12px 4px 0; }
 }
 
 /* ---------- Menús en el celular ---------- */
@@ -559,7 +583,6 @@ body.tactil #hud .arma.pulsado { border-color: var(--oro); background: rgba(232,
   .mazmorra span { font-size: 14px; }
   .marco-emblema { width: 48px; height: 48px; } .emblema { width: 40px; height: 40px; }
   .titulo-mazmorra { gap: 10px; }
-  #vitrinas { gap: 18px; }
 }
 /* Horizontal: poca altura, así que todo se aprieta y los ajustes van lado a lado */
 @media (max-height: 520px) {
