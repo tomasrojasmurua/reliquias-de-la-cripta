@@ -10,7 +10,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
-const CARPETAS = ['js', 'datos', 'iconos'];
+const CARPETAS = ['js', 'datos', 'iconos', 'fuentes-web'];
 const SUELTOS = ['index.html', 'css/estilo.css', 'manifest.webmanifest'];
 
 // recorre las subcarpetas (js/vendor) y deja fuera los textos de licencias
