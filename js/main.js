@@ -626,7 +626,7 @@ $('#btn-copiar-enlace').onclick = async () => {
 $('#btn-empezar-sala').onclick = () => {
   if (!sala?.soyAnfitrion) return;
   const c = sala.config;
-  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, modo: c.modo, apuro: c.apuro, tesoros: c.tesoros, combate: !!c.combate, jugadores: lista.length, cuenta: 3 });
+  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, modo: c.modo, apuro: c.apuro, tesoros: c.tesoros, combate: !!c.combate, jugadores: sala.jugadores.length, cuenta: 3 });
 };
 
 // 3, 2, 1 y todos entran a la vez a la misma cripta (la semilla da el mismo mapa, los mismos enemigos y las mismas reliquias).
