@@ -520,6 +520,12 @@ function enlazarSala(s) {
   s.alDano = (n, causa) => { if (enPartidaDeSala()) juego.dañarJugador(n, causa); };
   s.alResuelto = (a, id) => acertijoDeSala(a, id);
   s.alForzado = (id, a) => { if (enPartidaDeSala()) mensaje(`${sala.jugadores.find(q => q.id === id)?.nombre || 'Otro cazador'} forzó una puerta`, 3); };
+  s.alMundo = (k, n) => {
+    if (!enPartidaDeSala()) return;
+    if (k === 'cofre') { const o = juego.objetos[n]; if (o) juego.abrirCofreObj(o); }
+    else if (k === 'antorcha') juego.encender(n, true);
+    else if (k === 'objeto') juego.retirar(n);
+  };
   s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); else if (o?.tipo === 'llave' || o?.tipo === 'barreta') Object.assign(o, { cogido: false, x, z }); };
 }
 
@@ -589,7 +595,7 @@ $('#btn-copiar-enlace').onclick = async () => {
 $('#btn-empezar-sala').onclick = () => {
   if (!sala?.soyAnfitrion) return;
   const c = sala.config;
-  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, tesoros: c.tesoros, combate: !!c.combate, cuenta: 3 });
+  sala.empezar({ semilla: Math.floor(Math.random() * 2 ** 32), mazmorra: c.mazmorra, tamano: c.tamano, limite: c.limite, tesoros: c.tesoros, combate: !!c.combate, jugadores: lista.length, cuenta: 3 });
 };
 
 // 3, 2, 1 y todos entran a la vez a la misma cripta (la semilla da el mismo mapa, los mismos enemigos y las mismas reliquias).
@@ -606,7 +612,7 @@ function comenzarCuenta(p) {
     if (--n > 0) { num.textContent = n; sonar('menu_alternar'); return; }
     clearInterval(cuentaAtras);
     $('#cuenta').hidden = true;
-    empezar(def, p.tamano, p.limite, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9), tesoros: p.tesoros, combate: !!p.combate });
+    empezar(def, p.tamano, p.limite, { semilla: p.semilla, azarPistas: azarConSemilla(p.semilla ^ 0x9e3779b9), tesoros: p.tesoros, combate: !!p.combate, jugadores: p.jugadores || 1 });
   }, 1000);
 }
 
@@ -815,13 +821,16 @@ function empezar(def, tamano = 'grande', limite = 0, enSala = null) {
     dañarA: enSala ? (id, n, c) => sala?.danar(id, n, c) : undefined,
     solto: enSala && enSala.tesoros !== 'compartidos' ? o => sala?.soltar(o.n, o.x, o.z) : undefined,
     forzo: enSala ? a => sala?.forzar(a) : undefined,
+    cofreAbierto: enSala ? n => sala?.mundo('cofre', n) : undefined,
+    antorchaEncendida: enSala ? i => sala?.mundo('antorcha', i) : undefined,
+    recogido: enSala ? n => sala?.mundo('objeto', n) : undefined,
     vibrar,
     abrirTablilla: a => abrirPanelTablilla(a),
     reconstruir: () => render.construir(juego.mapa),
     salida: r => terminar(r, true),
     muerte: r => enSala ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
     tiempoAgotado: r => terminar(r, false),
-  }, enSala?.semilla, { limite, real: !!enSala, combate: !!enSala?.combate, rol: enSala ? (sala?.soyAnfitrion ? 'anfitrion' : 'invitado') : null, puesto: enSala ? sala?.yo ?? 0 : 0 });
+  }, enSala?.semilla, { limite, real: !!enSala, combate: !!enSala?.combate, rol: enSala ? (sala?.soyAnfitrion ? 'anfitrion' : 'invitado') : null, puesto: enSala ? sala?.yo ?? 0 : 0, jugadores: enSala?.jugadores || 1 });
   juego.colorPropio = enSala && sala ? HEX_CAZADOR[sala.jugadores.find(q => q.id === sala.yo)?.color] || null : null;
   $('#hud-reloj').hidden = !limite;
   $('#caja-puntos').hidden = !enSala;

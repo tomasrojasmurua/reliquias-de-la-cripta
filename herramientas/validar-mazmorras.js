@@ -199,6 +199,21 @@ for (const def of MAZMORRAS) {
       revisarMapa(def, m, donde, juego);
       if (s === 1 && firma(cargarMazmorra(variante, s)) !== firma(m)) error(donde, 'la misma semilla da mazmorras distintas');
     }
+
+    // salas de varios cazadores: puestos lejanos entre sí, un revólver por cazador y los mismos tesoros
+    for (let s = 1; s <= Math.min(SEMILLAS, 15); s++) for (const n2 of [2, 3, 4]) {
+      const donde = `${id} (zonas: ${n === Infinity ? 'todas' : n}, ${n2} cazadores, semilla ${s})`;
+      let juego;
+      try { juego = new Juego(variante, SIN_EVENTOS, s, { jugadores: n2, puesto: 0, real: true }); } catch (e) { error(donde, `no carga: ${e.message}`); continue; }
+      const m = juego.mapa;
+      if (!m.puestos || m.puestos.length < n2) { error(donde, `solo ${m.puestos?.length || 0} puestos de salida`); continue; }
+      const aEl = alcanzables(m);
+      for (const q of m.puestos.slice(0, n2)) if (!aEl(Math.floor(q.x), Math.floor(q.z))) error(donde, 'un puesto de salida queda aislado');
+      const revolveres = m.objetos.filter(o => o.tipo === 'revolver').length;
+      if (revolveres < n2) error(donde, `hay ${revolveres} revólveres para ${n2} cazadores`);
+      const tes = m.objetos.filter(o => o.tipo === 'tesoro').length;
+      if (tes !== new Juego(variante, SIN_EVENTOS, s).mapa.objetos.filter(o => o.tipo === 'tesoro').length) error(donde, 'cambia el número de tesoros con varios cazadores');
+    }
   }
 }
 
