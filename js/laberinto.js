@@ -218,7 +218,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
       for (let x = s.x0; x <= s.x1; x++) { muros.push([x, s.y0 - 1]); muros.push([x, s.y1 + 1]); }
       for (let y = s.y0; y <= s.y1; y++) { muros.push([s.x0 - 1, y]); muros.push([s.x1 + 1, y]); }
       const ok = muros.filter(([x, y]) => dentro(x, y) && g[y][x] === '#');
-      if (ok.length) { const [x, y] = elegir(ok); g[y][x] = '!'; }
+      if (ok.length) { const [x, y] = elegir(ok); g[y][x] = azar() < 0.4 ? 'ĥ' : '!'; }   // algunas están apagadas: se encienden al acercarles la tuya
     }
   }
 
@@ -411,7 +411,7 @@ function variarPlano(def, azar, pares, acertijos, tipos) {
   for (const f of g) for (let x = 0; x < W; x++) if (f[x] === 'R') f[x] = '.';
 
   // paredes y demás casillas por donde no se camina
-  const macizas = new Set(['#', '!', '%', 'X', '_', '~', ...Object.keys(def.acertijos || {}), ...Object.keys(def.avisos || {})]);
+  const macizas = new Set(['#', '!', 'ĥ', '%', 'X', '_', '~', ...Object.keys(def.acertijos || {}), ...Object.keys(def.avisos || {})]);
   for (const [c, l] of Object.entries(def.leyenda || {})) if (['muro', 'vacio', 'aviso'].includes(l.tipo)) macizas.add(c);
   const selladas = new Set(Object.values(def.acertijos || {}).map(a => a.sello));
   const inicio = (() => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'P') return [x, y]; return [1, 1]; })();

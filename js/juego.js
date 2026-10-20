@@ -197,7 +197,7 @@ export class Juego {
       const x = Math.floor(g.x) + dx, z = Math.floor(g.z) + dz, c = m.celda(x, z);
       if (!c || m.solida(x, z) || c.peligro || !this.seVe(g, { x: x + 0.5, z: z + 0.5, y: c.piso })) continue;
       const base = ENEMIGOS[g.invoca];
-      this.enemigos.push({ tipo: g.invoca, x: x + 0.5, z: z + 0.5, y: c.piso, ...base, vidaMax: base.vida, estado: 'caza', t: 0, espera: 0.8, anim: Math.random() * 2, sinVerte: 0, alerta: true, tVoz: 3 + Math.random() * 4 });
+      this.enemigos.push({ tipo: g.invoca, x: x + 0.5, z: z + 0.5, y: c.piso, ...base, vidaMax: base.vida, estado: 'caza', t: 0, espera: 0.8, anim: Math.random() * 2, sinVerte: 0, visto: { x: this.j.x, z: this.j.z }, alerta: true, tVoz: 3 + Math.random() * 4 });
       this.salpicar(x + 0.5, c.piso + 0.3, z + 0.5, 'polvo', 10);
       n++;
     }
@@ -422,6 +422,7 @@ export class Juego {
     if (this.derrumbe > 0 && (this.derrumbe -= dt) <= 0) this.derrumbar();
     this.temblor = Math.max(0, this.temblor - dt);
     this.recoger();
+    this.encenderCercanas(dt);
     this.peligros(dt);
     this.actualizarDardos();
     this.actualizarRocas(dt);
@@ -444,6 +445,43 @@ export class Juego {
     this.temblor = 1.2;
     this.ev.vibrar?.(220);
     this.ev.mensaje('¡La entrada se derrumba a tus espaldas! Tendrás que encontrar otra salida.', 5);
+  }
+
+  // Las antorchas apagadas de los muros se encienden solas cuando les acercas la tuya (mira el resplandor: delata dónde estuviste).
+  encenderCercanas(dt) {
+    this.tAntorchas = (this.tAntorchas || 0) - dt;
+    if (this.tAntorchas > 0) return;
+    this.tAntorchas = 0.2;
+    const m = this.mapa, j = this.j;
+    const x0 = Math.floor(j.x), z0 = Math.floor(j.z);
+    for (let z = z0 - 2; z <= z0 + 2; z++) for (let x = x0 - 2; x <= x0 + 2; x++) {
+      if (!m.celda(x, z)?.apagada) continue;
+      // la antorcha tiene que estar a un paso y a la vista (no al otro lado de una esquina)
+      const dx = x + 0.5 - j.x, dz = z + 0.5 - j.z, d = Math.hypot(dx, dz);
+      if (d > 1.9) continue;
+      const h = this.rayo(j.x, j.z, dx / d, dz / d, d + 0.5);
+      if (h.cx !== x || h.cz !== z) continue;
+      this.encender(z * m.ancho + x);
+    }
+  }
+
+  // Enciende la antorcha de muro `i`. `desdeRed`: la encendió otro cazador (no se vuelve a avisar).
+  encender(i, desdeRed = false) {
+    const m = this.mapa, c = m.celdas[i];
+    if (!c?.apagada) return;
+    c.apagada = false; c.antorcha = true; c.tex = 'antorcha';
+    const x = i % m.ancho, z = Math.floor(i / m.ancho);
+    m.iluminar(x, z);
+    for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const v = m.celda(x + dx, z + dz);
+      if (v && !m.solida(x + dx, z + dz)) this.llamas.push({ x: x + 0.5 + dx * 0.58, z: z + 0.5 + dz * 0.58, dx, dz, y: m.piso(x + dx, z + dz) + 0.62, fase: Math.random() * 10 });
+    }
+    this.ev.reconstruir?.();
+    sonar('recoger');
+    if (!desdeRed) {
+      this.ev.antorchaEncendida?.(i);
+      if (!this.avisoAntorcha) { this.avisoAntorcha = true; this.ev.mensaje('La antorcha del muro se enciende al acercarle la tuya.'); }
+    }
   }
 
   // La salida no tiene antorcha: hay que toparse con ella. Al verla queda marcada en el automapa.
@@ -695,7 +733,7 @@ export class Juego {
       this.fogonazo = 0.8;
       this.temblor = Math.max(this.temblor, 0.05);
       this.ev.vibrar?.(10);
-      for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 14) e.estado = 'caza';
+      for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 14) this.despertar(e);
     } else if (j.arma === 'revolver') {
       if (!j.tambor) {
         if (j.reserva) this.recargar(); else { sonar('vacio'); j.espera = 0.3; }
@@ -706,7 +744,7 @@ export class Juego {
       this.fogonazo = 1;
       this.ev.vibrar?.(18);
       // el ruido despierta a los enemigos cercanos
-      for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 12) e.estado = 'caza';
+      for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 12) this.despertar(e);
     } else {
       sonar('latigo');
     }
@@ -783,7 +821,7 @@ export class Juego {
     this.temblor = Math.max(this.temblor, 0.12);
     this.ev.vibrar?.(40);
     j.espera = j.ataque = arma.espera;
-    for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 14) e.estado = 'caza';
+    for (const e of this.enemigos) if (e.estado === 'dormido' && Math.hypot(e.x - j.x, e.z - j.z) < 14) this.despertar(e);
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
     const muro = this.rayo(j.x, j.z, fx, fz, arma.alcance).dist;
     const blancos = [];
@@ -803,7 +841,10 @@ export class Juego {
     for (const [a, e] of blancos.slice(0, 3)) {
       const pegan = Math.max(1, Math.round(arma.perdigones * Math.min(1, Math.max(0.15, 1.2 - a / 9))));
       if (e.id !== undefined) this.herirCazador(e, pegan * azar(arma.daño));
-      else this.herir(e, pegan * azar(arma.daño));
+      else {
+        this.herir(e, pegan * azar(arma.daño));
+        this.empujar(e, fx, fz, pegan / arma.perdigones);
+      }
     }
     if (!blancos.length && muro < arma.alcance) {
       const d = muro - 0.05;
@@ -811,6 +852,16 @@ export class Juego {
       this.salpicar(ix, iy, iz, 'polvo', 6, 0.9);
       this.salpicar(ix, iy, iz, 'chispa', 4, 1.2);
     }
+  }
+
+  // El golpe de la escopeta echa atrás al monstruo (hasta unos 2 m de cerca, nada de lejos; los jefes ceden menos)
+  // y le corta lo que estaba haciendo. El invitado no lo mueve: el anfitrión es quien simula a los enemigos.
+  empujar(e, fx, fz, fuerza) {
+    if (this.rol === 'invitado' || e.estado === 'muerto') return;
+    const total = (e.jefe ? 0.5 : 2.2) * fuerza * fuerza, pasos = 6;
+    for (let k = 0; k < pasos; k++) this.mover(e, fx * total / pasos, fz * total / pasos, e.radio || 0.28, true);
+    if (!e.jefe && e.estado !== 'dolor') { e.estado = 'dolor'; e.t = 0.3 + 0.3 * fuerza; }
+    e.espera = Math.max(e.espera, 0.5);
   }
 
   // Puntería asistida (táctil): la vista se desliza suavemente hacia el enemigo
@@ -849,6 +900,7 @@ export class Juego {
     }
     e.vida -= daño;
     e.golpe = 0.12;
+    e.sinVerte = 0; e.visto = { x: this.j.x, z: this.j.z };   // sabe de dónde le pegaron
     if (e.teletransporta && e.vida > 0 && Math.random() < 0.3) e.tTele = Math.min(e.tTele ?? 0, 0.2);   // herido, se escabulle
     this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
     if (e.vida <= 0) {
@@ -1186,6 +1238,20 @@ export class Juego {
     for (const f of this.proyectiles) { f.x += f.vx * dt; f.z += f.vz * dt; }
   }
 
+  // Un monstruo que te despertó con el ruido va hacia donde sonó.
+  despertar(e) {
+    e.estado = 'caza'; e.sinVerte = 0; e.visto = { x: this.j.x, z: this.j.z };
+  }
+
+  // Un monstruo que te perdió camina sin rumbo fijo, despacio, cambiando de dirección al topar con un muro.
+  vagar(e, dt) {
+    e.tRumbo = (e.tRumbo ?? 0) - dt;
+    if (e.rumbo === undefined || e.tRumbo <= 0) { e.rumbo = Math.random() * Math.PI * 2; e.tRumbo = 1.5 + Math.random() * 3; }
+    const v = e.vel * 0.45 * dt, antes = { x: e.x, z: e.z };
+    this.mover(e, Math.cos(e.rumbo) * v, Math.sin(e.rumbo) * v, e.radio || 0.28, true);
+    if (Math.hypot(e.x - antes.x, e.z - antes.z) < v * 0.3) e.tRumbo = 0;
+  }
+
   actualizarEnemigos(dt) {
     for (const e of this.enemigos) {
       e.golpe = Math.max(0, (e.golpe || 0) - dt);
@@ -1279,12 +1345,16 @@ export class Juego {
           continue;
         }
       }
-      const meta = e.visto || j;
-      const mx = meta.x - e.x, mz = meta.z - e.z, ml = Math.hypot(mx, mz);
-      if (ml > 0.6) {
-        const v = e.vel * dt;
-        this.mover(e, mx / ml * v, mz / ml * v, e.radio || 0.28, true);
-      } else e.visto = null;
+      // va hacia donde te vio por última vez; si ahí no estás, te pierde y se pone a vagar hasta que te vuelva a ver u oír
+      if (!e.visto) { e.vaga = true; this.vagar(e, dt); }
+      else {
+        e.vaga = false;
+        const mx = e.visto.x - e.x, mz = e.visto.z - e.z, ml = Math.hypot(mx, mz);
+        if (ml > 0.6) {
+          const v = e.vel * dt;
+          this.mover(e, mx / ml * v, mz / ml * v, e.radio || 0.28, true);
+        } else e.visto = null;
+      }
       // separación entre enemigos
       for (const o of this.enemigos) {
         if (o === e || o.estado === 'muerto' || o.estado === 'oculto') continue;

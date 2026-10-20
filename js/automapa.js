@@ -293,7 +293,7 @@ export function dibujarMinimapa(ctx, S, juego, radio = 6.5) {
   }
   // monstruos que te persiguen o te atacan: puntos rojos que laten; los que están fuera del alcance se pegan al borde
   for (const e of juego.enemigos) {
-    if (!CAZANDO.has(e.estado)) continue;
+    if (!CAZANDO.has(e.estado) || e.vaga) continue;   // los que te perdieron ya no se marcan
     const dx = e.x - j.x, dz = e.z - j.z, d = Math.hypot(dx, dz);
     if (d > radio * 2.4) continue;
     const k = d > radio - 0.6 ? (radio - 0.6) / d : 1;
