@@ -800,6 +800,12 @@ function resolverCoop() {
   $('#resumen .tesoros').innerHTML = botin.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre}</span>`).join('');
 }
 
+// «Puntos: 14 (tesoros 12, acertijos +8, ayudas −6)»: así se ve qué aportó cada cosa.
+const desglosePuntos = r => {
+  const bono = r.bonoAcertijos + r.costoAyudas;
+  return `tesoros ${r.puntosTesoros}, acertijos ${bono >= 0 ? '+' : ''}${bono}${r.costoAyudas ? `, ayudas −${r.costoAyudas}` : ''}`;
+};
+
 const ESTADOS = { 'escapó': 'escapó', atrapado: 'atrapado', jugando: 'aún en la cripta' };
 function pintarMarcador() {
   const ol = $('#resumen-marcador');
@@ -988,6 +994,7 @@ function terminar(r, exito) {
   $('#resumen h2').textContent = exito ? '¡Escapaste con vida!' : `${r.causa || 'Has caído en la cripta.'} Pierdes todo el botín.`;
   $('#resumen .datos').innerHTML = `
     <li>Tesoros ${exito ? 'rescatados' : 'perdidos'}: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
+    <li>Puntos: <b>${r.puntos}</b> <small>(${desglosePuntos(r)})</small></li>
     <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>
     <li>Pasadizos secretos: <b>${r.secretos}/${r.totalSecretos}</b></li>
     <li>Enemigos: <b>${r.abatidos}/${r.totalEnemigos}</b></li>
@@ -1012,7 +1019,7 @@ function terminarSala(r, exito) {
     : exito ? `¡Escapaste con ${puntos} punto${puntos === 1 ? '' : 's'}!` : r.causa;
   $('#resumen .datos').innerHTML = `
     <li>Puntos: <b>${exito ? puntos : `${r.puntos} → ${puntos}`}</b>${exito ? '' : coop ? ' (el botín se pierde)' : ' (la mitad, por no escapar)'}</li>
-    <li>Tesoros: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
+    <li>Tesoros: <b>${r.tesoros.length}/${r.totalTesoros}</b> <small>(${desglosePuntos(r)})</small></li>
     <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>
     <li>Tiempo: <b>${min}:${String(seg).padStart(2, '0')}</b> de ${r.limite / 60}:00</li>`;
   $('#resumen .tesoros').innerHTML = r.tesoros.map(id => `<span style="color:${RAREZAS[TESORO[id].rareza].color}">${TESORO[id].nombre} +${RAREZAS[TESORO[id].rareza].valor}</span>`).join('');

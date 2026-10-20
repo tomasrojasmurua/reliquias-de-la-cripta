@@ -1,5 +1,7 @@
 // Acertijos: las tablillas muestran una pista críptica del banco (datos/pistas.js).
-// Ayudas progresivas según la guía: tipo, definición, indicador y relleno, primera letra. Nunca se muestra la solución.
+// La tablilla se muestra sin nada resaltado. Quien se atasca elige qué ayuda pedir: resaltar los indicadores (azul), las definiciones
+// (naranjo), el relleno (verde) o regalar una letra (hasta 2). Cada ayuda cuesta puntos al resolver. Nunca se muestra la solución.
+export const MAX_LETRAS = 2;
 
 import { PISTAS } from '../datos/pistas.js';
 import { sonar } from './audio.js';
@@ -64,7 +66,7 @@ const TIPOS = {
 function escapar(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 // Marca en la pista los fragmentos según el nivel de ayuda.
-function pistaResaltada(p, nivel) {
+function pistaResaltada(p, ay) {
   const marcas = [];
   const poner = (frag, clase) => {
     if (!frag) return;
@@ -72,8 +74,9 @@ function pistaResaltada(p, nivel) {
     while (i >= 0 && marcas.some(m => i < m.fin && i + frag.length > m.ini)) i = p.pista.indexOf(frag, i + 1);
     if (i >= 0) marcas.push({ ini: i, fin: i + frag.length, clase });
   };
-  if (nivel >= 2) p.definicion.forEach(f => poner(f, 'def'));
-  if (nivel >= 3) { p.indicador.forEach(f => poner(f, 'ind')); p.relleno.forEach(f => poner(f, 'rel')); }
+  if (ay.def) p.definicion.forEach(f => poner(f, 'def'));
+  if (ay.ind) p.indicador.forEach(f => poner(f, 'ind'));
+  if (ay.rel) p.relleno.forEach(f => poner(f, 'rel'));
   marcas.sort((a, b) => a.ini - b.ini);
   let html = '', pos = 0;
   for (const m of marcas) {
@@ -87,6 +90,7 @@ function pistaResaltada(p, nivel) {
 export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
   const p = () => estado.pista;
   const respuesta = () => revelar(p()._r);
+  const ayudas = () => (estado.pedidas ||= { ind: false, def: false, rel: false, letras: 0 });
   const palabras = () => p().longitud.replace(/[()]/g, '').split(',').map(Number);
 
   el.innerHTML = `
@@ -99,9 +103,13 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
         <input type="text" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="Tu respuesta">
         <button type="submit" class="principal">Probar</button>
       </form>
-      <div class="ayuda"></div>
+      <p class="rotulo-ayuda">Pedir una ayuda (cada una resta puntos al resolver)</p>
+      <div class="ayudas"></div>
       <div class="acciones">
-        <button type="button" data-a="ayuda">Pedir ayuda</button>
+        <button type="button" data-a="ind">Indicadores</button>
+        <button type="button" data-a="def">Definición</button>
+        <button type="button" data-a="rel">Relleno</button>
+        <button type="button" data-a="letra">Una letra</button>
         <button type="button" data-a="cerrar">Volver</button>
       </div>
     </div>`;
@@ -111,15 +119,16 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
   function pintar() {
     $('h2').textContent = estado.titulo;
     $('.estrellas').textContent = '★'.repeat(p().dificultad) + '☆'.repeat(5 - p().dificultad);
-    $('.pista').innerHTML = `${pistaResaltada(p(), estado.nivel)} <span class="long">${p().longitud}</span>`;
+    const ay = ayudas();
+    $('.pista').innerHTML = `${pistaResaltada(p(), ay)} <span class="long">${p().longitud}</span>`;
     // casillas de letras
     const letras = normalizar(input.value);
-    const pista1 = estado.nivel >= 4 ? normalizar(respuesta())[0] : '';
+    const dadas = normalizar(respuesta()).slice(0, ay.letras);
     let html = '', k = 0;
     palabras().forEach((n, w) => {
       html += '<span class="palabra">';
       for (let i = 0; i < n; i++, k++) {
-        const ch = letras[k] || (k === 0 && pista1 ? pista1 : '');
+        const ch = letras[k] || dadas[k] || '';
         html += `<span class="letra${!letras[k] && ch ? ' dada' : ''}">${ch}</span>`;
       }
       html += '</span>';
@@ -127,17 +136,15 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
     $('.casillas').innerHTML = html;
     input.maxLength = palabras().reduce((a, b) => a + b, 0) + palabras().length - 1;
 
-    const ayudas = [];
-    if (estado.nivel >= 1) ayudas.push(`<b>Tipo:</b> ${p().tipo}. ${TIPOS[p().tipo] || ''}`);
-    if (estado.nivel >= 2) ayudas.push(`<b>Definición</b> <mark class="def">resaltada</mark>: la respuesta significa eso.`);
-    if (estado.nivel >= 3) ayudas.push(p().indicador.length || p().relleno.length
-      ? `<mark class="ind">Indicador</mark> y <mark class="rel">relleno</mark> resaltados.`
-      : 'Esta pista no tiene indicador ni relleno.');
-    if (estado.nivel >= 4) ayudas.push(`<b>Primera letra:</b> ${normalizar(respuesta())[0]}`);
-    $('.ayuda').innerHTML = ayudas.map(a => `<p>${a}</p>`).join('');
-    const bAyuda = $('[data-a="ayuda"]');
-    bAyuda.disabled = estado.nivel >= 4;
-    bAyuda.textContent = estado.nivel >= 4 ? 'Sin más ayudas' : 'Pedir ayuda';
+    for (const b of el.querySelectorAll('[data-a="ind"], [data-a="def"], [data-a="rel"]')) {
+      const k = b.dataset.a, lista = { ind: p().indicador, def: p().definicion, rel: p().relleno }[k];
+      b.hidden = !lista.length;   // sin indicadores (o sin relleno) no hay nada que resaltar
+      b.disabled = !!ay[k];
+      b.classList.toggle('ya', !!ay[k]);
+    }
+    const bl = $('[data-a="letra"]');
+    bl.disabled = ay.letras >= MAX_LETRAS;
+    bl.textContent = `Una letra (${ay.letras}/${MAX_LETRAS})`;
   }
 
   input.addEventListener('input', pintar);
@@ -154,8 +161,14 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
   el.querySelector('.acciones').addEventListener('click', e => {
     const a = e.target.dataset.a;
     if (a === 'cerrar') alCerrar();
-    if (a === 'ayuda') {
-      if (estado.nivel < 4) { estado.nivel++; estado.ayudas = (estado.ayudas || 0) + 1; }
+    if (a === 'ind' || a === 'def' || a === 'rel') {
+      const ay = ayudas();
+      if (!ay[a]) { ay[a] = true; estado.ayudas = (estado.ayudas || 0) + 1; }
+      pintar();
+    }
+    if (a === 'letra') {
+      const ay = ayudas();
+      if (ay.letras < MAX_LETRAS) { ay.letras++; estado.ayudas = (estado.ayudas || 0) + 1; }
       pintar();
     }
   });
