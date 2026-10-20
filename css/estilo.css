@@ -430,7 +430,7 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 #hud .arma.vacia .icono { animation: latido .8s infinite; }
 #hud .tesoros b { color: #ffd34d; }
 #hud .puntos b { color: #ffe08a; }
-#hud .palanca { padding: 4px 9px; }
+#hud .palanca, #hud .llave { padding: 4px 9px; }
 @keyframes latido { 50% { opacity: .5; } }
 
 .capa { position: absolute; inset: 0; z-index: 5; background: rgba(10, 7, 4, .82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; touch-action: pan-y; overflow-y: auto; }

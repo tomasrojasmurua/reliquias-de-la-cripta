@@ -520,7 +520,7 @@ function enlazarSala(s) {
   s.alDano = (n, causa) => { if (enPartidaDeSala()) juego.dañarJugador(n, causa); };
   s.alResuelto = (a, id) => acertijoDeSala(a, id);
   s.alForzado = (id, a) => { if (enPartidaDeSala()) mensaje(`${sala.jugadores.find(q => q.id === id)?.nombre || 'Otro cazador'} forzó una puerta`, 3); };
-  s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); };
+  s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); else if (o?.tipo === 'llave' || o?.tipo === 'barreta') Object.assign(o, { cogido: false, x, z }); };
 }
 
 function cerrarSala() {
@@ -1012,6 +1012,8 @@ function actualizarHUD() {
   }
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;
+  $('#caja-llave').hidden = !j.llaves;
+  $('#hud-llaves').textContent = j.llaves;
   $('#t-curar').hidden = !j.vendas;
   $('#caja-vendas').hidden = !j.vendas;
   if (juego.limite) {

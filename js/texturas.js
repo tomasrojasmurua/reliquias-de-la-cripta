@@ -1541,6 +1541,41 @@ registrar('barreta', sprite(g => {
   r(g, 31, 33, 2, 2, '#8a4a22'); r(g, 24, 42, 3, 2, '#7a3c18'); r(g, 38, 26, 2, 3, '#9a5a2a'); r(g, 20, 48, 2, 2, '#8a4a22');   // óxido
   r(g, 36, 20, 2, 1, '#c8d0de');
 }));
+registrar('llave', sprite(g => {
+  // llave de hierro antigua: anillo, caña y paletón con dos dientes
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const trazo = (ancho, color) => { g.strokeStyle = color; g.lineWidth = ancho; g.beginPath(); g.moveTo(26, 38); g.lineTo(52, 56); g.stroke(); };
+  g.fillStyle = '#14161c'; g.beginPath(); g.arc(22, 24, 13, 0, Math.PI * 2); g.fill();
+  trazo(9, '#14161c');
+  g.fillStyle = '#d8b24a'; g.beginPath(); g.arc(22, 24, 11, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#14161c'; g.beginPath(); g.arc(22, 24, 5, 0, Math.PI * 2); g.fill();
+  trazo(6, '#b8902c'); trazo(3, '#f0d070');
+  g.fillStyle = '#b8902c'; g.fillRect(44, 54, 5, 8); g.fillRect(52, 50, 5, 9);
+  g.fillStyle = '#f0d070'; g.fillRect(44, 54, 2, 8); g.fillRect(52, 50, 2, 9);
+  r(g, 14, 15, 5, 3, '#fff2b8');
+}));
+const cofre = (g, abierto) => {
+  // cofre de madera con herrajes: cerrado, con su cerradura; abierto, con la tapa atrás y el interior vacío
+  const madera = ['#8a5a2e', '#5a3818', '#2e1b0a'];
+  g.fillStyle = gradV(g, 34, 60, madera); g.fillRect(8, 34, 48, 26);
+  for (const y of [42, 50]) r(g, 8, y, 48, 1, '#2e1b0a');
+  r(g, 8, 34, 48, 2, '#b07a40');
+  for (const x of [8, 28, 52]) { r(g, x, 34, 4, 26, '#3a3e48'); r(g, x, 34, 1, 26, '#8a93a3'); }
+  if (abierto) {
+    g.fillStyle = '#120a04'; g.fillRect(10, 24, 44, 11);
+    g.fillStyle = gradV(g, 8, 24, ['#6a4422', '#3a2410', '#24150a']); g.beginPath(); g.moveTo(8, 24); g.lineTo(56, 24); g.lineTo(52, 8); g.lineTo(12, 8); g.closePath(); g.fill();
+    r(g, 12, 8, 40, 2, '#9a6a38');
+    for (const x of [14, 46]) r(g, x, 8, 4, 16, '#3a3e48');
+  } else {
+    g.fillStyle = gradV(g, 16, 34, ['#9a6a38', '#6a4422', '#3a2410']); g.beginPath(); g.moveTo(8, 34); g.lineTo(8, 26); g.quadraticCurveTo(32, 8, 56, 26); g.lineTo(56, 34); g.closePath(); g.fill();
+    r(g, 10, 27, 44, 1, '#b8844a');
+    for (const x of [8, 28, 52]) r(g, x, 26, 4, 8, '#3a3e48');
+    r(g, 27, 30, 10, 11, '#14161c'); r(g, 28, 31, 8, 9, '#d8b24a'); r(g, 31, 34, 2, 4, '#14161c'); r(g, 28, 31, 8, 1, '#fff2b8');
+  }
+  r(g, 6, 58, 52, 3, 'rgba(0,0,0,.35)');
+};
+registrar('cofre', sprite(g => cofre(g, false)));
+registrar('cofre_abierto', sprite(g => cofre(g, true)));
 registrar('pinchos', sprite(g => {
   for (let i = 0; i < 6; i++) {
     const x = 6 + i * 10;

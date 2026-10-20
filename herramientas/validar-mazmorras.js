@@ -109,6 +109,11 @@ function revisarMapa(def, m, donde, juego) {
   const revolveres = m.objetos.filter(o => o.tipo === 'revolver');
   if (revolveres.length !== 1) error(donde, `hay ${revolveres.length} revólveres (debe haber uno)`);
   else if (!llega(Math.floor(revolveres[0].x), Math.floor(revolveres[0].z))) error(donde, 'no se puede llegar al revólver');
+  // cofres: se llega a cada uno y hay al menos una llave por cofre, todas a las que se llega
+  const cofres = m.objetos.filter(o => o.cerrado), llaves = m.objetos.filter(o => o.tipo === 'llave');
+  for (const o of cofres) if (!llega(Math.floor(o.x), Math.floor(o.z))) error(donde, `no se puede llegar al cofre de «${o.tesoro}»`);
+  for (const o of llaves) if (!llega(Math.floor(o.x), Math.floor(o.z))) error(donde, `no se puede llegar a una llave en (${Math.floor(o.x)}, ${Math.floor(o.z)})`);
+  if (llaves.length < cofres.length) error(donde, `hay ${cofres.length} cofres y solo ${llaves.length} llaves`);
   // la palanca de hierro: a lo más una, y si está se llega a ella (nunca hace falta para salir: solo abre sellos)
   const barretas = m.objetos.filter(o => o.tipo === 'barreta');
   if (barretas.length > 1) error(donde, `hay ${barretas.length} palancas de hierro (a lo más una)`);
