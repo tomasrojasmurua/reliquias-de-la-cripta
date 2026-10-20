@@ -178,9 +178,13 @@
 <section id="coleccion" class="pantalla menu" hidden>
   <header class="cabecera">
     <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Colección</h2>
+    <h2>Museo del cazador</h2>
   </header>
   <p id="resumen-coleccion"></p>
+  <div class="fila segmento" id="modo-museo">
+    <button data-museo="salas">Por mazmorra</button>
+    <button data-museo="rarezas">Por rareza</button>
+  </div>
   <div id="vitrinas"></div>
   <div id="ficha" hidden>
     <div class="ficha">
@@ -188,6 +192,7 @@
       <h3></h3>
       <em></em>
       <p></p>
+      <p class="lore"></p>
       <small></small>
       <button class="cerrar">Cerrar</button>
     </div>
@@ -236,7 +241,7 @@
     <h3>Computador</h3>
     <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, H para usar las vendas guardadas, 1, 2, 3 y 4 o Q para cambiar de arma, Tab o M para ver el mapa, Esc para pausar.</p>
     <h3>Celular</h3>
-    <p>Arrastra en la mitad izquierda para moverte. Arrastra en la derecha para mirar. Mantén el botón de atacar y arrastra el dedo sin soltarlo para apuntar mientras atacas. La puntería te ayuda a encontrar al enemigo. La mano aparece cuando hay algo que usar enfrente, el revólver, la escopeta y la Tommy gun se recargan solos y el arma se cambia con el botón de flechas que está arriba del de atacar. En Opciones puedes cambiar la sensibilidad, activar el modo zurdo y la vibración. Se juega mejor en horizontal.</p>
+    <p>Arrastra en la mitad izquierda para moverte. Arrastra en la derecha para mirar. Mantén el botón de atacar y arrastra el dedo sin soltarlo para apuntar mientras atacas. La puntería te ayuda a encontrar al enemigo. La mano aparece cuando hay algo que usar enfrente, para recargar toca el recuadro del arma (o dispara con el arma vacía), mientras recargas caminas más lento, y el arma se cambia con el botón de flechas que está arriba del de atacar. En Opciones puedes cambiar la sensibilidad, activar el modo zurdo y la vibración. Se juega mejor en horizontal.</p>
   </div>
 </section>
 
