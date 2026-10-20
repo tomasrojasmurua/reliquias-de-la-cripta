@@ -16,6 +16,7 @@ const LEYENDA_BASE = {
   'X': { tipo: 'salida', tex: 'salida' },
   '%': { tipo: 'muro', tex: 'derrumbe' },
   '!': { tipo: 'muro', tex: 'antorcha', antorcha: true },
+  'ĥ': { tipo: 'muro', tex: 'antorcha_apagada', apagada: true },   // se enciende sola al acercarle la antorcha del jugador
   'R': { tipo: 'suelo', objeto: 'revolver' },
   'b': { tipo: 'suelo', objeto: 'balas' },
   'v': { tipo: 'suelo', objeto: 'vendas' },
@@ -98,7 +99,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
         piso: 0, techoY: ALTO, // alturas del suelo y del techo de la casilla
         abierto: 0, abriendo: false,
         acertijo: l.acertijo || null,
-        antorcha: !!l.antorcha, dardos: !!l.dardos, roca: !!l.roca,
+        antorcha: !!l.antorcha, apagada: !!l.apagada, dardos: !!l.dardos, roca: !!l.roca,
         trampa: l.trampa || null, peligro: l.peligro || null, texto: l.texto || null,
         zona: 0,
       };
@@ -173,6 +174,15 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
   // El abismo se hunde bajo el suelo de su zona.
   for (const c of celdas) if (c.peligro === 'abismo') c.piso -= HONDO;
 
+  // El resplandor de una antorcha de muro sobre las casillas de alrededor (también al encenderse una apagada).
+  mapa.iluminar = (x, y) => {
+    for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) {
+      const c = mapa.celda(x + i, y + j);
+      if (!c) continue;
+      const d = Math.hypot(i, j);
+      if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.6 * (1 - d / 4.5)));
+    }
+  };
   // Luces por zona y resplandor de antorchas.
   for (const [x0, y0, x1, y1, luz] of def.luces || []) {
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const c = mapa.celda(x, y); if (c && c.peligro !== 'lava') c.luz = luz * PENUMBRA; }
@@ -186,13 +196,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
       }
       continue;
     }
-    if (!fuente.antorcha) continue;
-    for (let j = -4; j <= 4; j++) for (let i = -4; i <= 4; i++) {
-      const c = mapa.celda(x + i, y + j);
-      if (!c) continue;
-      const d = Math.hypot(i, j);
-      if (c.luz <= 1) c.luz = Math.min(1, c.luz + Math.max(0, 0.6 * (1 - d / 4.5)));
-    }
+    if (fuente.antorcha) mapa.iluminar(x, y);
   }
 
   // Trampas de dardos: hacia dónde dispara cada una y hasta dónde llega (hasta el primer obstáculo, 14 casillas como mucho).

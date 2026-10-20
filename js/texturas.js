@@ -302,7 +302,8 @@ function llama(x, y, cx, arriba, abajo, ancho) {
   return t > 0.8 ? [255, 250, 214] : t > 0.55 ? [255, 214, 92] : t > 0.3 ? [250, 146, 40] : [196, 70, 26];
 }
 
-registrar('antorcha', b => {
+// Antorcha de muro; apagada es la misma copa sin llama ni resplandor (se enciende al acercarle la tuya).
+const antorchaMuro = (b, encendida) => {
   const r = rng(11), oxido = fbm(rng(12), 8, 2);
   const zona = new Uint8Array(T * T);
   dibujaPiedra(b, r, {
@@ -320,16 +321,18 @@ registrar('antorcha', b => {
       if (zona[i] === 2) return [96, 62, 34];
       // resplandor cálido alrededor de la llama
       const d = Math.hypot(x + 0.5 - 32, y + 0.5 - 16);
-      const k = Math.max(0, 1 - d / 30);
+      const k = encendida ? Math.max(0, 1 - d / 30) : 0;
       return [c[0] * (0.78 + k * 0.6), c[1] * (0.74 + k * 0.42), c[2] * (0.7 + k * 0.2)];
     },
   });
   // la llama va encima, sin sombrear
-  for (let y = 4; y < 27; y++) for (let x = 22; x < 42; x++) {
+  for (let y = 4; y < 27 && encendida; y++) for (let x = 22; x < 42; x++) {
     const c = llama(x, y, 32, 4, 24, 6.5);
     if (c) b.set(x, y, ...c);
   }
-});
+};
+registrar('antorcha', b => antorchaMuro(b, true));
+registrar('antorcha_apagada', b => antorchaMuro(b, false));
 
 registrar('puerta', b => {
   const r = rng(31), veta = fbm(r, 4, 3), oxido = fbm(semilla(r), 8, 2), tono = Array.from({ length: 6 }, () => r());

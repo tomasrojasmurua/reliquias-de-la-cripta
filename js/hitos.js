@@ -52,7 +52,7 @@ export function colocarHitos(mapa, salas, azar) {
   // un muro liso (sin antorcha, tablilla, pasadizo...) que da a una casilla de la sala
   const muroLiso = (x, y) => {
     const c = mapa.celda(x, y);
-    return c && c.tipo === 'muro' && !c.antorcha && def.plano[y][x] === '#';
+    return c && c.tipo === 'muro' && !c.antorcha && !c.apagada && def.plano[y][x] === '#';
   };
   const libre = (x, y) => {
     const c = mapa.celda(x, y);
