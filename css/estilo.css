@@ -466,21 +466,33 @@ body.tactil p.solo-tactil { display: block; }
   #hud .medidor { width: 90px; height: 12px; }
   #hud .pips { margin-top: 2px; }
 }
-/* táctil: los pulgares ocupan las esquinas de abajo, así que el HUD sube a una fila bajo la zona, a la izquierda */
-body.tactil #hud { top: calc(max(10px, env(safe-area-inset-top)) + 34px); bottom: auto; left: max(10px, env(safe-area-inset-left)); display: flex; flex-flow: row wrap; align-items: center; gap: 6px; max-width: calc(100% - 90px); }
+/* táctil: los pulgares ocupan las esquinas de abajo, así que el HUD sube a una franja delgada junto a la pausa,
+   solo con lo esencial (vida, balas, tesoros); la zona pasa debajo en letra chica */
+body.tactil #hud { top: max(8px, env(safe-area-inset-top)); bottom: auto; left: calc(max(8px, env(safe-area-inset-left)) + 44px); display: flex; flex-flow: row wrap; align-items: center; gap: 4px; max-width: calc(100% - 180px); }
 body.tactil #hud .arma { position: static; order: 2; }
 body.tactil #hud .vida { order: 1; }
-body.tactil #hud .fila { order: 3; }
-body.tactil #hud-sala { top: calc(max(10px, env(safe-area-inset-top)) + 92px); }
-body.tactil #mensaje { top: calc(max(10px, env(safe-area-inset-top)) + 90px); }
-body.tactil #hud-jefe, body.tactil #aviso-dardos, body.tactil #alerta-dano { top: calc(max(10px, env(safe-area-inset-top)) + 140px); }
+body.tactil #hud .fila { order: 3; gap: 4px; }
+body.tactil #hud .caja, body.tactil #hud .fila .caja { min-height: 30px; padding: 1px 7px 1px 5px; gap: 5px; border-radius: 8px; }
+body.tactil #hud .icono, body.tactil #hud .fila .icono { width: 18px; height: 18px; }
+body.tactil #hud .arma .icono { width: 24px; height: 24px; margin: 0; }
+body.tactil #hud b, body.tactil #hud .fila b { font-size: 15px; }
+body.tactil #hud .reserva { font-size: 11px; }
+body.tactil #hud .medidor { width: 56px; height: 9px; }
+body.tactil #hud .arma small, body.tactil #hud .pips { display: none; }
+body.tactil #hud .arma .dato { min-width: 0; }
+body.tactil #hud .carga { margin-top: 0; }
+body.tactil #hud .arma.sin-municion small { display: block; font-size: 10px; }
+body.tactil #hud-zona { top: calc(max(8px, env(safe-area-inset-top)) + 36px); left: max(8px, env(safe-area-inset-left)); font-size: 10px; padding: 1px 6px; opacity: .85; }
+body.tactil #hud-sala { top: calc(max(8px, env(safe-area-inset-top)) + 56px); }
+body.tactil #mensaje { top: calc(max(8px, env(safe-area-inset-top)) + 60px); font-size: 15px; padding: 5px 12px; }
+body.tactil #hud-jefe, body.tactil #aviso-dardos, body.tactil #alerta-dano { top: calc(max(8px, env(safe-area-inset-top)) + 100px); }
 @media (max-height: 460px) {
   body.tactil #t-disparar { width: 84px; height: 84px; right: calc(20px + env(safe-area-inset-right)); bottom: calc(28px + env(safe-area-inset-bottom)); }
   body.tactil #t-usar { width: 58px; height: 58px; right: calc(112px + env(safe-area-inset-right)); bottom: calc(100px + env(safe-area-inset-bottom)); }
 }
 /* en táctil el recuadro del arma es el botón para cambiarla */
 body.tactil #hud .caja[data-tactil] { pointer-events: auto; position: relative; }
-body.tactil #hud .caja[data-tactil]::after { content: '⇄'; position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); font-size: 13px; line-height: 20px; text-align: center; color: var(--oro); }
+body.tactil #hud .caja[data-tactil]::after { content: '⇄'; position: absolute; top: -7px; right: -7px; width: 16px; height: 16px; font-size: 10px !important; line-height: 14px !important; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); font-size: 13px; line-height: 20px; text-align: center; color: var(--oro); }
 body.tactil #hud .caja.pulsado { border-color: var(--oro); background: rgba(232, 184, 58, .3); }
 @media (max-width: 620px) { #hud { gap: 5px; } #hud .caja { min-height: 44px; padding: 3px 8px 3px 6px; gap: 6px; } #hud .icono { width: 26px; height: 26px; } #hud .arma .icono { width: 34px; height: 34px; } #hud b { font-size: 19px; } #hud .medidor { width: 64px; height: 13px; } #hud .reserva { font-size: 12px; } #hud .arma .dato { min-width: 54px; } #hud .pips .tira { width: 50px; } }
 @media (max-width: 420px) {
