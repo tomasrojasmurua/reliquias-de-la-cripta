@@ -61,6 +61,7 @@ function cargarPeerJS() {
 //   alPosicion(id, p)      un cazador se movió: { x, y, z, yaw, pt }
 //   alTesoro(i, id)        el tesoro `i` se lo llevó el cazador `id` (puede ser yo, o llegué tarde)
 //   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
+//   alMundo(k, n, id)      otro cazador abrió el cofre / encendió la antorcha / recogió el objeto `n`
 //   alEnlace(enLinea)      (invitado) se cortó la conexión con el anfitrión (false) o volvió (true)
 //   alConexion(id, enLinea) otro cazador perdió la conexión o volvió
 //   alEnemigos(s)          (invitado) cómo están los enemigos en el anfitrión
@@ -91,7 +92,7 @@ export class Sala {
     this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
     this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
     this.alEnlace = this.alConexion = () => {};
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alPvp = this.alBaja = this.alResuelto = () => {};
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alMundo = this.alPvp = this.alBaja = this.alResuelto = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -283,6 +284,10 @@ export class Sala {
       this.#soltado(m.i | 0, +m.x, +m.z, id);
     } else if (m.t === 'resuelve') {
       this.#resolver(String(m.a).slice(0, 40), id);
+    } else if (m.t === 'mundo') {
+      const k = String(m.k).slice(0, 12), n = m.n | 0;
+      this.alMundo(k, n, id);
+      this.#aviso({ t: 'mundo', k, n, id }, id);
     } else if (m.t === 'forzo') {
       const a = String(m.a).slice(0, 40);
       this.alForzado(id, a);
@@ -406,6 +411,8 @@ export class Sala {
       this.alTesoro(m.i, m.id);
     } else if (m.t === 'suelto') {
       this.alSuelto(m.i, m.x, m.z);
+    } else if (m.t === 'mundo') {
+      this.alMundo(String(m.k), m.n | 0, m.id);
     } else if (m.t === 'forzo') {
       this.alForzado(m.id, String(m.a));
     }
@@ -479,6 +486,12 @@ export class Sala {
   forzar(a) {
     if (this.soyAnfitrion) this.#aviso({ t: 'forzo', id: 0, a: String(a) });
     else this.conexion?.open && this.conexion.send({ t: 'forzo', a: String(a) });
+  }
+
+  // Algo cambió en el mundo compartido (k: 'cofre', 'antorcha' o 'objeto'; n: su puesto fijo): a los demás solo les llega el aviso.
+  mundo(k, n) {
+    if (this.soyAnfitrion) this.#aviso({ t: 'mundo', k, n, id: 0 });
+    else this.conexion?.open && this.conexion.send({ t: 'mundo', k, n });
   }
 
   // 'sala' (en la sala de espera) o 'jugando'.

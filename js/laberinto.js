@@ -732,7 +732,20 @@ function generarInicio(def, azar) {
 
 const CARACTERES_TESORO = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
 
-export function conZonas(def, azar = Math.random) {
+// Con varios cazadores las reliquias no siguen la jerarquía de las zonas (lo mejor en la última): se mezclan al azar entre
+// todas las zonas, menos la cámara extra, que guarda su reliquia de siempre.
+function mezclarTesoros(def, azar) {
+  const { mezclar } = herramientas(azar);
+  const Z = def.sectores, ultima = Z.extra ?? Z.zonas.length - 1;
+  const claves = Object.keys(def.tesoros);
+  const pool = mezclar([...Object.values(def.tesoros), ...Z.zonas.flatMap((z, i) => i === ultima ? [] : z.tesoros || [])]);
+  const tesoros = Object.fromEntries(claves.map(c => [c, pool.shift()]));
+  const zonas = Z.zonas.map((z, i) => i === ultima || !z.tesoros ? z : { ...z, tesoros: pool.splice(0, z.tesoros.length) });
+  return { ...def, tesoros, sectores: { ...Z, zonas } };
+}
+
+export function conZonas(def, azar = Math.random, { jugadores = 1 } = {}) {
+  if (jugadores > 1) def = mezclarTesoros(def, azar);
   if (def.sectores.inicio) def = generarInicio(def, azar);
   const Z = def.sectores, { elegir } = herramientas(azar);
   const anchoBase = def.plano[0].length, altoBase = def.plano.length;
@@ -834,6 +847,12 @@ export function conZonas(def, azar = Math.random) {
     const [nx, ny] = V.map(([dx, dy]) => [x + dx, y + dy]).find(([nx, ny]) => bloqueEn(nx, ny) >= 0 && Z.bloques[bloqueEn(nx, ny)].zona === hacia);
     const k = bloqueEn(nx, ny), b = Z.bloques[k];
     talladas[k].g[ny - b.y][nx - b.x] = selloDe[hacia];
+  }
+  // al menos un revólver por cazador: uno ya está escondido en el plano de la primera zona, los demás van en callejones de
+  // los bloques (la cámara extra no)
+  let faltan = jugadores - 1;
+  for (let vuelta = 0; faltan > 0 && vuelta < 6; vuelta++) {
+    talladas.forEach((t, k) => { if (faltan > 0 && Z.bloques[k].zona !== ultima) faltan -= ponerEnCallejones(t, 'R', 1); });
   }
   // pegar los bloques
   Z.bloques.forEach((b, k) => {

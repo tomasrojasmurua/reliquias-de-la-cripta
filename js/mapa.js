@@ -63,9 +63,11 @@ export function altura(h) {
 }
 
 // `semilla`: con la misma semilla salen los mismos laberintos (para que todos jueguen la misma mazmorra).
-export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967296)) {
+// `jugadores`: los cazadores de la sala (1 = jugando solo). Con varios, los tesoros se reparten al azar entre las zonas,
+// hay al menos un revólver por cazador y cada uno empieza en un puesto lejos de los demás y de la salida.
+export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967296), jugadores = 1) {
   const azar = azarConSemilla(semilla);
-  if (def.sectores) def = conZonas(def, azar);
+  if (def.sectores) def = conZonas(def, azar, { jugadores });
   else if (def.laberinto) def = conLaberinto(def, azar);
   const alto = def.plano.length;
   const ancho = Math.max(...def.plano.map(f => f.length));
@@ -242,56 +244,109 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
   mapa.hitos = colocarHitos(mapa, def.salas || [], azarConSemilla(semilla ^ 0x5bd1e995));
   // Qué monstruos salen y dónde (también con su propio azar).
   repartirEnemigos(mapa, azarConSemilla(semilla ^ 0x2f6b1c3d));
-  mapa.puestos = repartirPuestos(mapa);
+  mapa.jugadores = jugadores;
+  mapa.puestos = repartirPuestos(mapa, jugadores);
   return mapa;
 }
 
-// Dónde empieza cada cazador de una sala (hasta 4): el puesto 0 es el inicio de siempre y los demás se reparten por lo que
-// se puede recorrer sin abrir sellos, lo más lejos posible unos de otros (por camino, no en línea recta).
-// Solo depende del mapa, así que todos los navegadores calculan los mismos puestos.
+// Dónde empieza cada cazador de una sala. Solo depende del mapa, así que todos los navegadores calculan los mismos puestos.
+// Con un solo cazador, el inicio de siempre. Con varios: puestos lejos de la salida y lo más lejos posible unos de otros
+// (por camino, no en línea recta), en zonas distintas cuando se puede, y solo donde se pueda llegar a la salida descifrando
+// únicamente acertijos fáciles (de dificultad 1 o 2) desde ahí.
 export const PUESTOS = 4;
-function repartirPuestos(m) {
+const FACIL = 2;
+function repartirPuestos(m, jugadores) {
   const { ancho, alto } = m, N = ancho * alto;
-  const origen = { x: m.inicio.x, z: m.inicio.z };
-  const camina = (x, y) => { const c = m.celda(x, y); return !!c && !c.peligro && !c.estatua && (c.tipo === 'suelo' || c.tipo === 'puerta'); };
-  const bfs = desde => {
-    const d = new Int32Array(N).fill(-1), q = [desde];
-    d[desde] = 0;
+  const origen = { x: m.inicio.x, z: m.inicio.z, yaw: m.def.angulo || 0 };
+  if (jugadores < 2) return [origen];
+  const idx = (x, y) => y * ancho + x;
+  const libre = (x, y) => { const c = m.celda(x, y); return !!c && !c.peligro && !c.estatua; };
+  const camina = (x, y) => { const c = m.celda(x, y); return libre(x, y) && c.tipo === 'suelo'; };
+  // grafo con todo abierto (puertas, sellos y pasadizos): para medir distancias; `permitidos` limita qué sellos se cruzan
+  const bfs = (semillas, permitidos = null) => {
+    const d = new Int32Array(N).fill(-1), q = [];
+    for (const [x, y] of semillas) { d[idx(x, y)] = 0; q.push(idx(x, y)); }
     for (let k = 0; k < q.length; k++) {
       const i = q[k], x = i % ancho, y = (i - x) / ancho;
       for (const [dx, dy] of V4) {
         const nx = x + dx, ny = y + dy;
-        if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto || !camina(nx, ny)) continue;
-        const j = ny * ancho + nx;
+        if (nx < 0 || ny < 0 || nx >= ancho || ny >= alto || !libre(nx, ny)) continue;
+        const c = m.celda(nx, ny);
+        if (!['suelo', 'puerta', 'sello', 'secreto'].includes(c.tipo)) continue;
+        if (c.tipo === 'sello' && permitidos && !permitidos.has(c.acertijo)) continue;
+        const j = idx(nx, ny);
         if (d[j] < 0) { d[j] = d[i] + 1; q.push(j); }
       }
     }
     return d;
   };
+  const vecinas = (x, y) => V4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => libre(a, b) && camina(a, b));
+  const salidas = [], tablillas = {};
+  for (let y = 0; y < alto; y++) for (let x = 0; x < ancho; x++) {
+    const c = m.celda(x, y);
+    if (c.tipo === 'salida') salidas.push(...vecinas(x, y));
+    if (c.tipo === 'tablilla') (tablillas[c.acertijo] ||= []).push([x, y]);
+  }
+  const facil = Object.values(m.acertijos).filter(a => a.dificultad[1] <= FACIL).map(a => a.id);
+  // ¿se llega a la salida desde aquí descifrando solo acertijos fáciles? (cada tablilla se lee desde donde ya llegaste)
+  const puedeSalir = (x, y) => {
+    const abiertos = new Set();
+    for (let cambio = true; cambio;) {
+      cambio = false;
+      const d = bfs([[x, y]], abiertos);
+      if (salidas.some(([sx, sy]) => d[idx(sx, sy)] >= 0)) return { ok: true, d };
+      for (const id of facil) {
+        if (!abiertos.has(id) && (tablillas[id] || []).some(([tx, ty]) => V4.some(([dx, dy]) => d[idx(tx + dx, ty + dy)] >= 0))) { abiertos.add(id); cambio = true; }
+      }
+      if (!cambio) return { ok: false, d };
+    }
+  };
+  if (!salidas.length) return [origen];
   // casillas que no sirven para empezar: trampas, el pasillo de un dardo o una roca, y lo que queda cerca de un objeto o un enemigo
   const mala = new Uint8Array(N);
-  const vetar = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { const nx = Math.floor(x) + i, ny = Math.floor(y) + j; if (nx >= 0 && ny >= 0 && nx < ancho && ny < alto) mala[ny * ancho + nx] = 1; } };
+  const vetar = (x, y, r) => { for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) { const nx = Math.floor(x) + i, ny = Math.floor(y) + j; if (nx >= 0 && ny >= 0 && nx < ancho && ny < alto) mala[idx(nx, ny)] = 1; } };
   for (const o of m.objetos) vetar(o.x, o.z, 1);
   for (const e of m.enemigos) vetar(e.x, e.z, 5);
   for (const d of m.dardos || []) for (let k = 0; k <= d.largo + 1; k++) vetar(d.x + d.dx * k, d.z + d.dz * k, 0);
   for (const r of m.rocas || []) for (let k = 0; k <= r.largo; k++) vetar(r.x0 + r.dx * k, r.z0 + r.dz * k, 1);
   m.celdas.forEach((c, i) => { if (c.trampa || c.roca || c.tipo !== 'suelo') mala[i] = 1; });
-  const dist = [bfs(Math.floor(origen.z) * ancho + Math.floor(origen.x))];
-  const lista = [{ ...origen, yaw: m.def.angulo || 0 }];
-  while (lista.length < PUESTOS) {
-    let mejor = -1, md = 0;
-    for (let i = 0; i < N; i++) {
-      if (mala[i] || dist[0][i] < 0) continue;
-      const d = Math.min(...dist.map(q => q[i]));
-      if (d > md) { md = d; mejor = i; }
-    }
-    if (mejor < 0 || md < 6) { lista.push({ ...lista[0] }); continue; }   // mapa diminuto: se comparte el inicio
-    const x = mejor % ancho, y = (mejor - x) / ancho;
+  const dSalida = bfs(salidas);
+  let maxD = 0;
+  for (let i = 0; i < N; i++) if (dSalida[i] > maxD) maxD = dSalida[i];
+  const lejos = Math.max(18, Math.round(maxD * 0.35));   // no cerca de la salida
+  const cand = [];
+  for (let i = 0; i < N; i++) if (!mala[i] && dSalida[i] >= lejos && m.celdas[i].tipo === 'suelo') cand.push(i);
+  const elegidos = [], dist = [], zonas = new Set();
+  const puesto = i => {
+    const x = i % ancho, y = (i - x) / ancho;
     // mira hacia donde el pasillo se abre más
     let yaw = 0, largo = -1;
     for (const [dx, dy] of V4) { let k = 0; while (k < 12 && camina(x + dx * (k + 1), y + dy * (k + 1))) k++; if (k > largo) { largo = k; yaw = Math.atan2(dy, dx); } }
-    lista.push({ x: x + 0.5, z: y + 0.5, yaw });
-    dist.push(bfs(mejor));
+    return { x: x + 0.5, z: y + 0.5, yaw };
+  };
+  const probados = new Map();
+  // las casillas a las que se llega desde una probada tienen el mismo resultado: se anotan todas
+  const sirve = i => {
+    if (!probados.has(i)) {
+      const { ok, d } = puedeSalir(i % ancho, Math.floor(i / ancho));
+      for (let k = 0; k < N; k++) if (d[k] >= 0) probados.set(k, ok);
+      probados.set(i, ok);
+    }
+    return probados.get(i);
+  };
+  while (elegidos.length < Math.min(jugadores, PUESTOS)) {
+    // el siguiente: el más lejos de los ya elegidos (el primero, el más lejos de la salida); una zona nueva suma
+    const puntaje = cand.map(i => {
+      const base = elegidos.length ? Math.min(...dist.map(q => q[i] < 0 ? 0 : q[i])) : dSalida[i];
+      return [i, base + (zonas.has(m.celdas[i].zona) ? 0 : 25)];
+    }).sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+    const ok = puntaje.find(([i, p]) => (elegidos.length === 0 || p >= 6) && sirve(i));
+    if (!ok) break;
+    elegidos.push(ok[0]); zonas.add(m.celdas[ok[0]].zona);
+    dist.push(bfs([[ok[0] % ancho, Math.floor(ok[0] / ancho)]]));
   }
+  if (!elegidos.length) return [origen];
+  const lista = elegidos.map(puesto);
+  while (lista.length < Math.min(jugadores, PUESTOS)) lista.push({ ...lista[0] });   // mapa diminuto: se comparte el inicio
   return lista;
 }

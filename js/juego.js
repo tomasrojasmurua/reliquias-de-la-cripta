@@ -114,10 +114,10 @@ export class Juego {
     this.rivales = [];                  // los otros cazadores a tiro: { id, x, y, z, muerto }
     this.proteccion = this.combate ? TREGUA_INICIAL : 0;   // segundos sin recibir daño de otros cazadores
     this.inicioReal = Date.now();
-    this.mapa = cargarMazmorra(def, semilla);
+    this.mapa = cargarMazmorra(def, semilla, opciones.jugadores || 1);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
     const m = this.mapa;
-    this.inicioJ = (opciones.puesto > 0 && m.puestos?.[opciones.puesto]) || { x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0 };   // en una sala cada cazador parte de un puesto distinto
+    this.inicioJ = (opciones.jugadores > 1 && m.puestos?.[opciones.puesto || 0]) || (opciones.puesto > 0 && m.puestos?.[opciones.puesto]) || { x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0 };   // en una sala cada cazador parte de un puesto distinto
     this.j = {
       x: this.inicioJ.x, z: this.inicioJ.z, y: m.piso(Math.floor(this.inicioJ.x), Math.floor(this.inicioJ.z)), yaw: this.inicioJ.yaw, cabeceo: 0,
       vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, vendas: 0, cargador: 0, reservaT: 0, barreta: 0, llaves: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
@@ -141,7 +141,7 @@ export class Juego {
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
     // zonas: cuántas reliquias tiene cada una (para el HUD y el automapa)
     this.zonas = (m.regiones || []).map((r, i) => ({ nombre: r.nombre, total: this.objetos.filter(o => o.tipo === 'tesoro' && o.zona === i).length, halladas: 0 }));
-    this.derrumbe = m.def.derrumbe ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
+    this.derrumbe = m.def.derrumbe && !(opciones.jugadores > 1) ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
     this.temblor = 0;
     this.salidaVista = false;
     this.salidaRevelada = false;
@@ -965,6 +965,9 @@ export class Juego {
     this.ev.cofreAbierto?.(o.n);
   }
 
+  // Otro cazador recogió el objeto `n`: ya no está.
+  retirar(n) { const o = this.objetos[n]; if (o && o.tipo !== 'tesoro') o.cogido = true; }
+
   // El cofre se abre (también cuando lo abre otro cazador en una sala).
   abrirCofreObj(o) {
     if (!o.cerrado) return;
@@ -1198,6 +1201,7 @@ export class Juego {
         if (this.ev.reclamar) { if (!o.pendiente) { o.pendiente = true; this.ev.reclamar(o); } continue; }
         this.tomar(o);
       }
+      if (o.cogido && o.tipo !== 'tesoro' && o.tipo !== 'falso' && o.n != null) this.ev.recogido?.(o.n);
     }
   }
 
