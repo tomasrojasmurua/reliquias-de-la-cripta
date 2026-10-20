@@ -28,19 +28,37 @@
     <p class="lema">Revólver, látigo y una buena cabeza para los acertijos.</p>
   </header>
   <nav class="losas">
-    <button data-ir="mazmorras" class="principal">Entrar</button>
-    <button data-ir="unirse">Unirse a una sala</button>
-    <button data-ir="coleccion">Tesoros</button>
-    <button data-ir="ayuda">Cómo jugar</button>
-    <button data-ir="opciones">Opciones</button>
+    <button data-ir="entrar" class="principal">Entrar</button>
+    <button data-ir="coleccion" class="chico">Tesoros</button>
   </nav>
+  <button class="esquina izq" data-ir="opciones" aria-label="Opciones"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm8.3 5.2l1.6 1.3-1.8 3.1-2-.7c-.5.4-1 .7-1.6.9l-.3 2.1h-3.6l-.3-2.1c-.6-.2-1.1-.5-1.6-.9l-2 .7-1.8-3.1 1.6-1.3a6 6 0 0 1 0-1.8L5.9 10.6l1.8-3.1 2 .7c.5-.4 1-.7 1.6-.9L11.6 5h3.6l.3 2.3c.6.2 1.1.5 1.6.9l2-.7 1.8 3.1-1.6 1.3c.1.6.1 1.2 0 1.8z"/></svg></button>
+  <button class="esquina der" data-ir="ayuda" aria-label="Cómo jugar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></button>
   <p class="pie" id="pie-portada"></p>
   <p class="error"></p>
 </section>
 
-<section id="mazmorras" class="pantalla menu" hidden>
+<section id="entrar" class="pantalla menu" hidden>
   <header class="cabecera">
     <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <h2>¿Cómo quieres jugar?</h2>
+  </header>
+  <div class="ajustes">
+    <div class="grupo">
+      <label class="campo">Tu nombre <input id="entrar-nombre" maxlength="16" autocomplete="nickname" placeholder="Cazador sin nombre"></label>
+      <p class="nota">Lo ven los demás cazadores en una sala.</p>
+    </div>
+    <div class="opciones-entrar">
+      <button id="btn-solo" class="opcion"><b>Jugar solo</b><small>Elige una mazmorra y explórala a tu ritmo.</small></button>
+      <button id="btn-crear" class="opcion"><b>Crear una sala</b><small>Invita amigos y elijan la mazmorra juntos.</small></button>
+      <button id="btn-unirme" class="opcion"><b>Unirme con un código</b><small>Entra a la sala que te compartieron.</small></button>
+    </div>
+    <p class="nota aviso-error" id="entrar-error"></p>
+  </div>
+</section>
+
+<section id="mazmorras" class="pantalla menu" hidden>
+  <header class="cabecera">
+    <button class="atras" data-ir="entrar" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2>Elige una mazmorra</h2>
   </header>
   <p class="sub">Cada puerta lleva a una cripta distinta. Los túneles cambian cada vez que entras.</p>
@@ -54,14 +72,6 @@
   </header>
   <p class="sub" id="prep-desc"></p>
   <div class="ajustes">
-    <div class="grupo">
-      <p class="rotulo">Modo</p>
-      <div class="fila segmento">
-        <button data-modo="explorar">Explorar</button>
-        <button data-modo="sala">Con amigos</button>
-      </div>
-      <p class="nota" id="nota-modo"></p>
-    </div>
     <div class="grupo" id="prep-grupo-tamano">
       <p class="rotulo">Tamaño</p>
       <div class="fila segmento">
@@ -70,22 +80,7 @@
         <button data-tamano="grande">Grande</button>
       </div>
       <p class="nota" id="nota-tamano"></p>
-    </div>
-    <div class="grupo" id="prep-tiempo" hidden>
-      <p class="rotulo">Tiempo</p>
-      <div class="fila segmento">
-        <button data-ritmo="0"></button>
-        <button data-ritmo="1"></button>
-        <button data-ritmo="2"></button>
-      </div>
-    </div>
-    <div class="grupo" id="prep-tesoros" hidden>
-      <p class="rotulo">Tesoros</p>
-      <div class="fila segmento">
-        <button data-tesoros="exclusivos">Exclusivos</button>
-        <button data-tesoros="compartidos">Compartidos</button>
-      </div>
-      <p class="nota" id="nota-tesoros"></p>
+      <p class="nota" id="nota-modo"></p>
     </div>
   </div>
   <div class="accion-fija">
@@ -95,7 +90,7 @@
 
 <section id="unirse" class="pantalla menu con-accion" hidden>
   <header class="cabecera">
-    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <button class="atras" data-ir="entrar" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
     <h2>Unirse a una sala</h2>
   </header>
   <p class="sub" id="unirse-sub">Escribe el código que te mandó tu amigo.</p>
@@ -123,6 +118,29 @@
       <button id="btn-whatsapp" class="whatsapp">Enviar por WhatsApp</button>
       <button id="btn-copiar-enlace">Copiar enlace</button>
       <p class="nota">Quien abra el enlace entra directo a esta sala. Pueden ser hasta 4 cazadores.</p>
+    </div>
+    <div class="grupo" id="sala-ajustes" hidden>
+      <p class="rotulo">La partida</p>
+      <label class="campo">Mazmorra <select id="sala-mazmorra"></select></label>
+      <div id="sala-grupo-tamano">
+        <div class="fila segmento">
+          <button data-sala-tamano="pequena">Pequeña</button>
+          <button data-sala-tamano="mediana">Mediana</button>
+          <button data-sala-tamano="grande">Grande</button>
+        </div>
+      </div>
+      <p class="rotulo">Tiempo</p>
+      <div class="fila segmento">
+        <button data-sala-ritmo="0"></button>
+        <button data-sala-ritmo="1"></button>
+        <button data-sala-ritmo="2"></button>
+      </div>
+      <p class="rotulo">Tesoros</p>
+      <div class="fila segmento">
+        <button data-sala-tesoros="exclusivos">Exclusivos</button>
+        <button data-sala-tesoros="compartidos">Compartidos</button>
+      </div>
+      <p class="nota" id="nota-tesoros"></p>
     </div>
     <div class="grupo">
       <p class="rotulo">Cazadores</p>
@@ -189,7 +207,21 @@
       <p><b>Pedir ayuda</b> la va dando de a poco: el tipo de juego, la definición resaltada, el indicador y el relleno, y por último la primera letra. Nunca se muestra la solución.</p>
       <p>Algunas cámaras no usan palabras sino <b>palancas</b>: bájalas en el orden que cumpla todas las pistas. Si hay un sello que no logras abrir, la <b>palanca de hierro</b> escondida en la cripta lo fuerza, pero se rompe tras un solo uso.</p>
     </details>
-    <p>Algunos muros tienen grietas. Empújalos: cada mazmorra esconde al menos un <b>pasadizo secreto</b>.</p>
+    <details class="guia-acertijos" id="guia-secretos" open>
+      <summary>Pasadizos secretos: cómo encontrarlos</summary>
+      <p>Cada mazmorra esconde varios <b>pasadizos secretos</b>, y detrás suelen estar sus mejores cosas: el revólver, la palanca de hierro, tesoros y atajos. Se ven casi iguales a un muro común, pero tienen pistas:</p>
+      <div class="figura-secreto">
+        <figure><canvas id="fig-muro" width="128" height="128"></canvas><figcaption>Muro común</figcaption></figure>
+        <figure><canvas id="fig-secreto" width="128" height="128"></canvas><figcaption>Pasadizo secreto</figcaption></figure>
+      </div>
+      <ul>
+        <li><b>Grietas largas y gruesas.</b> Un muro con una grieta que lo recorre de lado a lado no es un muro común.</li>
+        <li><b>Corriente de aire.</b> Cerca de uno, el polvo se arremolina y oyes un soplo frío. Es la señal más clara.</li>
+        <li><b>Botón «Usar» encendido.</b> Después de sentir la corriente, mirando a esa pared el botón se ilumina.</li>
+        <li><b>Lo que falta.</b> El revólver y la palanca de hierro siempre están en salas ocultas: si no los has visto, revisa las paredes agrietadas.</li>
+      </ul>
+      <p>Para abrirlo, párate frente a la pared y usa <b>E</b> o <b>Espacio</b> (en el celular, el botón de la mano).</p>
+    </details>
     <p>Cada mazmorra tiene además un <b>laberinto de túneles</b> que cambia cada vez que entras: callejones sin salida, salas llenas de monstruos y unos pocos tesoros escondidos en lo más hondo, a veces tras un muro agrietado o en una <b>cámara sellada</b> que se abre con el acertijo de alguna tablilla del laberinto.</p>
     <p>Cada mazmorra es grande: tiene <b>cuatro zonas</b>. Al entrar, la entrada se derrumba a tus espaldas, y la salida está escondida en algún ramal de las zonas del fondo, cada vez en otro lugar. Para pasar de una zona a la siguiente hay que descifrar la tablilla de la zona. Arriba a la izquierda ves cuántas reliquias de la zona llevas, y el automapa marca las zonas completas. Encontrar la salida no termina la partida: sales cuando quieras.</p>
     <h3>Computador</h3>
@@ -219,6 +251,14 @@
       <div class="fila segmento">
         <button id="btn-sonido">Sonido: sí</button>
         <button id="btn-musica">Música: sí</button>
+      </div>
+    </div>
+    <div class="grupo solo-pc">
+      <p class="rotulo">Sensibilidad del ratón</p>
+      <div class="fila segmento">
+        <button data-sensr="baja">Lenta</button>
+        <button data-sensr="media">Normal</button>
+        <button data-sensr="alta">Rápida</button>
       </div>
     </div>
     <div class="grupo solo-tactil">
@@ -342,6 +382,7 @@
     <h2>Pausa</h2>
     <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen.</p>
     <button id="btn-continuar" class="principal">Continuar</button>
+    <button id="btn-ajustes-pausa">Ajustes</button>
     <button id="btn-menu-pausa">Salir al menú</button>
   </div>
   <div id="panel" class="capa" hidden></div>

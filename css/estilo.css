@@ -126,17 +126,38 @@ body.jugando #escena { display: none; }
 .lema { font-family: 'IM Fell English', Georgia, serif; font-style: italic; color: #d8c49a; margin: 10px 0 0; text-shadow: 0 2px 6px #000; }
 .losas { display: flex; flex-direction: column; gap: 10px; width: min(280px, 82vw); margin-top: auto; margin-bottom: 4vh; }
 .losas button { width: 100%; }
-.losas button.principal { font-size: 19px; padding: 16px 22px; }
+.losas button.principal { font-size: 22px; padding: 18px 22px; letter-spacing: .14em; }
+.losas button.principal { animation: brillo-entrar 2.8s ease-in-out infinite; }
+@keyframes brillo-entrar { 50% { box-shadow: inset 0 1px 0 rgba(255, 235, 200, .35), 0 0 26px rgba(255, 170, 50, .55), 0 6px 14px rgba(0, 0, 0, .55); } }
+.losas button.chico { width: 60%; align-self: center; font-size: 13px; padding: 9px 14px; letter-spacing: .12em; }
 .pie { color: #a8916a; font-size: 14px; font-style: italic; margin: 0; text-shadow: 0 1px 4px #000; text-align: center; }
 @media (max-height: 520px) {
   .cartel { margin-top: 0; }
   .cartel h1 { font-size: clamp(30px, 7vh, 52px); }
   .lema { display: none; }
-  .losas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(520px, 92vw); margin-bottom: 1vh; }
+  .losas { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; width: min(420px, 80vw); margin-bottom: 1vh; align-items: center; }
   .losas button { font-size: 12px; padding: 9px 8px; letter-spacing: .08em; }
-  .losas button.principal { grid-column: span 2; font-size: 16px; padding: 11px 22px; }
+  .losas button.principal { font-size: 16px; padding: 11px 22px; }
+  .losas button.chico { width: 100%; }
 }
 
+.menu .esquina { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); width: 46px; height: 46px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+.menu .esquina.izq { left: max(14px, env(safe-area-inset-left)); }
+.menu .esquina.der { right: max(14px, env(safe-area-inset-right)); }
+.esquina svg { width: 24px; height: 24px; fill: currentColor; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.esquina svg circle { fill: none; }
+.esquina svg path[d^="M12 11"] { fill: none; }
+.figura-secreto { display: flex; gap: 14px; justify-content: center; margin: 8px 0; }
+.figura-secreto figure { margin: 0; text-align: center; }
+.figura-secreto canvas { width: 110px; height: 110px; image-rendering: pixelated; border: 2px solid #5a4630; border-radius: 4px; }
+.figura-secreto figcaption { font-size: 13px; color: #d8c49a; margin-top: 4px; }
+.opciones-entrar { display: flex; flex-direction: column; gap: 12px; width: min(420px, 100%); }
+.menu button.opcion { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; padding: 16px 18px; width: 100%; }
+.opcion b { font: 700 18px Cinzel, Georgia, serif; letter-spacing: .08em; color: var(--oro); }
+.opcion small { font-size: 14px; color: #d8c49a; letter-spacing: 0; text-transform: none; font-style: italic; }
+#sala-mazmorra { font: inherit; color: var(--texto); background: rgba(0, 0, 0, .4); border: 1px solid #5a4630; border-radius: 4px; padding: 8px 10px; min-width: 0; max-width: 62%; }
+#sala-ajustes .rotulo { margin-top: 10px; }
+#opciones.sobre-juego { z-index: 50; background: #0c0805; }
 .error { color: #ff8a7a; text-align: center; max-width: 480px; }
 .nota { color: var(--suave); font-size: 15px; max-width: 420px; text-align: center; font-style: italic; }
 .fila { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -444,6 +465,8 @@ body.tactil #mira { width: 8px; height: 8px; margin: -4px; }
 #t-mapa.aviso { color: #ffe8a8; border-color: #f0c050; animation: aviso-mapa 1s ease-in-out infinite; }
 @keyframes aviso-mapa { 0%, 100% { box-shadow: 0 0 6px rgba(255, 200, 60, .4); } 50% { box-shadow: 0 0 22px 6px rgba(255, 200, 60, .95); } }
 body.contrarreloj #t-mapa { top: calc(62px + env(safe-area-inset-top)); }
+.solo-pc { display: block; }
+body.tactil .solo-pc { display: none; }
 .solo-tactil { display: none; }
 body.tactil .solo-tactil { display: flex; }
 body.tactil .fila.solo-tactil { display: grid; }

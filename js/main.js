@@ -40,11 +40,13 @@ const TAMANOS = {
 };
 // En una sala se pierde tiempo coordinando y descifrando entre varios, así que los relojes son más largos.
 const MINUTOS_SALA = { pequena: [4, 6, 8], mediana: [8, 12, 16], grande: [14, 20, 26] };
-const minutosDe = (tam, i) => prep.modo === 'sala' ? MINUTOS_SALA[tam][i] : TAMANOS[tam].minutos;
+const minutosSala = (tam, i) => MINUTOS_SALA[tam][i];
 // Con tesoros exclusivos los cazadores pueden herirse (el que cae suelta su último tesoro y otro se lo lleva); con compartidos no hay nada que robar.
-const combateDe = () => prep.tesoros === 'exclusivos';
+const combateDe = () => ajustesSala.tesoros === 'exclusivos';
 const RITMOS = ['Corto', 'Normal', 'Largo'];
-const prep = { tesoros: progreso.opciones.tesoros || 'exclusivos', modo: progreso.opciones.modo === 'sala' ? 'sala' : 'explorar', tamano: progreso.opciones.tamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1 };
+const prep = { tamano: progreso.opciones.tamano || 'grande' };
+// Lo que el anfitrión elige en el lobby de una sala (se guarda para la próxima).
+const ajustesSala = { mazmorra: progreso.opciones.salaMazmorra || MAZMORRAS[0].id, tamano: progreso.opciones.salaTamano || 'grande', ritmo: progreso.opciones.ritmo ?? 1, tesoros: progreso.opciones.tesoros || 'exclusivos' };
 let elegida = null;   // la mazmorra de la pantalla de preparación
 let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
 let calidad = progreso.opciones.calidad || 'alta';
@@ -148,7 +150,7 @@ for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventLi
 
 // Sonidos de los menús: al pasar el ratón y al elegir.
 const enMenu = b => b?.closest('.menu, #pausa');
-const ALTERNAR = '[data-sens], [data-calidad], [data-modo], [data-tamano], [data-ritmo], [data-tesoros], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
+const ALTERNAR = '[data-sens], [data-sensr], [data-calidad], [data-tamano], [data-sala-tamano], [data-sala-ritmo], [data-sala-tesoros], #btn-zurdo, #btn-vibrar, #btn-sonido, #btn-musica';
 document.addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!enMenu(b)) return;
@@ -169,7 +171,7 @@ const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 // las mazmorras sin zonas tienen un solo tamaño
 const tamanoDe = def => def.sectores ? prep.tamano : 'grande';
-const limiteDe = def => minutosDe(tamanoDe(def), prep.ritmo) * 60;
+const limiteDe = def => TAMANOS[tamanoDe(def)].minutos * 60;
 const minuscula = t => t[0].toLowerCase() + t.slice(1);
 
 function abrirPreparar(def) {
@@ -178,10 +180,9 @@ function abrirPreparar(def) {
   mostrar('preparar');
 }
 function pintarPreparar() {
-  const def = elegida, Z = def.sectores, tam = tamanoDe(def), enSala = prep.modo === 'sala';
+  const def = elegida, Z = def.sectores, tam = tamanoDe(def);
   $('#preparar h2').textContent = def.nombre;
   $('#prep-desc').textContent = def.descripcion;
-  for (const b of document.querySelectorAll('[data-modo]')) b.classList.toggle('activo', b.dataset.modo === prep.modo);
   $('#prep-grupo-tamano').hidden = !Z;
   for (const b of document.querySelectorAll('[data-tamano]')) b.classList.toggle('activo', b.dataset.tamano === tam);
   const n = TAMANOS[tam].zonas, z = Z?.zonas || [];
@@ -189,28 +190,11 @@ function pintarPreparar() {
     : n === 1 ? `Solo la primera zona: ${minuscula(z[0].nombre)}. La salida se esconde en ella.`
     : n === 2 ? `Las dos primeras zonas: ${minuscula(z[0].nombre)} y ${minuscula(z[1].nombre)}.`
     : `Las ${z.length} zonas, con ${minuscula(z.at(-1).nombre)} tras un pasadizo secreto.`;
-  $('#prep-tiempo').hidden = !enSala;
-  $('#prep-tesoros').hidden = !enSala;
-  for (const b of document.querySelectorAll('[data-tesoros]')) b.classList.toggle('activo', b.dataset.tesoros === prep.tesoros);
-  $('#nota-tesoros').textContent = prep.tesoros === 'exclusivos'
-    ? 'Cada tesoro es del primero que lo toma; los demás encuentran una nota «¡Llegaste tarde!». Los cazadores pueden herirse: quien cae suelta su último tesoro, y el automapa solo muestra a los demás un momento cuando alguien toma uno.'
-    : 'Todos pueden recoger cada tesoro y no hay combate entre cazadores. Gana quien más reúna, y al final se ve cómo lo logró cada uno.';
-  document.querySelectorAll('[data-ritmo]').forEach((b, i) => {
-    b.innerHTML = `${RITMOS[i]}<small>${minutosDe(tam, i)} min</small>`;
-    b.classList.toggle('activo', i === prep.ritmo);
-  });
-  const seg = limiteDe(def);
-  $('#btn-entrar').textContent = enSala ? 'Crear sala' : 'Entrar';
-  $('#nota-modo').textContent = enSala
-    ? `Creas una sala y compartes el enlace por WhatsApp. Todos entran a la misma cripta, con ${seg / 60} minutos para reunir más botín que los demás y salir.`
-    : `Tienes ${seg / 60} minutos para reunir reliquias y salir. Solo cuentan las que te llevas al escapar: si te atrapan o caes, pierdes todo el botín.`;
+  $('#nota-modo').textContent = `Tienes ${limiteDe(def) / 60} minutos para reunir reliquias y salir. Solo cuentan las que te llevas al escapar: si te atrapan o caes, pierdes todo el botín.`;
 }
 const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave] = valor; guardar(); pintarPreparar(); };
-for (const b of document.querySelectorAll('[data-modo]')) b.onclick = () => elegir('modo', b.dataset.modo);
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
-for (const b of document.querySelectorAll('[data-tesoros]')) b.onclick = () => elegir('tesoros', b.dataset.tesoros);
-for (const b of document.querySelectorAll('[data-ritmo]')) b.onclick = () => elegir('ritmo', +b.dataset.ritmo);
-$('#btn-entrar').onclick = () => prep.modo === 'sala' ? crearSala() : empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
+$('#btn-entrar').onclick = () => empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
 
 function pintarMazmorras() {
   const lista = $('#lista-mazmorras');
@@ -305,6 +289,14 @@ function abrirFicha(t, lo) {
 }
 $('#ficha').onclick = e => { if (e.target.id === 'ficha' || e.target.closest('.cerrar')) $('#ficha').hidden = true; };
 
+// Muro común y pasadizo secreto lado a lado, con las mismas texturas del juego (los de la Cripta del Escarabajo).
+function pintarAyuda() {
+  for (const [id, tex] of [['#fig-muro', 'piedra'], ['#fig-secreto', 'piedra_grieta']]) {
+    const g = $(id).getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.drawImage(miniatura(atlas, tex, 1), 0, 0, 128, 128);
+  }
+}
 function pintarOpciones() {
   for (const b of document.querySelectorAll('[data-calidad]')) b.classList.toggle('activo', b.dataset.calidad === calidad);
   pintarControles();
@@ -312,18 +304,22 @@ function pintarOpciones() {
 
 // Controles táctiles: sensibilidad, modo zurdo y vibración.
 const SENSIBILIDAD = { baja: 0.6, media: 1, alta: 1.5 };
+const SENS_RATON = { baja: 0.0015, media: 0.0024, alta: 0.0038 };
 function aplicarControles() {
   const o = progreso.opciones;
   entrada.sensTactil = 0.006 * SENSIBILIDAD[o.sens || 'media'];
+  entrada.sensRaton = SENS_RATON[o.sensr || 'media'];
   entrada.zurdo = !!o.zurdo;
   document.body.classList.toggle('zurdo', !!o.zurdo);
 }
 function pintarControles() {
   const o = progreso.opciones;
   for (const b of document.querySelectorAll('[data-sens]')) b.classList.toggle('activo', b.dataset.sens === (o.sens || 'media'));
+  for (const b of document.querySelectorAll('[data-sensr]')) b.classList.toggle('activo', b.dataset.sensr === (o.sensr || 'media'));
   $('#btn-zurdo').textContent = o.zurdo ? 'Zurdo: sí' : 'Zurdo: no';
   $('#btn-vibrar').textContent = o.sinVibrar ? 'Vibración: no' : 'Vibración: sí';
 }
+for (const b of document.querySelectorAll('[data-sensr]')) b.onclick = () => { progreso.opciones.sensr = b.dataset.sensr; guardar(); aplicarControles(); pintarControles(); };
 for (const b of document.querySelectorAll('[data-sens]')) b.onclick = () => { progreso.opciones.sens = b.dataset.sens; guardar(); aplicarControles(); pintarControles(); };
 $('#btn-zurdo').onclick = () => { progreso.opciones.zurdo = !progreso.opciones.zurdo; guardar(); aplicarControles(); pintarControles(); };
 $('#btn-vibrar').onclick = () => {
@@ -344,8 +340,10 @@ document.addEventListener('click', e => {
   if (ir === 'mazmorras') pintarMazmorras();
   if (ir === 'coleccion') pintarColeccion();
   if (ir === 'opciones') pintarOpciones();
+  if (ir === 'ayuda') pintarAyuda();
   if (ir === 'unirse') abrirUnirse();
-  if (sala && (ir === 'mazmorras' || ir === 'portada')) cerrarSala();
+  if (sala && (ir === 'mazmorras' || ir === 'portada' || ir === 'entrar')) cerrarSala();
+  if (ir === 'entrar') { abrirEntrar(); return; }
   if (ir === 'portada') { juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); }
   mostrar(ir);
 });
@@ -406,14 +404,55 @@ $('#btn-unirse').onclick = async () => {
   if (s) { enlazarSala(s); mostrar('sala'); pintarLobby(); }
 };
 
-async function crearSala() {
-  const def = elegida, tamano = tamanoDe(def), limite = limiteDe(def);
-  const s = await conectar($('#btn-entrar'), 'Creando sala…', () => Sala.crear(nombreElegido()), m => { $('#nota-modo').textContent = m; });
+// Pantalla «Entrar»: jugar solo, crear una sala (los ajustes se eligen después, en el lobby) o unirse con un código.
+function abrirEntrar() {
+  $('#entrar-nombre').value = nombreElegido();
+  $('#entrar-error').textContent = '';
+  mostrar('entrar');
+}
+$('#btn-solo').onclick = () => { pintarMazmorras(); mostrar('mazmorras'); };
+$('#btn-unirme').onclick = () => { guardarNombreSala($('#entrar-nombre').value); abrirUnirse(); };
+$('#btn-crear').onclick = async () => {
+  const nombre = guardarNombreSala($('#entrar-nombre').value);
+  const s = await conectar($('#btn-crear'), 'Creando sala…', () => Sala.crear(nombre), m => { $('#entrar-error').textContent = m; });
   if (!s) return;
-  s.ponerConfig({ mazmorra: def.id, tamano, limite, tesoros: prep.tesoros, combate: combateDe() });
+  s.ponerConfig(configDeSala());
   enlazarSala(s);
   mostrar('sala');
   pintarLobby();
+};
+
+// La configuración que el anfitrión difunde a la sala, según lo que eligió en el lobby.
+function configDeSala() {
+  const a = ajustesSala, def = MAZMORRAS.find(m => m.id === a.mazmorra) || MAZMORRAS[0];
+  const tamano = def.sectores ? a.tamano : 'grande';
+  return { mazmorra: def.id, tamano, limite: minutosSala(tamano, a.ritmo) * 60, tesoros: a.tesoros, combate: combateDe() };
+}
+function cambiarAjusteSala(clave, valor, guardada = clave) {
+  ajustesSala[clave] = valor;
+  progreso.opciones[{ mazmorra: 'salaMazmorra', tamano: 'salaTamano' }[guardada] || guardada] = valor;
+  guardar();
+  if (sala?.soyAnfitrion && !sala.enPartida) sala.ponerConfig(configDeSala());
+}
+for (const b of document.querySelectorAll('[data-sala-tamano]')) b.onclick = () => cambiarAjusteSala('tamano', b.dataset.salaTamano);
+for (const b of document.querySelectorAll('[data-sala-ritmo]')) b.onclick = () => cambiarAjusteSala('ritmo', +b.dataset.salaRitmo);
+for (const b of document.querySelectorAll('[data-sala-tesoros]')) b.onclick = () => cambiarAjusteSala('tesoros', b.dataset.salaTesoros);
+$('#sala-mazmorra').innerHTML = MAZMORRAS.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+$('#sala-mazmorra').onchange = e => cambiarAjusteSala('mazmorra', e.target.value);
+
+function pintarAjustesSala() {
+  const a = ajustesSala, def = MAZMORRAS.find(m => m.id === a.mazmorra) || MAZMORRAS[0], tam = def.sectores ? a.tamano : 'grande';
+  $('#sala-mazmorra').value = def.id;
+  $('#sala-grupo-tamano').hidden = !def.sectores;
+  for (const b of document.querySelectorAll('[data-sala-tamano]')) b.classList.toggle('activo', b.dataset.salaTamano === tam);
+  document.querySelectorAll('[data-sala-ritmo]').forEach((b, i) => {
+    b.innerHTML = `${RITMOS[i]}<small>${minutosSala(tam, i)} min</small>`;
+    b.classList.toggle('activo', i === a.ritmo);
+  });
+  for (const b of document.querySelectorAll('[data-sala-tesoros]')) b.classList.toggle('activo', b.dataset.salaTesoros === a.tesoros);
+  $('#nota-tesoros').textContent = a.tesoros === 'exclusivos'
+    ? 'Cada tesoro es del primero que lo toma; los demás encuentran una nota «¡Llegaste tarde!». Los cazadores pueden herirse: quien cae suelta su último tesoro, y el automapa solo muestra a los demás un momento cuando alguien toma uno.'
+    : 'Todos pueden recoger cada tesoro y no hay combate entre cazadores. Gana quien más reúna, y al final se ve cómo lo logró cada uno.';
 }
 
 function enlazarSala(s) {
@@ -472,6 +511,8 @@ function pintarLobby() {
   const anfitrion = sala.soyAnfitrion, lista = sala.jugadores, c = sala.config;
   $('#sala-codigo-vista').textContent = sala.codigo;
   $('#sala-invitar').hidden = !anfitrion;
+  $('#sala-ajustes').hidden = !anfitrion;
+  if (anfitrion) pintarAjustesSala();
   $('#sala-sub').textContent = anfitrion
     ? (lista.length > 1 ? 'Empieza cuando estén todos.' : 'Comparte el enlace y espera a tus amigos.')
     : 'Esperando a que el anfitrión empiece la partida…';
@@ -496,7 +537,7 @@ function pintarLobby() {
 $('#btn-salir-sala').onclick = () => {
   const eraAnfitrion = sala?.soyAnfitrion;
   cerrarSala();
-  mostrar(eraAnfitrion ? 'preparar' : 'portada');
+  abrirEntrar();
 };
 
 $('#btn-whatsapp').onclick = () => window.open(enlaceWhatsApp(sala.codigo, nombreElegido() || 'Un amigo'), '_blank', 'noopener');
@@ -890,7 +931,15 @@ document.addEventListener('pointerlockchange', () => {
   }
 });
 $('#btn-continuar').onclick = () => reanudar();
-$('#btn-menu-pausa').onclick = () => { cerrarSala(); $('#pausa').hidden = true; juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); pintarMazmorras(); mostrar('mazmorras'); };
+$('#btn-menu-pausa').onclick = () => { cerrarSala(); $('#pausa').hidden = true; juego = null; detenerAmbiente(); document.body.classList.remove('jugando'); mostrar('portada'); };
+// Ajustes desde la pausa: las mismas opciones del menú, encima de la partida.
+const opcionesEl = $('#opciones');
+$('#btn-ajustes-pausa').onclick = () => { pintarOpciones(); opcionesEl.classList.add('sobre-juego'); opcionesEl.hidden = false; };
+opcionesEl.querySelector('.atras').addEventListener('click', e => {
+  if (!opcionesEl.classList.contains('sobre-juego')) return;
+  e.stopImmediatePropagation();
+  opcionesEl.classList.remove('sobre-juego'); opcionesEl.hidden = true;
+}, true);
 $('#btn-pausa').addEventListener('click', () => { pausar(); $('#pausa').hidden = false; });
 
 function actualizarHUD() {
