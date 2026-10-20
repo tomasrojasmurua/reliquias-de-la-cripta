@@ -673,11 +673,13 @@ export function recortarZonas(def, n) {
 function generarInicio(def, azar) {
   const { elegir, mezclar } = herramientas(azar);
   const I = def.sectores.inicio, W = def.plano[0].length, H = def.plano.length;
-  const t = tallar(W, H, [def.sectores.entrada], { salas: I.salas, azar });
+  const t = tallar(W - (W % 2 ? 0 : 1), H, [I.puerta || def.sectores.entrada], { salas: I.salas, azar });
   const { g } = t;
+  for (const f of g) while (f.length < W) f.push('#');
+  for (const f of t.alt) while (f.length < W) f.push('.');
   const tipos = I.enemigos;
   const claves = Object.keys(def.tesoros).reverse(), ids = claves.map(c => def.tesoros[c]);
-  const sellados = Object.entries(def.acertijos || {}).slice(0, 2).map(([tablilla, a]) => ({ tablilla, sello: a.sello }));
+  const sellados = Object.entries(def.acertijos || {}).slice(0, Math.min(3, claves.length - 2)).map(([tablilla, a]) => ({ tablilla, sello: a.sello }));
   const tesoros = poblar(t, ids, () => claves.shift(), tipos, sellados);
   const acertijos = {};
   for (const c of sellados) if (c.puesta) acertijos[c.tablilla] = def.acertijos[c.tablilla];
@@ -687,6 +689,15 @@ function generarInicio(def, azar) {
   const [px, py] = [(sala.x0 + sala.x1) >> 1, (sala.y0 + sala.y1) >> 1];
   for (let y = py - 4; y <= py + 4; y++) for (let x = px - 4; x <= px + 4; x++) if (ENEMIGOS.includes(g[y]?.[x])) g[y][x] = '.';
   g[py][px] = 'P';
+  // peligros sueltos (lava, abismo, pinchos): en casillas de sala con las ocho de alrededor libres, así nunca cortan un paso
+  for (const [car, n] of Object.entries(I.peligros || {})) {
+    const sitios = [];
+    for (const s of t.salas) for (let y = s.y0 + 1; y < s.y1; y++) for (let x = s.x0 + 1; x < s.x1; x++) {
+      if (VECINOS8.every(([dx, dy]) => g[y + dy][x + dx] === '.') && g[y][x] === '.' && Math.abs(x - px) + Math.abs(y - py) > 5) sitios.push([x, y]);
+    }
+    mezclar(sitios);
+    for (const [x, y] of sitios.slice(0, n)) g[y][x] = car;
+  }
   // la entrada que se derrumba: un muro de la sala (mejor del borde, que no esconde nada detrás)
   const muros = [];
   for (let x = sala.x0; x <= sala.x1; x++) muros.push([x, sala.y0 - 1], [x, sala.y1 + 1]);
