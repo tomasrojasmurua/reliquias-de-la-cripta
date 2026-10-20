@@ -190,6 +190,7 @@
   <div class="texto">
     <p>Las mazmorras están a oscuras: tu <b>antorcha</b> ilumina solo lo que tienes cerca. Explora cada mazmorra y reúne sus tesoros. Empiezas solo con tu látigo: busca el <b>revólver</b> y sus <b>balas</b>.</p>
     <p>Algunas antorchas de los muros están <b>apagadas</b>: se encienden solas cuando les acercas la tuya. Los monstruos que te pierden de vista se ponen a vagar, y la <b>escopeta</b> echa atrás a lo que golpea.</p>
+    <p>Algunas reliquias están en <b>cofres</b> cerrados: cada <b>llave</b> (tirada por las salas) abre uno y se gasta; la palanca de hierro también los revienta, una vez. Si caes en una sala, sueltas la llave y la palanca junto con tu último tesoro.</p>
     <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro.</p>
     <details class="guia-acertijos">
       <summary>Cómo se resuelve una tablilla</summary>
@@ -315,6 +316,14 @@
           <path fill="none" stroke="#8fb0cc" stroke-width="3" stroke-linecap="round" d="M6 27 22.5 8.5c1.6-1.8 4.4-1.6 5.4.4.6 1.2.2 2.4-.9 3M6 27l-2.6-1.2"/>
           <path fill="none" stroke="#e6f2ff" stroke-width="1" stroke-linecap="round" d="M7.4 25 21.6 9"/>
         </svg>
+      </div>
+      <div class="caja llave" id="caja-llave" hidden title="Llaves: cada una abre un cofre y se gasta">
+        <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="10" cy="10" r="6.5" fill="#d8b24a" stroke="#3a2a06" stroke-width="1.6"/><circle cx="10" cy="10" r="2.6" fill="#3a2a06"/>
+          <path fill="none" stroke="#3a2a06" stroke-width="6" stroke-linecap="round" d="M14.5 14.5 27 27M23 27v-4M27 23h-4"/>
+          <path fill="none" stroke="#f0d070" stroke-width="3" stroke-linecap="round" d="M14.5 14.5 27 27M23 27v-4M27 23h-4"/>
+        </svg>
+        <b id="hud-llaves">1</b>
       </div>
       <div class="caja vendas solo-pc" id="caja-vendas" hidden title="Vendas guardadas: H para usarlas">
         <svg class="icono" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="#f4ead0" stroke="#3a2312" stroke-width="1.2"/><path d="M12 8v8M8 12h8" stroke="#c8321c" stroke-width="3" stroke-linecap="round"/></svg>

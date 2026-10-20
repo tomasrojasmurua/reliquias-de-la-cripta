@@ -120,7 +120,7 @@ export class Juego {
     this.inicioJ = (opciones.puesto > 0 && m.puestos?.[opciones.puesto]) || { x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0 };   // en una sala cada cazador parte de un puesto distinto
     this.j = {
       x: this.inicioJ.x, z: this.inicioJ.z, y: m.piso(Math.floor(this.inicioJ.x), Math.floor(this.inicioJ.z)), yaw: this.inicioJ.yaw, cabeceo: 0,
-      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, vendas: 0, cargador: 0, reservaT: 0, barreta: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
+      vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, vendas: 0, cargador: 0, reservaT: 0, barreta: 0, llaves: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
     this.enemigos = m.enemigos.map(e => ({ ...e, y: m.piso(Math.floor(e.x), Math.floor(e.z)), ...ENEMIGOS[e.tipo], vidaMax: ENEMIGOS[e.tipo].vida, estado: e.escondido ? 'oculto' : 'dormido', t: 0, espera: 0, anim: Math.random() * 2, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 }));
@@ -884,6 +884,7 @@ export class Juego {
   // ¿Hay algo que usar justo enfrente? (ilumina el botón «Usar»; los pasadizos secretos no se delatan)
   puedeUsar() {
     const j = this.j;
+    if (this.cofreEnMira()) return true;
     const h = this.rayo(j.x, j.z, Math.cos(j.yaw), Math.sin(j.yaw), 1.4);
     if (h.dist >= 1.4) return false;
     const c = this.mapa.celda(h.cx, h.cz);
@@ -926,8 +927,56 @@ export class Juego {
     }
   }
 
+  // El cofre cerrado que tienes enfrente, a menos de 1,7 m.
+  cofreEnMira() {
+    const j = this.j, fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
+    let mejor = null, md = 1.7;
+    for (const o of this.objetos) {
+      if (!o.cerrado || o.cogido) continue;
+      const dx = o.x - j.x, dz = o.z - j.z, d = Math.hypot(dx, dz);
+      if (d >= md || (d > 0.4 && (dx * fx + dz * fz) / d < 0.75) || !this.seVe(j, o)) continue;
+      mejor = o; md = d;
+    }
+    return mejor;
+  }
+
+  // Abre un cofre con una llave (se gasta) o, si no hay, con la palanca de hierro (también se gasta; pide confirmar).
+  abrirCofre(o) {
+    const j = this.j;
+    if (!j.llaves && !j.barreta) {
+      sonar('sellado');
+      this.ev.mensaje('El cofre está cerrado con llave. Busca una llave tirada por las salas, o una palanca de hierro.', 4);
+      return;
+    }
+    if (!j.llaves) {
+      if (this.forzando !== 'cofre' + o.n || this.tiempo - this.forzandoT >= 4) {
+        this.forzando = 'cofre' + o.n; this.forzandoT = this.tiempo;
+        sonar('sellado');
+        this.ev.mensaje('Pulsa «Usar» otra vez para reventar el cofre con la palanca (se gasta), o busca una llave.', 4);
+        return;
+      }
+      j.barreta = 0; this.barretaObj = null;
+      sonar('forzar');
+    } else {
+      j.llaves--; this.llavesObj?.pop();
+      sonar('palanca');
+    }
+    this.abrirCofreObj(o);
+    this.ev.cofreAbierto?.(o.n);
+  }
+
+  // El cofre se abre (también cuando lo abre otro cazador en una sala).
+  abrirCofreObj(o) {
+    if (!o.cerrado) return;
+    o.cerrado = false;
+    setTimeout(() => sonar('puerta'), 200);
+    this.ev.mensaje('¡El cofre se abre!', 3);
+  }
+
   usar() {
     const j = this.j, m = this.mapa;
+    const cofre = this.cofreEnMira();
+    if (cofre) { this.abrirCofre(cofre); return; }
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
     const h = this.rayo(j.x, j.z, fx, fz, 1.4);
     if (h.dist >= 1.4) return;
@@ -1047,8 +1096,19 @@ export class Juego {
       if (z) z.halladas--;
       this.ev.solto?.(o);
     }
+    // también se sueltan las llaves y la palanca (el arma y la munición no), cerca de donde caíste
+    const sitio = o ? [o.x, o.z] : [j.x, j.z];
+    const soltados = [...(this.llavesObj || []).splice(0), ...(this.barretaObj ? [this.barretaObj] : [])];
+    soltados.forEach((q, k) => {
+      const a = (k + 1) * 2.1;
+      Object.assign(q, { cogido: false, x: sitio[0] + Math.cos(a) * 0.5, z: sitio[1] + Math.sin(a) * 0.5 });
+      if (this.mapa.solida(Math.floor(q.x), Math.floor(q.z))) { q.x = sitio[0]; q.z = sitio[1]; }
+      this.ev.solto?.(q);
+    });
+    j.llaves = 0; j.barreta = 0; this.barretaObj = null;
     this.reaparecer = 4;
-    this.ev.mensaje(o ? `Soltaste ${TESORO[id].nombre}. Reapareces en el inicio…` : 'Reapareces en el inicio…', 4);
+    const extra = soltados.length ? ` y ${soltados.length === 1 ? 'un objeto' : 'tus objetos'}` : '';
+    this.ev.mensaje(o ? `Soltaste ${TESORO[id].nombre}${extra}. Reapareces en el inicio…` : soltados.length ? `Soltaste ${extra.slice(3)}. Reapareces en el inicio…` : 'Reapareces en el inicio…', 4);
   }
 
   revivir() {
@@ -1085,7 +1145,7 @@ export class Juego {
         sonar('error');
         this.ev.mensaje(`¡Llegaste tarde! ${o.nota.nombre} se llevó ${TESORO[o.tesoro].nombre}.`, 4);
       }
-      if (o.cogido || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
+      if (o.cogido || o.cerrado || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
       if (o.tipo === 'revolver') {
         const n = 6;
         o.cogido = true; j.tieneRevolver = true; j.tambor = n; j.arma = 'revolver'; j.espera = 0.4;
@@ -1108,9 +1168,12 @@ export class Juego {
         const n = 6;
         o.cogido = true; j.reservaE = Math.min(MAX_CARTUCHOS, j.reservaE + n);
         sonar('recoger'); this.ev.mensaje(`Una caja de cartuchos (+${n}).`);
+      } else if (o.tipo === 'llave') {
+        o.cogido = true; j.llaves++; (this.llavesObj ||= []).push(o);
+        sonar('recoger'); this.ev.mensaje(j.llaves > 1 ? `Otra llave (llevas ${j.llaves}). Cada una abre un cofre y se gasta.` : '¡Una llave antigua! Abre un cofre cerrado y se gasta.', 4);
       } else if (o.tipo === 'barreta') {
-        o.cogido = true; j.barreta = 1;
-        sonar('palanca'); this.ev.mensaje('¡Una palanca de hierro! Sirve para forzar un sello sin descifrar su tablilla, pero solo una vez.', 5);
+        o.cogido = true; j.barreta = 1; this.barretaObj = o;
+        sonar('palanca'); this.ev.mensaje('¡Una palanca de hierro! Sirve para forzar un sello sin descifrar su tablilla, o abrir un cofre sin llave, pero solo una vez.', 5);
       } else if (o.tipo === 'balas') {
         if (j.reserva >= 60) continue;
         const n = 12;
@@ -1416,7 +1479,9 @@ export class Juego {
       const flota = Math.sin(this.tiempo * 2 + o.fase) * 0.03;
       if (o.tipo === 'falso') s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z) + 0.08 + flota, ancho: 0.55, alto: 0.55, tex: o.x % 2 < 1 ? 'tesoro_caliz_oro' : 'tesoro_corona_oro', luz: Math.max(0.3, luzEn(o.x, o.z)) });
       else if (o.tipo === 'tesoro') {
-        const piso = pisoEn(o.x, o.z), y = piso + 0.08 + flota;
+        if (o.cofre) s.push({ x: o.x, z: o.z, y: pisoEn(o.x, o.z), ancho: 0.8, alto: 0.8, tex: o.cerrado ? 'cofre' : 'cofre_abierto', luz: Math.max(0.4, luzEn(o.x, o.z)) });
+        if (o.cerrado) continue;
+        const piso = pisoEn(o.x, o.z), y = piso + 0.08 + flota + (o.cofre ? 0.22 : 0);
         const rareza = TESORO[o.tesoro]?.rareza || 'comun';
         // pequeños desplazamientos hacia el jugador (o lejos de él) para que nada parpadee al cruzarse
         const dx = j.x - o.x, dz = j.z - o.z, dl = Math.hypot(dx, dz) || 1;

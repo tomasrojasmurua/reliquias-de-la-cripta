@@ -21,6 +21,7 @@ const LEYENDA_BASE = {
   'b': { tipo: 'suelo', objeto: 'balas' },
   'v': { tipo: 'suelo', objeto: 'vendas' },
   'w': { tipo: 'suelo', objeto: 'barreta' },
+  'ʞ': { tipo: 'suelo', objeto: 'llave' },   // llave de un solo uso para un cofre
   'z': { tipo: 'suelo', objeto: 'escopeta' },
   'q': { tipo: 'suelo', objeto: 'cartuchos' },
   'ɸ': { tipo: 'suelo', objeto: 'tommy' },
@@ -112,7 +113,10 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
       const cx = x + 0.5, cz = y + 0.5;
       if (l.inicio) inicio = { x: cx, z: cz };
       if (l.objeto) objetos.push({ tipo: l.objeto, x: cx, z: cz });
-      if (l.tesoro) objetos.push({ tipo: 'tesoro', tesoro: l.tesoro, x: cx, z: cz, zona: 0 });
+      if (l.tesoro) {
+        const cofre = !!def.cofres?.includes(car);   // el tesoro está dentro de un cofre cerrado con llave
+        objetos.push({ tipo: 'tesoro', tesoro: l.tesoro, x: cx, z: cz, zona: 0, cofre, cerrado: cofre });
+      }
       if (l.enemigo) enemigos.push({ tipo: l.enemigo, x: cx, z: cz });
     }
   }

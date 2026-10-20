@@ -105,7 +105,7 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   const lat = (Math.sin(performance.now() / 380) + 1) / 2;
   for (const o of juego.objetos) {
     if (o.cogido || !visto(Math.floor(o.x), Math.floor(o.z))) continue;
-    icono(ctx, o.tipo, ox + o.x * t, oy + o.z * t, Math.max(6, t * 0.55), lat);
+    icono(ctx, o.cerrado ? 'cofre' : o.tipo, ox + o.x * t, oy + o.z * t, Math.max(6, t * 0.55), lat);
   }
   // nombre de cada zona ya pisada, en el centro de lo explorado; con ✓ si está completa
   if (juego.zonas?.length) {
@@ -289,7 +289,7 @@ export function dibujarMinimapa(ctx, S, juego, radio = 6.5) {
   const girar = (x, y, f) => { ctx.save(); ctx.translate(x, y); ctx.rotate(-giro); f(); ctx.restore(); };   // para que íconos y puntos no giren con el mapa
   for (const o of juego.objetos) {
     if (o.cogido || !visto(Math.floor(o.x), Math.floor(o.z))) continue;
-    girar(ox + o.x * t, oy + o.z * t, () => icono(ctx, o.tipo, 0, 0, Math.max(4, t * 0.5), lat));
+    girar(ox + o.x * t, oy + o.z * t, () => icono(ctx, o.cerrado ? 'cofre' : o.tipo, 0, 0, Math.max(4, t * 0.5), lat));
   }
   // monstruos que te persiguen o te atacan: puntos rojos que laten; los que están fuera del alcance se pegan al borde
   for (const e of juego.enemigos) {
@@ -399,6 +399,13 @@ export function icono(ctx, tipo, x, y, r, lat) {
   } else if (tipo === 'balas' || tipo === 'cartuchos') {
     const col = tipo === 'balas' ? '#d9a63a' : '#c4452e';
     for (const dx of [-r * 0.5, r * 0.5]) { ctx.beginPath(); ctx.roundRect(dx - r * 0.3, -r * 0.8, r * 0.6, r * 1.6, r * 0.25); tinta(col); }
+  } else if (tipo === 'llave') {
+    ctx.beginPath(); ctx.arc(-r * 0.35, -r * 0.35, r * 0.5, 0, Math.PI * 2); tinta('#e8c850');
+    ctx.strokeStyle = COLOR.tinta; ctx.lineWidth = Math.max(2.5, r * 0.4); ctx.beginPath(); ctx.moveTo(-r * 0.05, -r * 0.05); ctx.lineTo(r * 0.8, r * 0.8); ctx.moveTo(r * 0.45, r * 0.45); ctx.lineTo(r * 0.8, r * 0.1); ctx.stroke();
+    ctx.strokeStyle = '#e8c850'; ctx.lineWidth = Math.max(1.2, r * 0.2); ctx.beginPath(); ctx.moveTo(-r * 0.05, -r * 0.05); ctx.lineTo(r * 0.8, r * 0.8); ctx.moveTo(r * 0.45, r * 0.45); ctx.lineTo(r * 0.8, r * 0.1); ctx.stroke();
+  } else if (tipo === 'cofre') {
+    ctx.beginPath(); ctx.rect(-r * 0.9, -r * 0.55, r * 1.8, r * 1.2); tinta('#9a6a38');
+    ctx.fillStyle = '#e8c850'; ctx.fillRect(-r * 0.2, -r * 0.2, r * 0.4, r * 0.5);
   } else if (tipo === 'barreta') {
     ctx.strokeStyle = COLOR.tinta; ctx.lineWidth = Math.max(3, r * 0.5); ctx.beginPath(); ctx.moveTo(-r * 0.8, r * 0.8); ctx.lineTo(r * 0.6, -r * 0.6); ctx.arc(r * 0.2, -r * 1.0, r * 0.5, Math.PI * 0.8, Math.PI * 1.7); ctx.stroke();
     ctx.strokeStyle = '#8fb0cc'; ctx.lineWidth = Math.max(1.5, r * 0.25); ctx.beginPath(); ctx.moveTo(-r * 0.8, r * 0.8); ctx.lineTo(r * 0.6, -r * 0.6); ctx.stroke();
@@ -422,6 +429,8 @@ export const LEYENDA = [
   ['Munición', ctx => icono(ctx, 'balas', 0, 0, 7, 0)],
   ['Arma', ctx => icono(ctx, 'revolver', 0, 0, 7, 0)],
   ['Palanca de hierro', ctx => icono(ctx, 'barreta', 0, 0, 7, 0)],
+  ['Llave', ctx => icono(ctx, 'llave', 0, 0, 7, 0)],
+  ['Cofre cerrado', ctx => icono(ctx, 'cofre', 0, 0, 7, 0)],
   ['Trampa de dardos', ctx => { ctx.fillStyle = 'rgba(200, 40, 24, .5)'; ctx.fillRect(-8, -4, 16, 8); ctx.fillStyle = '#ff4a30'; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(6, 6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill(); }],
   ['Lava', ctx => { ctx.fillStyle = COLOR.lava; ctx.fillRect(-7, -7, 14, 14); }],
   ['Abismo', ctx => { ctx.fillStyle = COLOR.abismo; ctx.fillRect(-7, -7, 14, 14); }],

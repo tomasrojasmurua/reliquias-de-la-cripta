@@ -167,7 +167,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
   const { elegir, mezclar } = herramientas(azar);
   const enemigo = () => elegir(tiposEnemigo.length ? tiposEnemigo : ['k']);
   const finales = t.finales();
-  const tesoros = {};
+  const tesoros = {}, simples = [];
   const hondos = finales.slice(0, Math.max(ids.length + 1, Math.ceil(finales.length * 0.4)));
   mezclar(hondos);
   ids.forEach((id, n) => {
@@ -196,7 +196,10 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
       if (!ponerTablilla(t, camara.tablilla, true)) g[y + dy][x + dx] = '.';
       else camara.puesta = true;
     } else if (azar() < 0.5 && n < ids.length - 1 && (dx || dy) && !enSala(x + dx, y + dy)) g[y + dy][x + dx] = 'S';   // el último queda a la vista: el guardián necesita un sitio junto a alguna reliquia
+    if (g[y + dy]?.[x + dx] === '.') simples.push(c);   // a la vista en su callejón: puede ir en un cofre
   });
+  // un cofre cerrado con llave por cada tres reliquias; cada llave está tirada en alguna sala, y la palanca de hierro también abre
+  t.cofres = mezclar(simples).slice(0, Math.floor(ids.length / 3));
   for (const [x, y] of finales) {
     const r = azar();
     if (r < 0.2) g[y][x] = azar() < 0.5 ? 'q' : 'b';
@@ -226,6 +229,14 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
     if (g[y][x] !== '.' || enSala(x, y) || d(x, y) < 4 || azar() > 0.03) continue;
     const recto = (g[y][x - 1] === '#' && g[y][x + 1] === '#') || (g[y - 1][x] === '#' && g[y + 1][x] === '#');
     if (recto) g[y][x] = '^';
+  }
+  for (let k = 0; k < t.cofres.length; k++) {
+    const sitios = [];
+    for (const s of salas) for (let y = s.y0; y <= s.y1; y++) for (let x = s.x0; x <= s.x1; x++) if (g[y][x] === '.') sitios.push([x, y]);
+    if (!sitios.length) for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (g[y][x] === '.' && d(x, y) >= 3) sitios.push([x, y]);
+    if (!sitios.length) { t.cofres.length = k; break; }
+    const [x, y] = elegir(sitios);
+    g[y][x] = 'ʞ';
   }
   return tesoros;
 }
@@ -686,7 +697,13 @@ function generarInicio(def, azar) {
 
   // el inicio: el centro de la sala más honda, sin monstruos a la vista
   const sala = t.salas.slice().sort((a, b) => t.d(b.x0, b.y0) - t.d(a.x0, a.y0))[0];
-  const [px, py] = [(sala.x0 + sala.x1) >> 1, (sala.y0 + sala.y1) >> 1];
+  let [px, py] = [(sala.x0 + sala.x1) >> 1, (sala.y0 + sala.y1) >> 1];
+  if (g[py][px] !== '.') {   // el centro tiene un objeto: la casilla libre de la sala más cercana
+    const libres = [];
+    for (let y = sala.y0; y <= sala.y1; y++) for (let x = sala.x0; x <= sala.x1; x++) if (g[y][x] === '.') libres.push([x, y]);
+    libres.sort((a, b) => Math.hypot(a[0] - px, a[1] - py) - Math.hypot(b[0] - px, b[1] - py));
+    if (libres.length) [px, py] = libres[0];
+  }
   for (let y = py - 4; y <= py + 4; y++) for (let x = px - 4; x <= px + 4; x++) if (ENEMIGOS.includes(g[y]?.[x])) g[y][x] = '.';
   g[py][px] = 'P';
   // peligros sueltos (lava, abismo, pinchos): en casillas de sala con las ocho de alrededor libres, así nunca cortan un paso
@@ -707,7 +724,7 @@ function generarInicio(def, azar) {
   const derrumbe = elegir(borde.length ? borde : libres);
   g[derrumbe[1]][derrumbe[0]] = '%';
   return {
-    ...def, tesoros, acertijos, derrumbe, tiposEnemigo: tipos,
+    ...def, tesoros, acertijos, derrumbe, tiposEnemigo: tipos, cofres: t.cofres,
     plano: g.map(f => f.join('')), alturas: t.alt.map(f => f.join('')),
     zonas: [], luces: [],
   };
@@ -727,7 +744,7 @@ export function conZonas(def, azar = Math.random) {
     const h = altBase[y]?.[x];
     return x < anchoBase && y < altoBase && h ? h : '.';
   }));
-  const tesoros = { ...def.tesoros }, acertijos = { ...def.acertijos };
+  const tesoros = { ...def.tesoros }, acertijos = { ...def.acertijos }, cofres = [...(def.cofres || [])];
   const usados = new Set(def.plano.join(''));
   const pares = paresLibres(def);
   const caracteresTesoro = [...CARACTERES_TESORO].filter(c => !usados.has(c));
@@ -792,6 +809,7 @@ export function conZonas(def, azar = Math.random) {
     const primero = Z.bloques.findIndex(o => o.zona === b.zona) === k;
     const camaras = camarasNuevas(primero ? z.camaras ?? 0 : 0, pares, acertijos, def);
     Object.assign(tesoros, poblar(t, primero ? z.tesoros : [], () => caracteresTesoro.shift(), tipos, camaras));
+    cofres.push(...t.cofres);
     camaras.cerrar();
     // atajos tras puertas con acertijo (la cámara extra no los tiene)
     if (b.zona !== ultima) ponerAtajos(t, Math.max(1, Math.round(b.ancho * b.alto / 900)), pares, acertijos, def, z.acertijo?.dificultad ?? [2, 3]);
@@ -833,7 +851,7 @@ export function conZonas(def, azar = Math.random) {
   }));
   const luces = Z.bloques.map(b => [b.x, b.y, b.x + b.ancho - 1, b.y + b.alto - 1, b.luz ?? def.luz * 0.75]);
   return {
-    ...def, tesoros, acertijos,
+    ...def, tesoros, acertijos, cofres,
     plano: plano.map(f => f.join('')), alturas: alturas.map(f => f.join('')),
     luces: [...luces, ...(def.luces || [])],
     zonas: [...(def.zonas || []), ...Z.bloques.filter(b => b.textura).map(b => [b.x, b.y, b.x + b.ancho - 1, b.y + b.alto - 1, b.textura])],
