@@ -116,36 +116,27 @@ function empunar(g, x, y, ang, espejo = false, brazo = 0) {
 }
 
 // ---------- Armas de fuego ----------
-// Se dibujan de perfil, con la boca hacia la izquierda, y se giran para que apunten arriba hacia la mira:
-// así se lee la silueta de cada una (el tambor redondo del revólver, los dos cañones, el cargador de tambor).
+// Vistas desde atrás y un poco desde arriba, apuntando hacia adelante: se ve lo que reconoce cada una
+// (la cara trasera del tambor con sus casquillos, los dos martillos de la escopeta, el cargador de tambor).
 
-const E = 1.25;   // el perfil se dibuja a esta escala dentro de la hoja
-// Gira un punto del dibujo de perfil (alrededor de `px`, `py`) a coordenadas de la hoja.
-function girar(px, py, ang, x, y) {
-  const co = Math.cos(ang), si = Math.sin(ang);
-  x *= E; y *= E;
-  return [px + x * co - y * si, py + x * si + y * co];
-}
-// Acero visto de lado: brillo arriba, sombra abajo.
-const aceroLado = (g, y0, y1) => lineal(g, 0, y0, 0, y1, [[0, ACERO[1]], [0.18, ACERO[2]], [0.4, ACERO[1]], [1, ACERO[0]]]);
-const maderaLado = (g, x0, y0, x1, y1) => lineal(g, x0, y0, x1, y1, [[0, NOGAL[2]], [0.35, NOGAL[1]], [1, NOGAL[0]]]);
-// Cuadriculado de las cachas, recortado a la forma ya trazada en `g` (llamar justo después de forma()).
+const aceroFrente = (g, x0, x1) => lineal(g, x0, 0, x1, 0, [[0, ACERO[0]], [0.3, ACERO[1]], [0.45, ACERO[2]], [0.62, ACERO[1]], [1, ACERO[0]]]);
+const nogalFrente = (g, x0, x1) => lineal(g, x0, 0, x1, 0, [[0, NOGAL[0]], [0.3, NOGAL[1]], [0.45, NOGAL[2]], [0.65, NOGAL[1]], [1, NOGAL[0]]]);
+// Cuadriculado recortado a la forma ya trazada en `g` (llamar justo después de trazo()).
 function cuadricula(g, x0, y0, x1, y1) {
   g.save(); g.clip();
-  g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 0.8;
-  for (let k = x0 - 60; k < x1 + 60; k += 3.5) {
+  g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 1;
+  for (let k = x0 - 60; k < x1 + 60; k += 4) {
     g.beginPath(); g.moveTo(k, y0); g.lineTo(k + (y1 - y0), y1); g.stroke();
     g.beginPath(); g.moveTo(k, y0); g.lineTo(k - (y1 - y0), y1); g.stroke();
   }
   g.restore();
 }
-// forma() sin rellenar: deja el trazo listo para recortar.
 function trazo(g, puntos) { g.beginPath(); puntos.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); }
-// Fogonazo en estrella en (x, y), con núcleo blanco.
-function fogonazo(g, x, y, r, puntas = 14) {
+// Fogonazo en estrella en (x, y), con núcleo blanco; achatado como si saliera hacia el fondo.
+function fogonazo(g, x, y, r, puntas = 16) {
   g.fillStyle = radial(g, x, y, 0, r * 1.2, [[0, 'rgba(255,255,230,1)'], [0.25, 'rgba(255,230,120,1)'], [0.6, 'rgba(255,140,30,.95)'], [1, 'rgba(255,90,10,0)']]);
   g.beginPath();
-  for (let i = 0; i < puntas; i++) { const a = i / puntas * Math.PI * 2, rr = i % 2 ? r * 0.35 : r * (0.8 + (i % 4) * 0.12); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+  for (let i = 0; i < puntas; i++) { const a = i / puntas * Math.PI * 2, rr = i % 2 ? r * 0.35 : r * (0.8 + (i % 4) * 0.12); g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.62); }
   g.fill();
 }
 
@@ -153,53 +144,49 @@ function fogonazo(g, x, y, r, puntas = 14) {
 
 function revolver(fuego) {
   const [c, g] = hoja();
-  const PX = 120, PY = 64, ANG = 0.62;
-  g.save(); g.translate(PX, PY); g.rotate(ANG); g.scale(E, E);
-  // empuñadura de nogal, curva hacia atrás, con cuadriculado y medallón de latón
-  const cacha = [[13, 12], [24, 11], [31, 24], [38, 42], [37, 50], [23, 52], [18, 36], [13, 22]];
-  forma(g, cacha, maderaLado(g, 14, 12, 38, 46));
-  trazo(g, cacha); cuadricula(g, 10, 14, 40, 52);
-  g.fillStyle = 'rgba(255,210,150,.35)'; g.fillRect(16, 16, 2, 20);
-  g.fillStyle = radial(g, 27, 33, 0, 3.4, [[0, '#ffe6a0'], [1, '#8a6a20']], -1, -1); g.beginPath(); g.arc(27, 33, 3, 0, Math.PI * 2); g.fill();
-  // guardamonte y gatillo
-  g.strokeStyle = lineal(g, 0, 14, 0, 30, [[0, ACERO[2]], [1, ACERO[0]]]); g.lineWidth = 3;
-  g.beginPath(); g.moveTo(-4, 13); g.quadraticCurveTo(-5, 28, 7, 28); g.quadraticCurveTo(15, 28, 15, 15); g.stroke();
-  forma(g, [[3, 13], [7, 13], [6, 21], [2, 24]], ACERO[1]);
-  // cara delantera del tambor (vista de tres cuartos) con dos recámaras cargadas asomando bajo el cañón
-  g.fillStyle = lineal(g, -16, 0, -8, 0, [[0, ACERO[0]], [1, ACERO[1]]]);
-  g.beginPath(); g.ellipse(-12, 2, 4, 12, 0, 0, Math.PI * 2); g.fill();
-  for (const ry of [6, 11]) {
-    g.fillStyle = '#06070a'; g.beginPath(); g.ellipse(-13, ry, 1.8, 2.6, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = radial(g, -13, ry, 0, 2, [[0, '#f0b070'], [1, '#8a4a1a']], -0.6, -0.8); g.beginPath(); g.ellipse(-13, ry, 1.1, 1.7, 0, 0, Math.PI * 2); g.fill();
+  const cx = 82;
+  // cañón en perspectiva (se angosta hacia la punta), con la costilla iluminada, la varilla expulsora y la mira
+  forma(g, [[cx - 5, 18], [cx + 5, 18], [cx + 8, 48], [cx - 8, 48]], aceroFrente(g, cx - 8, cx + 8));
+  g.fillStyle = 'rgba(210,220,240,.55)'; g.fillRect(cx - 1, 20, 2, 27);
+  forma(g, [[cx + 5, 26], [cx + 8, 26], [cx + 11, 46], [cx + 7, 46]], aceroFrente(g, cx + 5, cx + 11));
+  capsula(g, cx - 2.5, 13, 5, 8, lineal(g, cx - 3, 0, cx + 3, 0, [[0, ACERO[0]], [0.5, ACERO[2]], [1, ACERO[0]]]));
+  g.fillStyle = '#05060a'; g.beginPath(); g.ellipse(cx, 18, 3, 1.5, 0, 0, Math.PI * 2); g.fill();
+  // el tambor: cuerpo redondo, más ancho que el armazón, con estrías que se curvan con su forma
+  g.fillStyle = lineal(g, cx - 24, 0, cx + 24, 0, [[0, ACERO[0]], [0.18, ACERO[1]], [0.36, ACERO[2]], [0.55, ACERO[1]], [1, ACERO[0]]]);
+  g.beginPath(); g.ellipse(cx, 50, 24, 7, 0, Math.PI, 0); g.lineTo(cx + 24, 60); g.ellipse(cx, 60, 24, 13, 0, 0, Math.PI); g.closePath(); g.fill();
+  for (const k of [-2, -1, 1, 2]) {
+    const fx = cx + k * 9.5, ancho = 3.2 - Math.abs(k) * 0.6;
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.ellipse(fx, 52, ancho, 7, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(200,215,240,.3)'; g.fillRect(fx + ancho - 0.5, 47, 1, 10);
   }
-  // tambor de lado: redondeado, con tres estrías a lo largo
-  g.fillStyle = lineal(g, 0, -10, 0, 14, [[0, ACERO[0]], [0.15, ACERO[1]], [0.3, ACERO[2]], [0.5, ACERO[1]], [1, ACERO[0]]]);
-  g.beginPath(); g.roundRect(-12, -10, 26, 24, 6); g.fill();
-  for (const fy of [-4, 2, 8]) {
-    g.fillStyle = 'rgba(0,0,0,.6)'; g.beginPath(); g.roundRect(-8, fy - 1.3, 18, 2.6, 1.3); g.fill();
-    g.fillStyle = 'rgba(200,215,240,.35)'; g.fillRect(-7, fy + 1.4, 16, 1);
+  // cara trasera del tambor, de frente a ti: seis recámaras con el culote de latón de cada bala
+  g.fillStyle = radial(g, cx, 60, 2, 25, [[0, ACERO[1]], [0.7, ACERO[1]], [1, ACERO[0]]], -6, -4);
+  g.beginPath(); g.ellipse(cx, 60, 23, 12.5, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(220,230,250,.4)'; g.beginPath(); g.ellipse(cx, 59, 21, 10.5, 0, Math.PI * 1.08, Math.PI * 1.6); g.lineTo(cx, 59); g.fill();
+  for (let k = 0; k < 6; k++) {
+    const a = -Math.PI / 2 + k * Math.PI / 3, bx = cx + Math.cos(a) * 13.5, by = 60 + Math.sin(a) * 7.2;
+    g.fillStyle = '#0a0a0c'; g.beginPath(); g.ellipse(bx, by, 5.4, 3.3, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = radial(g, bx, by, 0, 5, [[0, '#ffe6a0'], [0.55, '#d8a040'], [1, '#7a5010']], -1.5, -1);
+    g.beginPath(); g.ellipse(bx, by, 4.4, 2.6, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#9a7030'; g.beginPath(); g.ellipse(bx, by, 1.5, 0.9, 0, 0, Math.PI * 2); g.fill();   // fulminante
   }
-  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(-12, -8, 2, 20); g.fillRect(12, -8, 2, 20);
-  // armazón: puente sobre el tambor y escudo trasero
-  g.fillStyle = aceroLado(g, -14, -9); g.fillRect(-14, -14, 32, 5);
-  forma(g, [[12, -14], [22, -14], [25, -4], [23, 14], [12, 14]], aceroLado(g, -14, 14));
-  g.fillStyle = ACERO[0]; g.fillRect(15, -16, 3, 2);   // alza
-  // martillo con espuela estriada
-  forma(g, [[17, -13], [22, -13], [31, -22], [33, -19], [25, -9]], aceroLado(g, -22, -9));
-  g.fillStyle = 'rgba(0,0,0,.6)'; for (let i = 0; i < 3; i++) g.fillRect(27 + i * 1.6, -20 + i * 1.4, 1, 3);
-  // cañón largo con su costilla, varilla expulsora debajo y punto de mira
-  g.fillStyle = aceroLado(g, -9, 0); g.fillRect(-60, -9, 50, 9);
-  g.fillStyle = 'rgba(225,235,255,.55)'; g.fillRect(-60, -9, 50, 1.5);
-  g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-60, -2, 50, 2);
-  cilindro(g, -46, 0, 34, 5, ACERO, false);
-  g.fillStyle = ACERO[2]; g.fillRect(-48, 0, 3, 5);
-  forma(g, [[-58, -9], [-53, -9], [-54, -14], [-57, -14]], aceroLado(g, -14, -9));
-  g.fillStyle = ACERO[0]; g.fillRect(-61, -9, 2, 9);   // corona de la boca
-  g.restore();
-  // mano derecha en la empuñadura
-  const [hx, hy] = girar(PX, PY, ANG, 26, 32);
-  empunar(g, hx, hy, ANG - 0.42, false, -0.25);
-  if (fuego) { const [fx, fy] = girar(PX, PY, ANG, -64, -5); fogonazo(g, fx, fy, 24, 16); }
+  g.fillStyle = ACERO[0]; g.beginPath(); g.ellipse(cx, 60, 3, 1.8, 0, 0, Math.PI * 2); g.fill();     // eje
+  // puente superior que une el cañón con el armazón, con la muesca del alza
+  forma(g, [[cx - 4, 44], [cx + 4, 44], [cx + 5, 58], [cx - 5, 58]], aceroFrente(g, cx - 5, cx + 5));
+  g.fillStyle = '#05060a'; g.fillRect(cx - 1, 55, 2, 3);
+  // escudo trasero del armazón: tapa la mitad de abajo del tambor
+  forma(g, [[cx - 23, 64], [cx + 23, 64], [cx + 18, 80], [cx - 18, 80]], aceroFrente(g, cx - 23, cx + 23));
+  g.fillStyle = 'rgba(220,230,250,.35)'; g.fillRect(cx - 21, 64, 42, 1.5);
+  // martillo amartillado, con la espuela estriada
+  forma(g, [[cx - 5, 76], [cx + 5, 76], [cx + 4, 58], [cx + 6, 54], [cx - 6, 54], [cx - 4, 58]], aceroFrente(g, cx - 6, cx + 6));
+  g.fillStyle = 'rgba(0,0,0,.6)'; for (let i = 0; i < 4; i++) g.fillRect(cx - 5, 55 + i * 2, 10, 1);
+  // cachas de nogal con cuadriculado y medallón
+  const cacha = [[cx - 16, 79], [cx + 16, 79], [cx + 19, 110], [cx - 19, 110]];
+  forma(g, cacha, nogalFrente(g, cx - 19, cx + 19));
+  trazo(g, cacha); cuadricula(g, cx - 20, 80, cx + 20, 110);
+  g.fillStyle = radial(g, cx, 88, 0, 4, [[0, '#ffe6a0'], [1, '#8a6a20']], -1, -1); g.beginPath(); g.arc(cx, 88, 3.5, 0, Math.PI * 2); g.fill();
+  empunar(g, cx, 106, -0.06, false, -0.1);
+  if (fuego) fogonazo(g, cx, 14, 22);
   return pixelar(c);
 }
 
@@ -207,85 +194,85 @@ function revolver(fuego) {
 
 function escopeta(fuego) {
   const [c, g] = hoja();
-  const PX = 124, PY = 66, ANG = 0.62;
-  g.save(); g.translate(PX, PY); g.rotate(ANG); g.scale(E, E);
-  // culata de nogal con la garganta donde va la mano
-  const culata = [[10, -9], [22, -6], [34, 10], [46, 32], [42, 44], [27, 42], [16, 18], [8, 8]];
-  forma(g, culata, maderaLado(g, 10, -8, 44, 40));
-  trazo(g, [[16, 2], [26, 0], [32, 14], [22, 20]]); cuadricula(g, 14, 0, 34, 22);
-  g.fillStyle = 'rgba(255,210,150,.3)'; g.fillRect(12, -6, 12, 2);
-  // guardamonte y dos gatillos
-  g.strokeStyle = lineal(g, 0, 8, 0, 22, [[0, ACERO[2]], [1, ACERO[0]]]); g.lineWidth = 2.6;
-  g.beginPath(); g.moveTo(-2, 7); g.quadraticCurveTo(-3, 20, 7, 20); g.quadraticCurveTo(13, 20, 13, 8); g.stroke();
-  forma(g, [[2, 7], [5, 7], [4, 15], [1, 16]], ACERO[1]); forma(g, [[7, 7], [10, 7], [9, 15], [6, 16]], ACERO[0]);
-  // báscula de acero templado (con vetas de color) y perno de la bisagra
-  g.fillStyle = lineal(g, 0, -12, 0, 8, [[0, '#8a90a0'], [0.3, '#5a5068'], [0.6, '#3a3e4a'], [1, '#14161c']]);
-  g.beginPath(); g.roundRect(-8, -12, 22, 20, 3); g.fill();
-  g.fillStyle = 'rgba(200,170,110,.35)'; for (let i = 0; i < 6; i++) g.fillRect(-4 + i * 3, -6 + (i % 2) * 4, 1.5, 1.5);
-  g.fillStyle = radial(g, -5, 4, 0, 3, [[0, ACERO[2]], [1, ACERO[0]]]); g.beginPath(); g.arc(-5, 4, 2.4, 0, Math.PI * 2); g.fill();
-  // dos martillos, uno detrás del otro
-  forma(g, [[8, -11], [12, -11], [19, -19], [20, -16], [14, -8]], ACERO[0]);
-  forma(g, [[5, -11], [9, -11], [16, -20], [18, -17], [11, -8]], aceroLado(g, -20, -8));
-  // guardamano de nogal bajo los cañones
-  forma(g, [[-42, 2], [-8, 2], [-8, 10], [-38, 10], [-43, 7]], maderaLado(g, 0, 2, 0, 10));
-  g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 0.8; for (let k = -36; k < -12; k += 3) { g.beginPath(); g.moveTo(k, 3); g.lineTo(k + 2, 9); g.stroke(); }
-  // los dos cañones (de lado se ven uno sobre otro), con la costilla y la mira de bolita
-  g.fillStyle = aceroLado(g, -12, -4); g.fillRect(-68, -12, 62, 8);
-  g.fillStyle = aceroLado(g, -4, 3); g.fillRect(-68, -4, 62, 7);
-  g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(-68, -4.6, 62, 1.4);
-  g.fillStyle = 'rgba(225,235,255,.5)'; g.fillRect(-68, -12, 62, 1.4);
-  g.fillStyle = ACERO[1]; g.fillRect(-68, -14, 62, 2);
-  g.fillStyle = '#e8d8a0'; g.beginPath(); g.arc(-65, -15, 1.6, 0, Math.PI * 2); g.fill();
-  g.fillStyle = ACERO[0]; g.fillRect(-70, -12, 2, 15);
-  g.restore();
-  const [hx, hy] = girar(PX, PY, ANG, 24, 12);
-  empunar(g, hx, hy, ANG - 0.55, false, -0.05);
-  if (fuego) for (const dy of [-8, 0]) { const [fx, fy] = girar(PX, PY, ANG, -72, dy); fogonazo(g, fx, fy, 22, 14); }
+  const cx = 82;
+  // dos cañones lado a lado, en perspectiva, con la costilla entre ellos y la mira de bolita
+  canonDoble(g, cx);
+  // guardamano de nogal con estrías
+  const guarda = [[cx - 15, 52], [cx + 15, 52], [cx + 19, 74], [cx - 19, 74]];
+  forma(g, guarda, nogalFrente(g, cx - 19, cx + 19));
+  trazo(g, guarda); cuadricula(g, cx - 20, 54, cx + 20, 74);
+  g.fillStyle = ACERO[1]; g.fillRect(cx - 17, 50, 34, 3);
+  // báscula de acero templado (vetas de color), con la palanca de apertura arriba
+  g.fillStyle = lineal(g, cx - 22, 0, cx + 22, 0, [[0, '#14161c'], [0.25, '#4a4058'], [0.42, '#9a8aa8'], [0.55, '#5a5068'], [1, '#14161c']]);
+  g.beginPath(); g.roundRect(cx - 22, 72, 44, 16, 4); g.fill();
+  g.fillStyle = 'rgba(210,180,120,.4)'; for (let i = 0; i < 7; i++) g.fillRect(cx - 15 + i * 5, 76 + (i % 2) * 5, 2, 2);
+  forma(g, [[cx - 3, 72], [cx + 3, 72], [cx + 9, 66], [cx + 12, 68], [cx + 4, 76], [cx - 3, 76]], aceroFrente(g, cx - 3, cx + 12));
+  // los dos martillos, uno a cada lado, con su espuela echada hacia atrás
+  for (const dx of [-1, 1]) {
+    const hx = cx + dx * 12;
+    forma(g, [[hx - 3, 82], [hx + 3, 82], [hx + 3 + dx * 2, 70], [hx + dx * 5, 66], [hx - 3 + dx * 3, 68]], aceroFrente(g, hx - 4, hx + 6));
+    g.fillStyle = 'rgba(0,0,0,.6)'; for (let i = 0; i < 3; i++) g.fillRect(hx - 2 + dx * 2, 68 + i * 2, 5, 1);
+  }
+  // culata de nogal y mano
+  const culata = [[cx - 16, 87], [cx + 16, 87], [cx + 22, 116], [cx - 22, 116]];
+  forma(g, culata, nogalFrente(g, cx - 22, cx + 22));
+  trazo(g, culata); cuadricula(g, cx - 22, 88, cx + 22, 116);
+  empunar(g, cx, 112, -0.06, false, -0.1);
+  if (fuego) for (const dx of [-5.5, 5.5]) fogonazo(g, cx + dx, 12, 20, 14);
   return pixelar(c);
+}
+
+function canonDoble(g, cx) {
+  const canon = (puntos, x0, x1) => forma(g, puntos, aceroFrente(g, x0, x1));
+  canon([[cx - 10, 16], [cx - 1, 16], [cx - 1, 54], [cx - 16, 54]], cx - 16, cx - 1);
+  canon([[cx + 1, 16], [cx + 10, 16], [cx + 16, 54], [cx + 1, 54]], cx + 1, cx + 16);
+  g.fillStyle = ACERO[0]; g.fillRect(cx - 1.5, 16, 3, 38);
+  g.fillStyle = ACERO[1]; g.fillRect(cx - 0.5, 16, 1, 38);
+  g.fillStyle = 'rgba(210,220,240,.5)'; g.fillRect(cx - 6, 18, 2, 32); g.fillRect(cx + 5, 18, 2, 32);
+  g.fillStyle = '#05060a';
+  for (const dx of [-5.5, 5.5]) { g.beginPath(); g.ellipse(cx + dx, 16, 3.8, 1.9, 0, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#e8d8a0'; g.beginPath(); g.arc(cx, 13.5, 1.6, 0, Math.PI * 2); g.fill();
 }
 
 // ---------- Tommy gun ----------
 
 function tommy(fuego) {
   const [c, g] = hoja();
-  const PX = 126, PY = 66, ANG = 0.62;
-  g.save(); g.translate(PX, PY); g.rotate(ANG); g.scale(E, E);
-  // culata (sale de la hoja) y empuñadura de pistola
-  forma(g, [[14, -9], [44, -4], [52, 8], [16, 4]], maderaLado(g, 0, -9, 0, 8));
-  const puno = [[6, 3], [16, 3], [23, 26], [20, 30], [12, 30]];
-  forma(g, puno, maderaLado(g, 6, 4, 22, 28));
-  trazo(g, puno); cuadricula(g, 6, 4, 24, 30);
-  // guardamonte
-  g.strokeStyle = ACERO[1]; g.lineWidth = 2.4;
-  g.beginPath(); g.moveTo(-6, 4); g.quadraticCurveTo(-7, 14, 0, 14); g.quadraticCurveTo(6, 14, 6, 5); g.stroke();
-  forma(g, [[-3, 3], [0, 3], [-1, 10], [-4, 11]], ACERO[0]);
-  // cajón de mecanismos, con la manija de carga y el alza
-  g.fillStyle = aceroLado(g, -11, 4); g.beginPath(); g.roundRect(-30, -11, 46, 15, 2); g.fill();
-  g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(-22, -6, 26, 1.5);
-  g.fillStyle = radial(g, -8, -13, 0, 3.5, [[0, ACERO[2]], [1, ACERO[0]]], -1, -1); g.beginPath(); g.arc(-8, -13, 3, 0, Math.PI * 2); g.fill();
-  g.fillStyle = ACERO[1]; g.fillRect(10, -15, 4, 4);
-  // cargador de tambor redondo, con su aro, la llave del resorte y remaches
-  g.fillStyle = radial(g, -10, 17, 2, 16, [[0, ACERO[2]], [0.5, ACERO[1]], [1, ACERO[0]]], -5, -6);
-  g.beginPath(); g.arc(-10, 17, 15, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 1.5; g.beginPath(); g.arc(-10, 17, 12, 0, Math.PI * 2); g.stroke();
-  g.strokeStyle = 'rgba(210,220,240,.35)'; g.lineWidth = 1; g.beginPath(); g.arc(-10, 17, 13.5, Math.PI * 1.1, Math.PI * 1.6); g.stroke();
-  g.fillStyle = ACERO[0]; g.beginPath(); g.arc(-10, 17, 4, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#cfae52'; g.fillRect(-12, 16, 4, 2);
-  g.fillStyle = ACERO[2]; for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.3; g.fillRect(-10 + Math.cos(a) * 9 - 0.7, 17 + Math.sin(a) * 9 - 0.7, 1.4, 1.4); }
-  // empuñadura delantera de nogal con muescas para los dedos
-  const delantera = [[-40, 0], [-30, 0], [-29, 20], [-32, 24], [-39, 24], [-41, 18]];
-  forma(g, delantera, maderaLado(g, -42, 0, -29, 0));
-  g.fillStyle = 'rgba(0,0,0,.35)'; for (const y of [7, 12, 17]) g.fillRect(-41, y, 4, 1.5);
-  // cañón con aletas de enfriamiento y compensador ranurado
-  g.fillStyle = aceroLado(g, -8, -1); g.fillRect(-62, -8, 32, 7);
-  for (let x = -60; x < -32; x += 3) { g.fillStyle = aceroLado(g, -10, 1); g.fillRect(x, -10, 1.8, 11); g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(x + 1.8, -9, 1.2, 9); }
-  g.fillStyle = aceroLado(g, -9, 0); g.beginPath(); g.roundRect(-74, -9, 12, 9, 1.5); g.fill();
-  g.fillStyle = '#06070a'; for (const x of [-71, -68, -65]) g.fillRect(x, -9, 1.4, 3);
-  g.fillStyle = '#e8d8a0'; g.fillRect(-72, -12, 2, 3);
-  g.restore();
-  const [hx, hy] = girar(PX, PY, ANG, 15, 16);
-  empunar(g, hx, hy, ANG - 0.3, false, -0.1);
-  if (fuego) { const [fx, fy] = girar(PX, PY, ANG, -78, -4); fogonazo(g, fx, fy, 18, 12); }
+  const cx = 82;
+  // cargador de tambor bajo el cajón, visto desde arriba y atrás: un disco ancho que asoma a ambos lados
+  g.fillStyle = ACERO[0]; g.beginPath(); g.ellipse(cx, 93, 25, 10, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = radial(g, cx, 89, 2, 26, [[0, ACERO[2]], [0.5, ACERO[1]], [1, ACERO[0]]], -8, -3);
+  g.beginPath(); g.ellipse(cx, 89, 25, 10, 0, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.4; g.beginPath(); g.ellipse(cx, 89, 19, 7, 0, 0, Math.PI * 2); g.stroke();
+  g.fillStyle = 'rgba(220,230,250,.4)'; g.beginPath(); g.ellipse(cx, 88, 23, 8, 0, Math.PI * 1.1, Math.PI * 1.55); g.lineTo(cx, 88); g.fill();
+  g.fillStyle = ACERO[2]; for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2; g.fillRect(cx + Math.cos(a) * 22 - 0.7, 89 + Math.sin(a) * 8.6 - 0.7, 1.4, 1.4); }
+  g.fillStyle = '#cfae52'; g.beginPath(); g.ellipse(cx - 17, 90, 3, 1.6, 0, 0, Math.PI * 2); g.fill();   // llave del resorte
+  // cañón con aletas de enfriamiento (anillos) y compensador ranurado en la punta
+  forma(g, [[cx - 4, 18], [cx + 4, 18], [cx + 7, 56], [cx - 7, 56]], aceroFrente(g, cx - 7, cx + 7));
+  for (let y = 24; y < 54; y += 3) {
+    const a = 5 + (y - 18) * 0.09;
+    g.fillStyle = 'rgba(0,0,0,.5)'; g.beginPath(); g.ellipse(cx, y + 1.2, a + 1.5, 1.1, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(200,215,240,.35)'; g.fillRect(cx - a, y, a * 2, 0.8);
+  }
+  g.fillStyle = aceroFrente(g, cx - 5, cx + 5); g.beginPath(); g.roundRect(cx - 5, 10, 10, 11, 2); g.fill();
+  g.fillStyle = '#06070a'; for (const y of [12, 15, 18]) g.fillRect(cx - 4, y, 8, 1.2);
+  g.fillStyle = '#e8d8a0'; g.fillRect(cx - 1, 7, 2, 3);
+  // empuñadura delantera de nogal, con muescas para los dedos
+  const delantera = [[cx - 9, 56], [cx + 9, 56], [cx + 11, 76], [cx - 11, 76]];
+  forma(g, delantera, nogalFrente(g, cx - 11, cx + 11));
+  g.fillStyle = 'rgba(0,0,0,.35)'; for (const y of [61, 66, 71]) g.fillRect(cx - 10, y, 20, 1.5);
+  // cajón de mecanismos con la manija de carga arriba y el alza de escalera
+  g.fillStyle = aceroFrente(g, cx - 15, cx + 15); g.beginPath(); g.roundRect(cx - 15, 74, 30, 16, 3); g.fill();
+  g.fillStyle = 'rgba(220,230,250,.35)'; g.fillRect(cx - 13, 75, 26, 1.5);
+  g.fillStyle = radial(g, cx, 73, 0, 4, [[0, ACERO[2]], [1, ACERO[0]]], -1, -1); g.beginPath(); g.arc(cx, 73, 3.4, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = ACERO[1]; g.lineWidth = 1.5; g.strokeRect(cx - 5, 80, 10, 7);
+  g.fillStyle = '#05060a'; g.fillRect(cx - 1, 80, 2, 3);
+  // culata y mano
+  const culata = [[cx - 12, 89], [cx + 12, 89], [cx + 20, 120], [cx - 20, 120]];
+  forma(g, culata, nogalFrente(g, cx - 20, cx + 20));
+  trazo(g, culata); cuadricula(g, cx - 20, 90, cx + 20, 120);
+  empunar(g, cx, 114, -0.06, false, -0.1);
+  if (fuego) fogonazo(g, cx, 8, 17, 12);
   return pixelar(c);
 }
 
