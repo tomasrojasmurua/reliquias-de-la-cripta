@@ -3,9 +3,9 @@
 export const COLOR = {
   fondo: '#e4cf9a',     // pergamino
   muro: '#3a2312',      // tinta
-  suelo: '#c9ae74',
-  completa: '#a9b878',  // suelo de una zona con todas sus reliquias
-  alto: '#ead9a8',      // el suelo más alto se pinta más claro
+  suelo: '#b59655',
+  completa: '#97aa63',  // suelo de una zona con todas sus reliquias
+  alto: '#d4b97c',      // el suelo más alto se pinta más claro
   lava: '#d4561c',
   abismo: '#3b3328',
   puerta: '#9a5a22',
