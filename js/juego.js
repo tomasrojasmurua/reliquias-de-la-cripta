@@ -36,8 +36,8 @@ const ENEMIGOS = {
   // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
-// Monstruos algo más blandos: menos vida y golpes más suaves y espaciados. Los guardianes se definen después y no cambian.
-const ESCALA_VIDA = 1.15, ESCALA_DAÑO = 0.9, ESCALA_ESPERA = 1.06;
+// Monstruos con algo menos de vida (el daño y el ritmo de golpes no cambian). Los guardianes se definen después y no cambian.
+const ESCALA_VIDA = 1.15, ESCALA_DAÑO = 1.05, ESCALA_ESPERA = 0.96;
 for (const e of Object.values(ENEMIGOS)) {
   e.vida = Math.round(e.vida * ESCALA_VIDA);
   e.daño = e.daño.map(n => Math.round(n * ESCALA_DAÑO));
