@@ -1057,15 +1057,30 @@ $('#btn-pausa').addEventListener('click', () => { pausar(); $('#pausa').hidden =
 function actualizarHUD() {
   const j = juego.j;
   $('#hud-vida').textContent = j.vida;
-  $('#hud-vida-barra').style.width = `${Math.max(0, Math.min(100, j.vida))}%`;
+  const pv = `${Math.max(0, Math.min(100, j.vida))}%`;
+  $('#hud-vida-barra').style.width = pv;
+  $('#hud-vida-rastro').style.width = pv;   // se queda atrás un momento (transición con retardo en el CSS)
   const cv = $('#hud-vida').parentElement;
   cv.classList.toggle('baja', j.vida <= 25);
   cv.classList.toggle('media', j.vida > 25 && j.vida <= 50);
-  $('#hud-arma').textContent = { revolver: 'Revólver', escopeta: 'Escopeta', tommy: 'Tommy gun' }[j.arma] || 'Látigo';
-  $('#hud-arma').closest('.caja').dataset.arma = j.arma;
-  const carga = { revolver: j.tambor, escopeta: j.tubo, tommy: j.cargador }[j.arma];
-  $('#hud-arma').closest('.caja').classList.toggle('vacia', carga === 0);
-  $('#hud-balas').textContent = j.arma === 'tommy' ? `${j.cargador} | ${j.reservaT}` : j.arma === 'escopeta' ? `${j.tubo} | ${j.reservaE}` : j.arma === 'revolver' || j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : j.tieneEscopeta ? `${j.tubo} | ${j.reservaE}` : '—';
+  // el arma que llevas: su dibujo, las balas cargadas (una por una en el revólver y la escopeta) y la reserva
+  const caja = $('#hud-arma').closest('.caja');
+  const datos = { revolver: ['Revólver', j.tambor, j.reserva, 6], escopeta: ['Escopeta', j.tubo, j.reservaE, 2], tommy: ['Tommy gun', j.cargador, j.reservaT, 30] }[j.arma];
+  caja.dataset.arma = j.arma;
+  caja.classList.toggle('sin-municion', !datos);
+  caja.classList.toggle('vacia', !!datos && datos[1] === 0);
+  $('#hud-arma').textContent = datos ? datos[0] : 'Látigo';
+  if (datos) {
+    const [, carga, reserva, cabe] = datos;
+    $('#hud-balas').textContent = carga;
+    $('#hud-reserva').textContent = `/ ${reserva}`;
+    const pips = $('#hud-pips'), clave = `${j.arma}:${carga}`;
+    if (pips.dataset.clave !== clave) {
+      pips.dataset.clave = clave;
+      pips.innerHTML = cabe > 8 ? `<span class="tira" style="--lleno:${Math.round(carga / cabe * 100)}%"></span>`
+        : Array.from({ length: cabe }, (_, k) => `<i class="${k < carga ? '' : 'gastada'}"></i>`).join('');
+    }
+  }
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;
   if (juego.limite) {

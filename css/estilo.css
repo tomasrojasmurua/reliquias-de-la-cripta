@@ -336,30 +336,57 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }
 #hud-reloj.urgente { color: #ff5a4a; border-color: #8a2a1a; animation: latido 1s infinite; }
-#hud { position: absolute; left: max(10px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); display: flex; align-items: stretch; gap: 8px; pointer-events: none; z-index: 2; }
-#hud .caja { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 4px 12px; background: rgba(18, 13, 8, .6); border: 1px solid rgba(232, 184, 58, .35); border-radius: 12px; backdrop-filter: blur(2px); }
-#hud svg { flex: none; width: 28px; height: 28px; fill: currentColor; }
-#hud svg .trazo { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
-#hud svg .linea { fill: none; stroke: rgba(18, 13, 8, .55); stroke-width: 1; }
-#hud b { white-space: nowrap; font: 700 22px 'Courier New', monospace; line-height: 1; color: #f1e4c8; text-shadow: 0 1px 3px #000; }
-#hud small { display: block; margin-bottom: 2px; color: var(--suave); font-size: 11px; line-height: 1; text-transform: uppercase; letter-spacing: 1px; }
-#hud .vida svg { color: #e0453a; }
-#hud .medidor { width: 96px; height: 14px; background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .25); border-radius: 7px; overflow: hidden; }
-#hud .medidor i { display: block; height: 100%; width: 100%; background: linear-gradient(#6fdc7a, #2f9a45); border-radius: 6px; transition: width .2s, background .3s; }
-#hud .vida.media .medidor i { background: linear-gradient(#ffd25a, #d9962a); }
+/* abajo a la izquierda: tesoros y puntos sobre la vida; el arma en la esquina derecha. Así el centro y el arma en la mano quedan libres */
+#hud { position: absolute; left: max(10px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: none; z-index: 2; }
+#hud .fila { display: flex; gap: 6px; }
+#hud .fila .caja { min-height: 42px; }
+#hud .fila .icono { width: 28px; height: 28px; }
+#hud .fila b { font-size: 21px; }
+#hud .arma { position: fixed; right: max(10px, env(safe-area-inset-right)); bottom: max(8px, env(safe-area-inset-bottom)); }
+#hud .caja { display: flex; align-items: center; gap: 9px; min-height: 52px; padding: 4px 12px 4px 9px; background: linear-gradient(rgba(46, 34, 22, .74), rgba(14, 10, 6, .74)); border: 1px solid rgba(232, 184, 58, .45); border-radius: 11px; box-shadow: inset 0 1px 0 rgba(255, 230, 180, .16), inset 0 -2px 6px rgba(0, 0, 0, .35), 0 3px 10px rgba(0, 0, 0, .45); }
+#hud .icono { flex: none; width: 34px; height: 34px; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .6)); }
+#hud b { white-space: nowrap; font: 700 24px 'Courier New', monospace; line-height: 1; color: #f1e4c8; text-shadow: 0 2px 2px #000, 0 0 8px rgba(0, 0, 0, .5); }
+#hud small { display: block; color: #c9b48a; font: 700 10px Cinzel, Georgia, serif; letter-spacing: .14em; line-height: 1; text-transform: uppercase; }
+/* vida: barra por cuartos, con un rastro claro que se queda atrás un momento al recibir daño */
+#hud .medidor { position: relative; width: 120px; height: 16px; background: linear-gradient(#0c0805, #2a1e14); border: 1px solid rgba(0, 0, 0, .9); border-radius: 8px; box-shadow: 0 0 0 1px rgba(232, 184, 58, .35); overflow: hidden; }
+#hud .medidor i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 7px; }
+#hud .medidor .barra { background: linear-gradient(#a8f0a0, #4cc25a 45%, #23803a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45); transition: width .15s, background .3s; }
+#hud .medidor .rastro { background: #ffe0a0; transition: width .5s ease-in .35s; }
+#hud .medidor::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 1px), rgba(0, 0, 0, .55) calc(25% - 1px) 25%); pointer-events: none; }
+#hud .vida.media .barra { background: linear-gradient(#ffe88a, #f0b02a 45%, #b06a10); }
 #hud .vida.media b { color: #ffd25a; }
-#hud .vida.baja .medidor i { background: linear-gradient(#ff6a5a, #c0261a); }
+#hud .vida.baja .barra { background: linear-gradient(#ff9a8a, #e0402e 45%, #8a1410); }
 #hud .vida.baja b { color: #ff6a5a; }
-#hud .vida.baja { border-color: #ff5a4a; animation: latido 1s infinite; }
-#hud .arma svg { display: none; color: #cfd3da; }
+#hud .vida.baja { border-color: #ff5a4a; animation: alarma 1s infinite; }
+@keyframes alarma { 50% { box-shadow: inset 0 1px 0 rgba(255, 230, 180, .16), 0 0 16px 3px rgba(255, 60, 40, .55); } }
+#hud .vida b { min-width: 2.2ch; text-align: right; }
+/* arma: dibujo de la que llevas, nombre, balas cargadas, reserva y cada bala del tambor */
+#hud .arma .icono { display: none; width: 44px; height: 44px; margin: -4px 0; }
 #hud .arma[data-arma="latigo"] .ic-latigo, #hud .arma[data-arma="revolver"] .ic-revolver, #hud .arma[data-arma="escopeta"] .ic-escopeta, #hud .arma[data-arma="tommy"] .ic-tommy { display: block; }
-#hud .arma .dato { min-width: 64px; text-align: left; }
+#hud .icono .acero { fill: #aeb6c4; } #hud .icono .claro { fill: #d8dde6; } #hud .icono .oscuro { fill: #5a6270; } #hud .icono .templado { fill: #7a6e84; }
+#hud .icono .madera { fill: #b0703a; } #hud .icono .laton { fill: #ffd36a; } #hud .icono .brillo { fill: rgba(255, 255, 255, .75); }
+#hud .icono .aro { fill: none; stroke: #8a92a0; stroke-width: 1.4; stroke-linecap: round; } #hud .icono .aro.fino { stroke-width: 1; }
+#hud .icono .estria { fill: none; stroke: #3a3e4a; stroke-width: .9; }
+#hud .icono .cuero { fill: none; stroke: #c48a52; stroke-width: 1.9; stroke-linecap: round; } #hud .icono .cuero.fino { stroke-width: 1.2; }
+#hud .icono :is(.acero, .claro, .oscuro, .templado, .madera) { stroke: #12100c; stroke-width: .6; }
+#hud .arma .dato { min-width: 70px; text-align: left; }
+#hud .carga { display: flex; align-items: baseline; gap: 5px; margin-top: 3px; }
+#hud .reserva { color: #a8987a; font: 700 14px 'Courier New', monospace; text-shadow: 0 1px 2px #000; }
+#hud .pips { display: flex; gap: 2px; margin-top: 4px; min-height: 0; }
+#hud .pips:empty { display: none; }
+#hud .pips i { width: 5px; height: 9px; border-radius: 3px 3px 1px 1px; background: linear-gradient(90deg, #8a5a16, #ffd36a 45%, #b07a20); box-shadow: 0 0 0 1px rgba(0, 0, 0, .8); }
+#hud .pips i.gastada { background: rgba(0, 0, 0, .55); box-shadow: inset 0 0 0 1px rgba(232, 184, 58, .35); }
+#hud .arma[data-arma="escopeta"] .pips i { width: 8px; height: 11px; border-radius: 2px; background: linear-gradient(90deg, #6a1410, #d84a32 45%, #8a2010); }
+#hud .arma[data-arma="escopeta"] .pips i.gastada { background: rgba(0, 0, 0, .55); }
+#hud .pips .tira { width: 70px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, .55); box-shadow: 0 0 0 1px rgba(0, 0, 0, .8); overflow: hidden; }
+#hud .pips .tira::before { content: ''; display: block; height: 100%; width: var(--lleno, 100%); background: linear-gradient(#ffe08a, #c08a20); }
+#hud .arma.sin-municion .carga, #hud .arma.sin-municion .pips { display: none; }
+#hud .arma.sin-municion small { font-size: 13px; }
 #hud .arma.vacia b { color: #ff6a5a; }
-#hud .tesoros svg { color: #ffd34d; }
+#hud .arma.vacia .icono { animation: latido .8s infinite; }
 #hud .tesoros b { color: #ffd34d; }
-#hud .palanca svg { color: #9fd0ff; }
-#hud .puntos svg { color: #ffb347; }
 #hud .puntos b { color: #ffe08a; }
+#hud .palanca { padding: 4px 9px; }
 @keyframes latido { 50% { opacity: .5; } }
 
 .capa { position: absolute; inset: 0; z-index: 5; background: rgba(10, 7, 4, .82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; touch-action: pan-y; overflow-y: auto; }
@@ -422,11 +449,29 @@ body.tactil .fila.solo-tactil { display: grid; }
 body.tactil p.solo-tactil { display: block; }
 body.tactil.zurdo #hud { left: auto; right: 12px; }
 body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-inset-bottom)); }
+/* en táctil (y en pantallas bajas) la esquina derecha es del botón de atacar: el arma va junto a los tesoros, sobre la vida */
+body.tactil #hud { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: end; }
+body.tactil #hud .arma { position: static; grid-row: 1; grid-column: 1; }
+body.tactil #hud .fila { grid-row: 1; grid-column: 2; }
+body.tactil #hud .vida { grid-row: 2; grid-column: 1 / span 2; justify-self: start; }
+/* pantallas bajas (celular acostado): todo en una sola fila compacta */
+@media (max-height: 460px) {
+  #hud { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: end; gap: 5px; }
+  #hud .arma { position: static; grid-row: 1; grid-column: 1; }
+  #hud .fila { grid-row: 1; grid-column: 2; gap: 5px; }
+  #hud .vida { grid-row: 2; grid-column: 1 / span 2; justify-self: start; }
+  #hud .caja, #hud .fila .caja { min-height: 36px; padding: 2px 8px 2px 6px; gap: 6px; }
+  #hud .icono, #hud .fila .icono { width: 22px; height: 22px; }
+  #hud .arma .icono { width: 32px; height: 32px; margin: -2px 0; }
+  #hud b, #hud .fila b { font-size: 17px; }
+  #hud .medidor { width: 90px; height: 12px; }
+  #hud .pips { margin-top: 2px; }
+}
 /* en táctil el recuadro del arma es el botón para cambiarla */
 body.tactil #hud .caja[data-tactil] { pointer-events: auto; position: relative; }
 body.tactil #hud .caja[data-tactil]::after { content: '⇄'; position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); font-size: 13px; line-height: 20px; text-align: center; color: var(--oro); }
 body.tactil #hud .caja.pulsado { border-color: var(--oro); background: rgba(232, 184, 58, .3); }
-@media (max-width: 520px) { #hud { gap: 5px; } #hud .caja { min-height: 40px; padding: 3px 8px; gap: 5px; } #hud svg { width: 22px; height: 22px; } #hud b { font-size: 18px; } #hud .medidor { width: 64px; } #hud small { font-size: 9px; } #hud .arma .dato { min-width: 48px; } }
+@media (max-width: 620px) { #hud { gap: 5px; } #hud .caja { min-height: 44px; padding: 3px 8px 3px 6px; gap: 6px; } #hud .icono { width: 26px; height: 26px; } #hud .arma .icono { width: 34px; height: 34px; } #hud b { font-size: 19px; } #hud .medidor { width: 64px; height: 13px; } #hud .reserva { font-size: 12px; } #hud .arma .dato { min-width: 54px; } #hud .pips .tira { width: 50px; } }
 @media (max-width: 420px) {
   .menu .pieza, .menu .pieza:hover { width: 70px; height: 82px; }
   .pieza canvas { width: 56px; height: 56px; }
