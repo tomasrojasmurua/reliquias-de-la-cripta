@@ -99,14 +99,12 @@ const DAÑO_CAZADOR = 0.6, DAÑO_CAZADOR_TOMMY = 0.45, TREGUA_INICIAL = 10, TREG
 const VEL_FUEGO = 5.5, VEL_FLECHA = 9;
 
 export class Juego {
-  // `opciones.limite`: segundos del contrarreloj (0 = exploración libre, sin reloj).
-  // `opciones.modificadores`: los de la expedición del día (js/diaria.js).
+  // `opciones.limite`: segundos que dura la expedición (0 = sin reloj).
   // `opciones.real`: el reloj sigue la hora real, como en una sala, donde nadie puede detener el tiempo.
   constructor(def, eventos, semilla, opciones = {}) {
     this.def = def;
     this.limite = opciones.limite || 0;
-    this.mods = new Set(opciones.modificadores || []);
-    this.vidaInicial = this.mods.has('herido') ? 60 : 100;
+    this.vidaInicial = 100;
     this.reloj = 0;
     this.real = !!opciones.real;
     this.rol = opciones.rol || null;   // en una sala: 'anfitrion' (simula a los enemigos) o 'invitado' (los copia del anfitrión)
@@ -129,12 +127,10 @@ export class Juego {
     this.objetos = m.objetos.map((o, n) => ({ ...o, n, fase: Math.random() * 6 }));   // `n`: el puesto fijo del objeto, igual para todos en una sala
     this.guardian = this.colocarGuardian();
     this.enemigosIniciales = this.enemigos.length;   // los que se suman después (siervos del guardián) viajan con su tipo
-    if (this.mods.has('despierta')) for (const e of this.enemigos) { e.vista *= 1.5; e.vel *= 1.15; }
     this.tesoros = [];
     this.secretos = 0;
     this.abatidos = 0;
     this.ayudas = 0;
-    this.bonoAcertijos = 0;   // puntos por descifrar tablillas sin ayuda
     this.tiempo = 0;
     this.fogonazo = 0;
     this.particulas = [];
@@ -920,16 +916,15 @@ export class Juego {
   }
 
   // `por`: en una sala, el cazador que se adelantó a descifrarla (el sello se abre igual, pero sin puntos para mí).
-  resolverAcertijo(a, bono = 0, por = null, tarde = false) {
+  resolverAcertijo(a, por = null, tarde = false) {
     a.resuelto = true;
-    this.bonoAcertijos += bono;
     this.abrirSellos(a);
     // la tablilla se agrieta: el hechizo que mantenía cerrada la puerta se disipa
     for (const c of this.mapa.celdas) if (c.tipo === 'tablilla' && c.acertijo === a.id && !c.tex.endsWith('_rota')) c.tex += '_rota';
     this.ev.reconstruir?.();
     sonar('puerta');
     if (por) { this.ev.mensaje(tarde ? `¡Llegaste tarde! ${por} descifró «${a.titulo}» antes. El sello se abre.` : `${por} descifró «${a.titulo}». El sello se abre.`, 4); return; }
-    this.ev.mensaje(bono ? `Se oye un mecanismo antiguo. El sello se abre. ¡Sin ayudas! +${bono} punto${bono === 1 ? '' : 's'}` : 'Se oye un mecanismo antiguo. El sello se abre.');
+    this.ev.mensaje('Se oye un mecanismo antiguo. El sello se abre.');
   }
 
   // Abre el sello con la palanca de hierro. No cuenta como acertijo resuelto: la tablilla sigue sin descifrar.
@@ -948,7 +943,7 @@ export class Juego {
     this.ev.salida(this.resumen());
   }
 
-  // ---------- Contrarreloj ----------
+  // ---------- Reloj ----------
 
   // Corre aparte de `actualizar` para que no se detenga mientras lees una tablilla.
   avanzarReloj(dt) {
@@ -972,10 +967,10 @@ export class Juego {
   // En el último minuto las antorchas de los muros se apagan poco a poco (1 = luz normal).
   penumbra() { return this.limite ? 0.35 + 0.65 * Math.min(1, this.restante() / 60) : 1; }
 
-  // Puntos según la rareza de cada tesoro (común 1, raro 3, épico 8, legendario 20), más el bono de los acertijos sin ayuda.
-  puntos() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0) + this.bonoAcertijos; }
+  // Puntos según la rareza de cada tesoro (común 1, raro 3, épico 8, legendario 20): el marcador de las salas.
+  puntos() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0); }
 
-  // En el contrarreloj morir no termina la partida: sueltas tu último tesoro y reapareces en el inicio.
+  // En una sala morir no termina la partida: sueltas tu último tesoro y reapareces en tu puesto.
   caer() {
     const j = this.j, id = this.tesoros.pop();
     const o = id && this.objetos.find(q => q.tipo === 'tesoro' && q.tesoro === id);
@@ -1016,7 +1011,7 @@ export class Juego {
       secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
       abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,
       acertijos: Object.values(this.mapa.acertijos).filter(a => a.resuelto && !a.ajeno).length,
-      totalAcertijos: Object.keys(this.mapa.acertijos).length, bonoAcertijos: this.bonoAcertijos,
+      totalAcertijos: Object.keys(this.mapa.acertijos).length,
     };
   }
 
@@ -1037,25 +1032,25 @@ export class Juego {
       }
       if (o.cogido || Math.hypot(o.x - j.x, o.z - j.z) > 0.55) continue;
       if (o.tipo === 'revolver') {
-        const n = this.mods.has('escasez') ? 3 : 6;
+        const n = 6;
         o.cogido = true; j.tieneRevolver = true; j.tambor = n; j.arma = 'revolver'; j.espera = 0.4;
         sonar('recoger'); this.ev.mensaje(`¡Encontraste tu revólver! Cargado con ${n} balas.`);
       } else if (o.tipo === 'escopeta') {
-        const n = this.mods.has('escasez') ? 1 : TUBO;
+        const n = TUBO;
         o.cogido = true; j.tieneEscopeta = true; j.tubo = n; j.arma = 'escopeta'; j.espera = 0.4;
         sonar('recoger'); this.ev.mensaje(`¡Una escopeta! Dos cañones, de cerca es devastadora. Cargada con ${n} cartucho${n === 1 ? '' : 's'}.`, 5);
       } else if (o.tipo === 'tommy') {
-        const n = this.mods.has('escasez') ? 15 : CARGADOR, r = this.mods.has('escasez') ? 15 : 30;
+        const n = CARGADOR, r = 30;
         o.cogido = true; j.tieneTommy = true; j.cargador = n; j.reservaT = Math.min(MAX_TAMBOR, j.reservaT + r); j.arma = 'tommy'; j.espera = 0.4;
         sonar('recoger'); this.ev.mensaje(`¡Una Tommy gun! Mantén el disparo para la ráfaga. Cargador con ${n} balas.`, 5);
       } else if (o.tipo === 'municionT') {
         if (j.reservaT >= MAX_TAMBOR) continue;
-        const n = this.mods.has('escasez') ? 15 : 30;
+        const n = 30;
         o.cogido = true; j.reservaT = Math.min(MAX_TAMBOR, j.reservaT + n);
         sonar('recoger'); this.ev.mensaje(`Un cargador de tambor (+${n}).`);
       } else if (o.tipo === 'cartuchos') {
         if (j.reservaE >= MAX_CARTUCHOS) continue;
-        const n = this.mods.has('escasez') ? 3 : 6;
+        const n = 6;
         o.cogido = true; j.reservaE = Math.min(MAX_CARTUCHOS, j.reservaE + n);
         sonar('recoger'); this.ev.mensaje(`Una caja de cartuchos (+${n}).`);
       } else if (o.tipo === 'barreta') {
@@ -1063,7 +1058,7 @@ export class Juego {
         sonar('palanca'); this.ev.mensaje('¡Una palanca de hierro! Sirve para forzar un sello sin descifrar su tablilla, pero solo una vez.', 5);
       } else if (o.tipo === 'balas') {
         if (j.reserva >= 60) continue;
-        const n = this.mods.has('escasez') ? 6 : 12;
+        const n = 12;
         o.cogido = true; j.reserva = Math.min(60, j.reserva + n);
         sonar('recoger'); this.ev.mensaje(`Una caja de balas (+${n}).`);
       } else if (o.tipo === 'vendas') {

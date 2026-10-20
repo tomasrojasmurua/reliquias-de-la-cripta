@@ -152,7 +152,7 @@ function revisarMapa(def, m, donde, juego) {
   }
 }
 
-// Mismas semillas, misma mazmorra (lo necesitan la contrarreloj y una futura expedición diaria).
+// Mismas semillas, misma mazmorra (lo necesitan las salas, donde todos entran a la misma cripta).
 function firma(m) {
   return m.celdas.map(c => c.tipo[0]).join('') + JSON.stringify(m.objetos);
 }

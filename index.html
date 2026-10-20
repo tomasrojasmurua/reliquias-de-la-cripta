@@ -29,10 +29,8 @@
   </header>
   <nav class="losas">
     <button data-ir="mazmorras" class="principal">Entrar</button>
-    <button data-ir="diaria" class="diaria">Expedición del día</button>
     <button data-ir="unirse">Unirse a una sala</button>
     <button data-ir="coleccion">Tesoros</button>
-    <button data-ir="cuaderno">Cuaderno</button>
     <button data-ir="ayuda">Cómo jugar</button>
     <button data-ir="opciones">Opciones</button>
   </nav>
@@ -60,7 +58,6 @@
       <p class="rotulo">Modo</p>
       <div class="fila segmento">
         <button data-modo="explorar">Explorar</button>
-        <button data-modo="contrarreloj">Contrarreloj</button>
         <button data-modo="sala">Con amigos</button>
       </div>
       <p class="nota" id="nota-modo"></p>
@@ -74,7 +71,7 @@
       </div>
       <p class="nota" id="nota-tamano"></p>
     </div>
-    <div class="grupo" id="prep-tiempo">
+    <div class="grupo" id="prep-tiempo" hidden>
       <p class="rotulo">Tiempo</p>
       <div class="fila segmento">
         <button data-ritmo="0"></button>
@@ -142,39 +139,6 @@
   </div>
 </section>
 
-<section id="diaria" class="pantalla menu con-accion" hidden>
-  <header class="cabecera">
-    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Expedición del día</h2>
-  </header>
-  <p class="sub" id="diaria-sub"></p>
-  <div class="ajustes">
-    <div class="grupo">
-      <p class="rotulo">La cripta de hoy</p>
-      <div class="titulo-mazmorra"><i class="marco-emblema" id="diaria-emblema"></i><strong id="diaria-nombre"></strong></div>
-      <p class="nota" id="diaria-desc"></p>
-    </div>
-    <div class="grupo">
-      <p class="rotulo">Modificadores</p>
-      <ul id="diaria-mods"></ul>
-    </div>
-    <div class="grupo">
-      <p class="rotulo">Tu expedición</p>
-      <p class="nota" id="diaria-estado"></p>
-    </div>
-    <div class="grupo" id="diaria-ranking" hidden>
-      <p class="rotulo">Ranking de hoy</p>
-      <label class="campo-nombre">Tu nombre <input id="diaria-jugador" maxlength="20" autocomplete="nickname" placeholder="Cazador sin nombre"></label>
-      <ol id="diaria-tabla"></ol>
-      <p class="nota" id="diaria-ranking-nota"></p>
-    </div>
-  </div>
-  <div class="accion-fija">
-    <button id="btn-diaria-compartir" hidden>Compartir</button>
-    <button id="btn-diaria" class="principal">Partir</button>
-  </div>
-</section>
-
 <section id="coleccion" class="pantalla menu" hidden>
   <header class="cabecera">
     <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -199,16 +163,6 @@
   </div>
 </section>
 
-<section id="cuaderno" class="pantalla menu" hidden>
-  <header class="cabecera">
-    <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <h2>Cuaderno del cazador</h2>
-  </header>
-  <div id="rango-cuaderno"></div>
-  <p id="resumen-cuaderno"></p>
-  <div id="lista-cuaderno"></div>
-</section>
-
 <section id="ayuda" class="pantalla menu" hidden>
   <header class="cabecera">
     <button class="atras" data-ir="portada" aria-label="Volver"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
@@ -216,7 +170,7 @@
   </header>
   <div class="texto">
     <p>Las mazmorras están a oscuras: tu <b>antorcha</b> ilumina solo lo que tienes cerca. Explora cada mazmorra y reúne sus tesoros. Empiezas solo con tu látigo: busca el <b>revólver</b> y sus <b>balas</b>.</p>
-    <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro. Si la descifras <b>sin pedir ayuda</b> ganas tantos puntos extra como estrellas tenga, y el <b>Cuaderno</b> de la portada guarda cada inscripción que resuelves y te da un rango.</p>
+    <p>Las <b>tablillas</b> grabadas en los muros guardan pistas crípticas. Descífralas para abrir los <b>sellos</b> que custodian las cámaras. Cuanto más difícil la pista, más valioso el tesoro.</p>
     <details class="guia-acertijos">
       <summary>Cómo se resuelve una tablilla</summary>
       <p>Cada pista dice lo mismo <b>por dos caminos</b>: una <b>definición</b>, que va siempre al principio o al final, y un <b>juego de palabras</b> hecho con el resto. La respuesta es la palabra donde coinciden. El número entre paréntesis son sus letras: <i>(3)</i> es una palabra de tres, <i>(3,6)</i> son dos palabras. Las tildes no cuentan.</p>
@@ -232,7 +186,7 @@
         <li><b>Palabra escondida:</b> la respuesta está escrita dentro de la frase.</li>
         <li><b>Doble definición:</b> dos significados de la misma palabra.</li>
       </ul>
-      <p><b>Pedir ayuda</b> la va dando de a poco: el tipo de juego, la definición resaltada, el indicador y el relleno, y por último la primera letra. Nunca se muestra la solución. Sin ayudas ganas puntos extra y el Cuaderno lo recuerda.</p>
+      <p><b>Pedir ayuda</b> la va dando de a poco: el tipo de juego, la definición resaltada, el indicador y el relleno, y por último la primera letra. Nunca se muestra la solución.</p>
       <p>Algunas cámaras no usan palabras sino <b>palancas</b>: bájalas en el orden que cumpla todas las pistas. Si hay un sello que no logras abrir, la <b>palanca de hierro</b> escondida en la cripta lo fuerza, pero se rompe tras un solo uso.</p>
     </details>
     <p>Algunos muros tienen grietas. Empújalos: cada mazmorra esconde al menos un <b>pasadizo secreto</b>.</p>
@@ -411,7 +365,6 @@
   <div class="accion-fija">
     <button class="atras-texto" data-ir="mazmorras">Otra mazmorra</button>
     <button id="btn-volver-sala" hidden>Volver a la sala</button>
-    <button id="btn-compartir" hidden>Compartir</button>
     <button id="btn-reintentar" class="principal">Jugar de nuevo</button>
   </div>
 </section>

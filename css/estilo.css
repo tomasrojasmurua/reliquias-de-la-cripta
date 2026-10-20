@@ -255,17 +255,6 @@ body.jugando #escena { display: none; }
 #resumen .tesoros { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
 
 /* Expedición del día */
-.losas button.diaria { border-color: #a8761f; color: var(--oro); }
-#diaria .titulo-mazmorra { justify-content: center; padding-right: 0; }
-#diaria-nombre { font-family: Cinzel, Georgia, serif; font-weight: 800; color: var(--oro); font-size: 18px; letter-spacing: .04em; }
-#diaria-mods { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-#diaria-mods li { text-align: center; color: #e6d6b4; font-style: italic; font-size: 14px; }
-#diaria-ranking .campo-nombre { display: flex; align-items: center; gap: 8px; justify-content: center; font-size: 14px; color: #d8c49a; }
-#diaria-jugador { font: inherit; color: var(--texto); background: rgba(0, 0, 0, .4); border: 1px solid #5a4630; border-radius: 4px; padding: 6px 8px; width: 12em; }
-#diaria-tabla { margin: 0; padding: 0 0 0 26px; font-size: 15px; line-height: 1.6; }
-#diaria-tabla li.yo { color: var(--oro); font-weight: bold; }
-#diaria-tabla small { color: var(--suave); }
-#diaria-mods b { display: block; font: 700 14px Cinzel, Georgia, serif; font-style: normal; letter-spacing: .08em; color: #ff9a6a; }
 
 /* ---------- Salas con amigos ---------- */
 
@@ -566,21 +555,6 @@ body.tactil #hud .arma.pulsado { border-color: var(--oro); background: rgba(232,
 .palanca.bajada { opacity: .45; transform: translateY(4px); }
 
 /* Cuaderno del cazador */
-#rango-cuaderno { text-align: center; width: min(520px, 100%); }
-#rango-cuaderno h3 { margin: 0; font-size: 22px; letter-spacing: .08em; color: var(--oro); }
-#rango-cuaderno p { margin: 4px 0 8px; color: var(--suave); font-style: italic; }
-.barra-rango { height: 8px; border-radius: 4px; background: rgba(0, 0, 0, .5); border: 1px solid #5a4020; overflow: hidden; }
-.barra-rango i { display: block; height: 100%; background: linear-gradient(90deg, #9a6c1c, #e8b83a); }
-#resumen-cuaderno { color: #d8c49a; font-style: italic; margin: 0; text-align: center; }
-#lista-cuaderno { width: min(640px, 100%); display: grid; gap: 8px; }
-#lista-cuaderno .vacio { text-align: center; color: var(--suave); font-style: italic; }
-.entrada-cuaderno { background: rgba(20, 14, 8, .8); border: 1px solid #5a4020; border-radius: 6px; padding: 10px 12px; color: #e8dcc0; }
-.entrada-cuaderno summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
-.entrada-cuaderno summary b { color: var(--oro); letter-spacing: 1px; }
-.entrada-cuaderno .resp { font-weight: bold; letter-spacing: .08em; flex: 1 1 auto; }
-.entrada-cuaderno .sin-ayuda { color: #8fdc9a; }
-.entrada-cuaderno p { margin: 8px 0 0; font-size: 15px; line-height: 1.4; }
-.entrada-cuaderno .pista-cuaderno { font-style: italic; }
 
 /* Cómo jugar: guía plegable de acertijos */
 .guia-acertijos { margin: 12px 0; border: 1px solid #4a3a26; border-radius: 4px; background: rgba(40, 28, 14, .55); }
