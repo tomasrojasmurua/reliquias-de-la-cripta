@@ -73,7 +73,7 @@ function pistaResaltada(p, nivel) {
     if (i >= 0) marcas.push({ ini: i, fin: i + frag.length, clase });
   };
   if (nivel >= 2) p.definicion.forEach(f => poner(f, 'def'));
-  if (nivel >= 3) { poner(p.indicador, 'ind'); p.relleno.forEach(f => poner(f, 'rel')); }
+  if (nivel >= 3) { p.indicador.forEach(f => poner(f, 'ind')); p.relleno.forEach(f => poner(f, 'rel')); }
   marcas.sort((a, b) => a.ini - b.ini);
   let html = '', pos = 0;
   for (const m of marcas) {
@@ -130,7 +130,7 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
     const ayudas = [];
     if (estado.nivel >= 1) ayudas.push(`<b>Tipo:</b> ${p().tipo}. ${TIPOS[p().tipo] || ''}`);
     if (estado.nivel >= 2) ayudas.push(`<b>Definición</b> <mark class="def">resaltada</mark>: la respuesta significa eso.`);
-    if (estado.nivel >= 3) ayudas.push(p().indicador || p().relleno.length
+    if (estado.nivel >= 3) ayudas.push(p().indicador.length || p().relleno.length
       ? `<mark class="ind">Indicador</mark> y <mark class="rel">relleno</mark> resaltados.`
       : 'Esta pista no tiene indicador ni relleno.');
     if (estado.nivel >= 4) ayudas.push(`<b>Primera letra:</b> ${normalizar(respuesta())[0]}`);

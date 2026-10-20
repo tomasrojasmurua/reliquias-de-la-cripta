@@ -26,7 +26,7 @@ for p in banco["pistas"]:
     ])
 
 js = ("// Generado por herramientas/generar-pistas.py. No editar a mano.\n"
-      "// [id, fecha, pista, longitud, tipo, definicion[], indicador, relleno[], dificultad, respuesta*, explicacion*]\n"
+      "// [id, fecha, pista, longitud, tipo, definicion[], indicador[], relleno[], dificultad, respuesta*, explicacion*]\n"
       "export const PISTAS = [\n"
       + ",\n".join(json.dumps(f, ensure_ascii=False) for f in filas)
       + "\n];\n")
