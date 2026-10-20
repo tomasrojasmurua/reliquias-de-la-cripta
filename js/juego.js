@@ -160,22 +160,25 @@ export class Juego {
       return c && c.tipo === 'suelo' && !c.peligro && !c.trampa && !c.estatua && !ocupada.has(x + ',' + z);
     };
     // la casilla libre más cercana a dos pasos o más, a la que se llega desde la reliquia sin cruzar muros ni puertas
-    const junto = (mx, mz) => {
+    const junto = (mx, mz, minimo = 2, alcance = 5, pasoCerrado = false) => {
       const dist = new Map([[mx + ',' + mz, 0]]), cola = [[mx, mz]];
       while (cola.length) {
         const [x, z] = cola.shift(), d = dist.get(x + ',' + z);
-        if (d >= 2 && libre(x, z)) return [x, z];
-        if (d >= 5) continue;
+        if (d >= minimo && libre(x, z)) return [x, z];
+        if (d >= alcance) continue;
         for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const k = (x + dx) + ',' + (z + dz);
-          if (dist.has(k) || m.solida(x + dx, z + dz)) continue;
+          if (dist.has(k) || (m.solida(x + dx, z + dz) && !(pasoCerrado && ['secreto', 'sello'].includes(m.celda(x + dx, z + dz)?.tipo)))) continue;
           dist.set(k, d + 1); cola.push([x + dx, z + dz]);
         }
       }
       return null;
     };
-    for (const meta of this.objetos.filter(o => o.tipo === 'tesoro').sort((a, b) => valor(b) - valor(a))) {
-      const sitio = junto(Math.floor(meta.x), Math.floor(meta.z));
+    const metas = this.objetos.filter(o => o.tipo === 'tesoro').sort((a, b) => valor(b) - valor(a));
+    // si ninguna reliquia tiene sitio cerca (todas en nichos), cuida desde más lejos
+    // (y si todas están tras pasadizos o sellos, el guardián espera al otro lado)
+    for (const [meta, cerrado] of [false, true].flatMap(c => metas.map(m => [m, c]))) {
+      const sitio = junto(Math.floor(meta.x), Math.floor(meta.z), 2, 5, cerrado);
       if (!sitio) continue;
       const [x, z] = sitio, base = ENEMIGOS[g.tipo];
       const e = { tipo: g.tipo, nombre: g.nombre, x: x + 0.5, z: z + 0.5, y: m.piso(x, z), ...base, vidaMax: base.vida, estado: 'dormido', t: 0, espera: 0, anim: 0, invocaciones: 0, sinVerte: Infinity, alerta: false, tVoz: 3 + Math.random() * 4 };
