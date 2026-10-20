@@ -141,7 +141,7 @@ export class Juego {
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
     // zonas: cuántas reliquias tiene cada una (para el HUD y el automapa)
     this.zonas = (m.regiones || []).map((r, i) => ({ nombre: r.nombre, total: this.objetos.filter(o => o.tipo === 'tesoro' && o.zona === i).length, halladas: 0 }));
-    this.derrumbe = def.derrumbe ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
+    this.derrumbe = m.def.derrumbe ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
     this.temblor = 0;
     this.salidaVista = false;
     this.salidaRevelada = false;
@@ -432,7 +432,7 @@ export class Juego {
 
   // La entrada se derrumba a espaldas del jugador: polvo, piedras, temblor y ya no hay vuelta atrás.
   derrumbar() {
-    const [x, z] = this.def.derrumbe;
+    const [x, z] = this.mapa.def.derrumbe;
     const j = this.j, cx = x + 0.5, cz = z + 0.5;
     const dx = j.x - cx, dz = j.z - cz, d = Math.hypot(dx, dz) || 1;
     const px = cx + dx / d * 0.6, pz = cz + dz / d * 0.6;
@@ -445,7 +445,7 @@ export class Juego {
 
   // La salida no tiene antorcha: hay que toparse con ella. Al verla queda marcada en el automapa.
   buscarSalida() {
-    if (this.salidaVista || !this.def.derrumbe) return;
+    if (this.salidaVista || !this.mapa.def.derrumbe) return;
     const m = this.mapa;
     for (let i = 0; i < m.celdas.length; i++) {
       if (m.celdas[i].tipo !== 'salida' || !this.vistas[i]) continue;
