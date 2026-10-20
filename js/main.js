@@ -132,6 +132,7 @@ addEventListener('keydown', e => {
 });
 
 function pintarPortada() {
+  $('#btn-tesoros').classList.toggle('con-nuevos', !!(progreso.nuevos || []).length);
   const total = TESOROS.length, tengo = progreso.tesoros.length;
   $('#pie-portada').textContent = tengo ? `Tesoros reunidos: ${tengo} de ${total}` : `${MAZMORRAS.length} mazmorras · ${total} tesoros por descubrir`;
 }
@@ -230,66 +231,83 @@ function pintarMazmorras() {
   }
 }
 
-// Colección: una vitrina por rareza, más cuidada y adornada cuanto más raro es lo que guarda.
-const VITRINAS = [
-  ['legendario', 'Legendarios', 'Tras cristal tallado, sobre terciopelo carmesí.'],
-  ['epico', 'Épicos', 'En ébano y plata, a la luz de las velas.'],
-  ['raro', 'Raros', 'Caoba pulida con remaches de bronce.'],
-  ['comun', 'Comunes', 'Estanterías de madera del campamento.'],
-];
 function mazmorraDe(id) {
   return MAZMORRAS.find(m => tesorosDe(m).includes(id));
 }
-// Una pieza en su repisa: se toca para abrir su ficha. Con `marca` lleva debajo el color de su rareza.
-function piezaMuseo(t, lo, i, marca) {
+const esNuevo = id => (progreso.nuevos || []).includes(id);
+// Una pieza sobre su pedestal: se toca para abrir su ficha. Lleva debajo el color de su rareza y, si es nueva, un rótulo.
+function piezaMuseo(t, lo, i) {
   const b = document.createElement('button');
-  b.className = 'pieza' + (lo ? '' : ' oculta');
+  b.className = 'pieza' + (lo ? '' : ' oculta') + (lo && esNuevo(t.id) ? ' nueva' : '');
   b.style.setProperty('--retraso', (i % 5) * -0.7 + 's');
-  if (marca) b.style.setProperty('--rareza', RAREZAS[t.rareza].color);
-  b.setAttribute('aria-label', lo ? t.nombre : 'Tesoro sin descubrir');
+  b.style.setProperty('--rareza', RAREZAS[t.rareza].color);
+  b.setAttribute('aria-label', lo ? t.nombre + (esNuevo(t.id) ? ' (nuevo)' : '') : 'Tesoro sin descubrir');
   b.appendChild(miniatura(atlas, 'tesoro_' + t.id, 1));
-  b.onclick = () => abrirFicha(t, lo);
+  if (b.classList.contains('nueva')) b.insertAdjacentHTML('beforeend', '<i>NUEVO</i>');
+  b.onclick = () => { abrirFicha(t, lo); b.classList.remove('nueva'); b.querySelector('i')?.remove(); };
   return b;
 }
 const ORDEN_RAREZA = ['legendario', 'epico', 'raro', 'comun'];
-// Museo: por mazmorra (una sala con su historia, del más raro al más común) o por rareza (las vitrinas de siempre).
+let museoIdx = 0;
+// Museo: una vitrina por mazmorra (con su historia, del tesoro más raro al más común) que se recorre deslizando hacia el lado.
 function pintarColeccion() {
-  const cont = $('#vitrinas');
-  cont.innerHTML = '';
+  const cont = $('#vitrinas'), puntos = $('#puntos-museo');
+  cont.innerHTML = ''; puntos.innerHTML = '';
   const tengo = new Set(progreso.tesoros);
-  const modo = progreso.opciones.museo || 'salas';
-  for (const b of document.querySelectorAll('[data-museo]')) b.classList.toggle('activo', b.dataset.museo === modo);
   const valor = TESOROS.filter(t => tengo.has(t.id)).reduce((s, t) => s + RAREZAS[t.rareza].valor, 0);
-  if (modo === 'salas') {
-    for (const m of MAZMORRAS) {
-      const lista = tesorosDe(m).map(id => TESORO[id]).filter(Boolean).sort((a, b) => ORDEN_RAREZA.indexOf(a.rareza) - ORDEN_RAREZA.indexOf(b.rareza));
-      const hallados = lista.filter(t => tengo.has(t.id)).length, sala = SALAS[m.id] || {};
-      const v = document.createElement('section');
-      v.className = 'vitrina sala-museo' + (hallados === lista.length && lista.length ? ' completa' : '');
-      v.innerHTML = `<header class="cornisa"><h3></h3><small>${hallados} de ${lista.length}</small></header><p class="mazmorra-sala"></p><p class="lore-sala"></p><div class="cristal"><div class="repisa"></div></div><div class="zocalo"></div>`;
-      v.querySelector('h3').textContent = sala.sala || m.nombre;
-      v.querySelector('.mazmorra-sala').textContent = m.nombre + (m.guardian ? ` · custodia: ${m.guardian.nombre}` : '');
-      v.querySelector('.lore-sala').textContent = sala.lore || m.descripcion || '';
-      const repisa = v.querySelector('.repisa');
-      lista.forEach((t, i) => repisa.appendChild(piezaMuseo(t, tengo.has(t.id), i, true)));
-      cont.appendChild(v);
-    }
-  } else {
-    for (const [rareza, titulo, lema] of VITRINAS) {
-      const lista = TESOROS.filter(t => t.rareza === rareza);
-      const hallados = lista.filter(t => tengo.has(t.id)).length;
-      const v = document.createElement('section');
-      v.className = 'vitrina v-' + rareza;
-      v.innerHTML = `<header class="cornisa"><h3>${titulo}</h3><small>${hallados} de ${lista.length}</small></header><p class="lema-vitrina">${lema}</p><div class="cristal"><div class="repisa"></div></div><div class="zocalo"></div>`;
-      const repisa = v.querySelector('.repisa');
-      lista.forEach((t, i) => repisa.appendChild(piezaMuseo(t, tengo.has(t.id), i, false)));
-      cont.appendChild(v);
-    }
-  }
+  MAZMORRAS.forEach((m, k) => {
+    const lista = tesorosDe(m).map(id => TESORO[id]).filter(Boolean).sort((a, b) => ORDEN_RAREZA.indexOf(a.rareza) - ORDEN_RAREZA.indexOf(b.rareza));
+    const hallados = lista.filter(t => tengo.has(t.id)).length, sala = SALAS[m.id] || {}, nuevos = lista.filter(t => tengo.has(t.id) && esNuevo(t.id)).length;
+    const v = document.createElement('section');
+    v.className = `vitrina tema-${m.id}` + (hallados === lista.length && lista.length ? ' completa' : '');
+    v.innerHTML = `<header class="cartel-sala"><h3></h3><small>${hallados} de ${lista.length}${nuevos ? ` · <b class="n-nuevos">${nuevos} nuevo${nuevos === 1 ? '' : 's'}</b>` : ''}</small></header>
+      <p class="mazmorra-sala"></p>
+      <div class="mueble">
+        <div class="remate"><i class="foco"></i></div>
+        <div class="caja-vidrio"><div class="fondo-vit"></div><div class="repisa"></div><div class="vidrio"></div></div>
+        <div class="base-mueble"><span class="placa"></span></div>
+      </div>
+      <p class="lore-sala"></p>`;
+    v.querySelector('h3').textContent = sala.sala || m.nombre;
+    v.querySelector('.mazmorra-sala').textContent = m.nombre + (m.guardian ? ` · custodia: ${m.guardian.nombre}` : '');
+    v.querySelector('.placa').textContent = `${m.nombre} · ${hallados}/${lista.length}`;
+    v.querySelector('.lore-sala').textContent = sala.lore || m.descripcion || '';
+    const repisa = v.querySelector('.repisa');
+    lista.forEach((t, i) => repisa.appendChild(piezaMuseo(t, tengo.has(t.id), i)));
+    cont.appendChild(v);
+    const p = document.createElement('button');
+    p.className = 'punto' + (nuevos ? ' con-nuevos' : '');
+    p.setAttribute('aria-label', sala.sala || m.nombre);
+    p.onclick = () => irAVitrina(k);
+    puntos.appendChild(p);
+  });
   $('#resumen-coleccion').textContent = `${tengo.size} de ${TESOROS.length} tesoros · valor ${valor}`;
+  requestAnimationFrame(() => irAVitrina(museoIdx, false));
 }
-for (const b of document.querySelectorAll('[data-museo]')) b.onclick = () => { progreso.opciones.museo = b.dataset.museo; guardar(); pintarColeccion(); };
+function irAVitrina(k, suave = true) {
+  const cont = $('#vitrinas');
+  museoIdx = Math.max(0, Math.min(MAZMORRAS.length - 1, k));
+  cont.scrollTo({ left: museoIdx * cont.clientWidth, behavior: suave ? 'smooth' : 'instant' });
+  marcarPunto();
+}
+function marcarPunto() {
+  document.querySelectorAll('#puntos-museo .punto').forEach((p, i) => p.classList.toggle('activo', i === museoIdx));
+  $('#museo-ant').hidden = museoIdx === 0;
+  $('#museo-sig').hidden = museoIdx === MAZMORRAS.length - 1;
+}
+$('#vitrinas').addEventListener('scroll', () => {
+  const cont = $('#vitrinas'), k = Math.round(cont.scrollLeft / Math.max(1, cont.clientWidth));
+  if (k !== museoIdx && k >= 0 && k < MAZMORRAS.length) { museoIdx = k; marcarPunto(); }
+}, { passive: true });
+$('#museo-ant').onclick = () => irAVitrina(museoIdx - 1);
+$('#museo-sig').onclick = () => irAVitrina(museoIdx + 1);
+addEventListener('keydown', e => {
+  if ($('#coleccion').hidden || !$('#ficha').hidden) return;
+  if (e.key === 'ArrowLeft') irAVitrina(museoIdx - 1);
+  if (e.key === 'ArrowRight') irAVitrina(museoIdx + 1);
+});
 function abrirFicha(t, lo) {
+  if (lo && esNuevo(t.id)) { progreso.nuevos = progreso.nuevos.filter(id => id !== t.id); guardar(); }
   const f = $('#ficha'), r = RAREZAS[t.rareza], m = mazmorraDe(t.id);
   f.className = 'f-' + t.rareza;
   const pieza = f.querySelector('.ficha-pieza');
@@ -899,6 +917,7 @@ function terminar(r, exito) {
   const nuevos = exito ? r.tesoros.filter(id => !progreso.tesoros.includes(id)) : [];
   if (exito) {
     progreso.tesoros.push(...nuevos);
+    progreso.nuevos = [...new Set([...(progreso.nuevos || []), ...nuevos])];
     if (actual.tamano === 'grande') {
       const est = progreso.mazmorras[r.mazmorra.id] ||= {};
       est.completada = true;
@@ -925,7 +944,7 @@ function terminar(r, exito) {
 // En una sala, al escapar te llevas todos los puntos y los tesoros van a tu colección; si se acaba el tiempo adentro, la mitad de los puntos y ningún tesoro.
 function terminarSala(r, exito) {
   const puntos = exito ? r.puntos : Math.floor(r.puntos / 2);
-  if (exito) for (const id of r.tesoros) if (!progreso.tesoros.includes(id)) progreso.tesoros.push(id);
+  if (exito) for (const id of r.tesoros) if (!progreso.tesoros.includes(id)) { progreso.tesoros.push(id); (progreso.nuevos ||= []).push(id); }
   guardar();
   const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
   $('#resumen h2').textContent = exito ? `¡Escapaste con ${puntos} punto${puntos === 1 ? '' : 's'}!` : r.causa;
