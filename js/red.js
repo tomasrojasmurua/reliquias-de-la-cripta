@@ -69,6 +69,7 @@ function cargarPeerJS() {
 //   alDano(n, causa)       (invitado) un enemigo me hirió
 //   alPvp(de, d)           otro cazador (`de`) me pegó, con `d` de daño
 //   alBaja(k, v)           el cazador `k` derrotó al cazador `v`
+//   alResuelto(a, id)      (tesoros exclusivos) el acertijo `a` lo descifró el cazador `id` (puede ser yo, o llegué tarde): solo se resuelve una vez
 //   alForzado(id, a)       el cazador `id` forzó el sello del acertijo `a` con la palanca (solo para avisar: cada uno abre el suyo)
 //   alMarcador(lista)      resultados finales: [{ id, nombre, color, puntos, estado, tesoros, resueltos }]
 //   alPerderse(motivo)     se cayó la conexión con la sala
@@ -84,13 +85,14 @@ export class Sala {
     this.enPartida = false;
     this.cerrada = false;
     this.duenos = new Map();     // solo el anfitrión: tesoro -> quién se lo llevó
+    this.resolvio = new Map();   // solo el anfitrión: acertijo -> quién lo descifró primero
     this.fichas = new Map();     // solo el anfitrión: puesto -> ficha secreta con la que el invitado puede volver tras un corte
     this.caidos = new Map();     // solo el anfitrión: puesto -> plazo para que vuelva el invitado que perdió la conexión
     this.ficha = Math.random().toString(36).slice(2) + Date.now().toString(36);   // la mía, si soy invitado
     this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
     this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
     this.alEnlace = this.alConexion = this.alEmote = () => {};
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alPvp = this.alBaja = () => {};
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alPvp = this.alBaja = this.alResuelto = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -255,6 +257,7 @@ export class Sala {
     this.visto.set(id, Date.now());
     c.send({ t: 'sala', yo: id, config: this.config, jugadores: this.jugadores });
     c.send({ t: 'tomados', l: [...this.duenos] });   // los tesoros que ya se llevaron mientras no estaba
+    c.send({ t: 'resueltos', l: [...this.resolvio] });   // y los acertijos que ya se descifraron
     this.alConexion(id, true);
     this.#aviso({ t: 'conexion', id, ok: true }, id);
   }
@@ -283,6 +286,8 @@ export class Sala {
       this.#reclamar(m.i | 0, id);
     } else if (m.t === 'suelta') {
       this.#soltado(m.i | 0, +m.x, +m.z, id);
+    } else if (m.t === 'resuelve') {
+      this.#resolver(String(m.a).slice(0, 40), id);
     } else if (m.t === 'forzo') {
       const a = String(m.a).slice(0, 40);
       this.alForzado(id, a);
@@ -293,7 +298,11 @@ export class Sala {
   // Quien pide primero se lleva el tesoro; el que llega tarde recibe el nombre del dueño.
   #reclamar(i, id) {
     const dueno = this.duenos.get(i);
-    if (dueno === id) return;
+    if (dueno === id) {   // ya era mío: mi pedido se repite porque la respuesta se perdió
+      if (id === 0) this.alTesoro(i, id);
+      else this.conexiones.get(id)?.send({ t: 'tomado', i, id });
+      return;
+    }
     if (dueno !== undefined) {
       if (id === 0) this.alTesoro(i, dueno);
       else this.conexiones.get(id)?.send({ t: 'tomado', i, id: dueno });
@@ -304,7 +313,21 @@ export class Sala {
     this.alTesoro(i, id);
   }
 
+  // Quien descifra primero un acertijo se lleva los puntos; el sello se abre para todos y el que llega tarde se entera de quién fue.
+  #resolver(a, id) {
+    const antes = this.resolvio.get(a);
+    if (antes !== undefined) {
+      if (id === 0) this.alResuelto(a, antes);
+      else this.conexiones.get(id)?.send({ t: 'resuelto', a, id: antes });
+      return;
+    }
+    this.resolvio.set(a, id);
+    this.#aviso({ t: 'resuelto', a, id });
+    this.alResuelto(a, id);
+  }
+
   #soltado(i, x, z, desde) {
+    if (this.duenos.get(i) !== desde) return;   // solo suelta un tesoro quien lo tiene
     this.duenos.delete(i);
     this.#aviso({ t: 'suelto', i, x, z }, desde);
     if (desde !== 0) this.alSuelto(i, x, z);
@@ -328,6 +351,7 @@ export class Sala {
   empezar(partida) {
     this.enPartida = true;
     this.duenos.clear();
+    this.resolvio.clear();
     for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; j.tesoros = j.resueltos = null; }
     this.#aviso({ t: 'empezar', ...partida });
     this.alEmpezar(partida);
@@ -373,6 +397,10 @@ export class Sala {
       this.alConexion(m.id, !!m.ok);
     } else if (m.t === 'tomados') {
       for (const [i, id] of Array.isArray(m.l) ? m.l : []) this.alTesoro(i | 0, id | 0);
+    } else if (m.t === 'resuelto') {
+      this.alResuelto(String(m.a), m.id | 0);
+    } else if (m.t === 'resueltos') {
+      for (const [a, id] of Array.isArray(m.l) ? m.l : []) this.alResuelto(String(a), id | 0);
     } else if (m.t === 'en') {
       this.alEnemigos(m);
     } else if (m.t === 'pvp') {
@@ -446,6 +474,12 @@ export class Sala {
   tomar(i) {
     if (this.soyAnfitrion) this.#reclamar(i, 0);
     else this.conexion?.open && this.conexion.send({ t: 'toma', i });
+  }
+
+  // Descifré el acertijo `a`; la respuesta llega por alResuelto(a, quién lo descifró primero).
+  resolver(a) {
+    if (this.soyAnfitrion) this.#resolver(String(a), 0);
+    else this.conexion?.open && this.conexion.send({ t: 'resuelve', a: String(a) });
   }
 
   // Solté el tesoro `i` en (x, z): vuelve a estar disponible para todos.
