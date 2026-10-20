@@ -50,7 +50,7 @@ const junto = (llega, x, y) => V.some(([dx, dy]) => llega(x + dx, y + dy));
 
 function revisarMapa(def, m, donde, juego) {
   // inicio único
-  const inicios = def.plano.join('').split('P').length - 1;
+  const inicios = m.def.plano.join('').split('P').length - 1;
   if (inicios !== 1) error(donde, `tiene ${inicios} casillas de inicio «P» (debe haber una)`);
 
   // bordes cerrados: nada pisable en el contorno del plano
@@ -204,7 +204,7 @@ for (let s = 1; s <= 300; s++) {
 }
 
 // El mismo error suele repetirse en muchas semillas: se muestra una vez con el número de veces.
-const cuenta = new Map();
+const cuenta = new Map(); if (process.env.VERBOSO) console.log(errores);
 for (const e of errores) {
   const clave = e.replace(/, semilla \d+\)/, ')');
   cuenta.set(clave, (cuenta.get(clave) || 0) + 1);

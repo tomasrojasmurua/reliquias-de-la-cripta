@@ -195,7 +195,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
       g[y + dy][x + dx] = camara.sello;
       if (!ponerTablilla(t, camara.tablilla, true)) g[y + dy][x + dx] = '.';
       else camara.puesta = true;
-    } else if (azar() < 0.5 && (dx || dy) && !enSala(x + dx, y + dy)) g[y + dy][x + dx] = 'S';
+    } else if (azar() < 0.5 && n < ids.length - 1 && (dx || dy) && !enSala(x + dx, y + dy)) g[y + dy][x + dx] = 'S';   // el último queda a la vista: el guardián necesita un sitio junto a alguna reliquia
   });
   for (const [x, y] of finales) {
     const r = azar();
@@ -230,7 +230,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
   return tesoros;
 }
 
-const tiposDe = def => [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
+const tiposDe = def => def.tiposEnemigo || [...new Set(def.plano.join('').split('').filter(c => ENEMIGOS.includes(c)))];
 
 // Caracteres libres para tablillas y sellos nuevos (los que no usa ya el plano ni sus acertijos).
 const CARACTERES_ACERTIJO = [['U', 'Y'], ['V', 'W'], ['H', 'I'], ['J', 'K'], ['E', 'F'], ['G', 'N'], ['A', 'B'], ['C', 'O'], ['M', 'R'], ['α', 'β'], ['γ', 'δ'], ['ε', 'ζ'], ['η', 'θ'],
@@ -311,10 +311,10 @@ function ponerAtajos(t, n, pares, acertijos, def, dificultad) {
 
 // Trampas de dardos: un muro al fondo de un pasillo recto (de 6 casillas o más) que dispara a lo largo de él.
 // `g` es la rejilla de caracteres; no se ponen cerca del inicio ni dentro de las salas.
-function ponerDardos(g, azar, n, enSala = () => false) {
+function ponerDardos(g, azar, n, enSala = () => false, otros = []) {
   const { mezclar } = herramientas(azar);
   const H = g.length, W = g[0].length;
-  const inicio = [];
+  const inicio = [...otros];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'P') inicio.push([x, y]);
   const candidatos = [];
   for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
@@ -340,10 +340,10 @@ function ponerDardos(g, azar, n, enSala = () => false) {
 
 // Rocas rodantes: la casilla marcada ('ŗ') está en el medio de un tramo recto de 7 casillas libres o más;
 // js/mapa.js calcula por dónde rueda. Lejos del inicio, fuera de las salas y espaciadas entre sí.
-function ponerRocas(g, azar, n, enSala = () => false) {
+function ponerRocas(g, azar, n, enSala = () => false, otros = []) {
   const { mezclar } = herramientas(azar);
   const H = g.length, W = g[0].length;
-  const inicio = [];
+  const inicio = [...otros];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'P') inicio.push([x, y]);
   const libre = (x, y) => g[y]?.[x] === '.' && !enSala(x, y);
   const candidatos = [];
@@ -354,7 +354,13 @@ function ponerRocas(g, azar, n, enSala = () => false) {
       while (libre(x + dx * largo, y + dy * largo)) largo++;
       if (largo < 7) continue;
       const mx = x + dx * (largo >> 1), my = y + dy * (largo >> 1);
-      if (inicio.some(([px, py]) => Math.abs(px - mx) + Math.abs(py - my) < 12)) continue;
+      // el pasillo por el que rueda (js/mapa.js) cruza las salas y puede seguir más allá del bloque: se mide ampliado
+      const pasa = (px, py) => /[.bvqŗ^mkgpjcnP]/.test(g[py]?.[px] ?? '#');
+      let a = 0, b = 0;
+      while (pasa(mx - dx * (a + 1), my - dy * (a + 1))) a++;
+      while (pasa(mx + dx * (b + 1), my + dy * (b + 1))) b++;
+      const ext = [[mx - dx * (a + 6), my - dy * (a + 6)], [mx + dx * (b + 6), my + dy * (b + 6)]];
+      if (inicio.some(([px, py]) => Math.abs(px - mx) + Math.abs(py - my) < 12 || ext.some(([ex, ey]) => Math.hypot(px - ex, py - ey) < 10))) continue;
       candidatos.push([mx, my]);
     }
   }
@@ -659,9 +665,47 @@ export function recortarZonas(def, n) {
   };
 }
 
+// La primera zona, antes un plano fijo, también se talla en cada partida: `sectores.inicio` = { salas, enemigos }
+// da su tamaño (el del plano de la definición), cuántas salas lleva y qué monstruos la habitan. El jugador
+// empieza en la sala más honda (lejos de la puerta a la zona siguiente), la entrada se derrumba a su espalda
+// y los tesoros de `tesoros` se reparten en los callejones: los dos últimos tras un sello con tablilla
+// (los acertijos de la definición, que se quedan sin tablilla si no caben).
+function generarInicio(def, azar) {
+  const { elegir, mezclar } = herramientas(azar);
+  const I = def.sectores.inicio, W = def.plano[0].length, H = def.plano.length;
+  const t = tallar(W, H, [def.sectores.entrada], { salas: I.salas, azar });
+  const { g } = t;
+  const tipos = I.enemigos;
+  const claves = Object.keys(def.tesoros).reverse(), ids = claves.map(c => def.tesoros[c]);
+  const sellados = Object.entries(def.acertijos || {}).slice(0, 2).map(([tablilla, a]) => ({ tablilla, sello: a.sello }));
+  const tesoros = poblar(t, ids, () => claves.shift(), tipos, sellados);
+  const acertijos = {};
+  for (const c of sellados) if (c.puesta) acertijos[c.tablilla] = def.acertijos[c.tablilla];
+
+  // el inicio: el centro de la sala más honda, sin monstruos a la vista
+  const sala = t.salas.slice().sort((a, b) => t.d(b.x0, b.y0) - t.d(a.x0, a.y0))[0];
+  const [px, py] = [(sala.x0 + sala.x1) >> 1, (sala.y0 + sala.y1) >> 1];
+  for (let y = py - 4; y <= py + 4; y++) for (let x = px - 4; x <= px + 4; x++) if (ENEMIGOS.includes(g[y]?.[x])) g[y][x] = '.';
+  g[py][px] = 'P';
+  // la entrada que se derrumba: un muro de la sala (mejor del borde, que no esconde nada detrás)
+  const muros = [];
+  for (let x = sala.x0; x <= sala.x1; x++) muros.push([x, sala.y0 - 1], [x, sala.y1 + 1]);
+  for (let y = sala.y0; y <= sala.y1; y++) muros.push([sala.x0 - 1, y], [sala.x1 + 1, y]);
+  const libres = muros.filter(([x, y]) => g[y]?.[x] === '#');
+  const borde = libres.filter(([x, y]) => !t.dentro(x, y));
+  const derrumbe = elegir(borde.length ? borde : libres);
+  g[derrumbe[1]][derrumbe[0]] = '%';
+  return {
+    ...def, tesoros, acertijos, derrumbe, tiposEnemigo: tipos,
+    plano: g.map(f => f.join('')), alturas: t.alt.map(f => f.join('')),
+    zonas: [], luces: [],
+  };
+}
+
 const CARACTERES_TESORO = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
 
 export function conZonas(def, azar = Math.random) {
+  if (def.sectores.inicio) def = generarInicio(def, azar);
   const Z = def.sectores, { elegir } = herramientas(azar);
   const anchoBase = def.plano[0].length, altoBase = def.plano.length;
   const ancho = Math.max(anchoBase, ...Z.bloques.map(b => b.x + b.ancho));
@@ -706,6 +750,8 @@ export function conZonas(def, azar = Math.random) {
   // el plano fijo de arriba cambia en cada partida (y esconde el revólver)
   const fijo = variarPlano(def, azar, pares, acertijos, tipos);
   fijo.forEach((f, y) => { for (let x = 0; x < f.length; x++) plano[y][x] = f[x]; });
+  const donde = fijo.findIndex(f => f.includes('P'));
+  const inicioAbs = [fijo[donde].indexOf('P'), donde];
 
   // la salida va a una de las zonas posibles
   const zonaSalida = elegir(Z.salida);
@@ -739,10 +785,10 @@ export function conZonas(def, azar = Math.random) {
     // atajos tras puertas con acertijo (la cámara extra no los tiene)
     if (b.zona !== ultima) ponerAtajos(t, Math.max(1, Math.round(b.ancho * b.alto / 900)), pares, acertijos, def, z.acertijo?.dificultad ?? [2, 3]);
     // trampas de dardos en los pasillos largos (la cámara extra no las tiene)
-    if (b.zona !== ultima) ponerDardos(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1100)), t.enSala);
+    if (b.zona !== ultima) ponerDardos(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1100)), t.enSala, [[inicioAbs[0] - b.x, inicioAbs[1] - b.y]]);
     // de la segunda zona en adelante: rocas rodantes y, en la primera de ellas, la Tommy gun con sus cargadores
     if (b.zona !== ultima && b.zona >= 1) {
-      ponerRocas(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1500)), t.enSala);
+      ponerRocas(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1500)), t.enSala, [[inicioAbs[0] - b.x, inicioAbs[1] - b.y]]);
       if (b.zona === 1 && Z.bloques.findIndex(o => o.zona === 1) === k) { ponerEnCallejones(t, 'ɸ', 1); ponerEnCallejones(t, 'ʠ', 2); }
       else if (azar() < 0.95) ponerEnCallejones(t, 'ʠ', 2 + (azar() < 0.5 ? 1 : 0));
     }
