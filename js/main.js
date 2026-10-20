@@ -4,7 +4,7 @@ import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
 import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
-import { dibujarAutomapa, dibujarMinimapa } from './automapa.js';
+import { dibujarAutomapa, dibujarMinimapa, LEYENDA } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
@@ -71,6 +71,22 @@ const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
 const ctxMini = $('#minimapa').getContext('2d');
+// Leyenda del mapa completo: sus muestras se dibujan con los mismos colores del mapa.
+const leyenda = $('#leyenda-mapa');
+for (const [nombre, dibujar, solo] of LEYENDA) {
+  const li = document.createElement('li'), c = document.createElement('canvas');
+  c.width = c.height = 28;
+  const g = c.getContext('2d'); g.translate(14, 14); g.scale(1.4, 1.4); dibujar(g);
+  li.append(c, nombre);
+  if (solo) li.dataset.solo = solo;
+  leyenda.appendChild(li);
+}
+function alternarMapa() {
+  if (!juego) return;
+  capaMapa.hidden = !capaMapa.hidden;
+  if (!capaMapa.hidden) juego.avisoMapa = false;
+}
+$('#btn-cerrar-mapa').onclick = alternarMapa;
 $('#hud-arma').closest('.caja').dataset.tactil = 'recargar';   // en táctil, tocar el recuadro del arma recarga
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
@@ -1012,7 +1028,7 @@ function cuadro(t) {
   ultimo = t;
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
-  if (ent.pulsos.has('mapa') && !pausado) { capaMapa.hidden = !capaMapa.hidden; if (!capaMapa.hidden) juego.avisoMapa = false; }
+  if (ent.pulsos.has('mapa') && !pausado) alternarMapa();
   if (!pausado || (actual?.sala && !actual.sala.fin)) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
   else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
@@ -1034,6 +1050,8 @@ function cuadro(t) {
     dibujarAutomapa(ctxMapa, w, h, juego);
   }
   document.body.classList.toggle('mapa-abierto', !capaMapa.hidden);
+  $('#panel-mapa').hidden = capaMapa.hidden;
+  leyenda.classList.toggle('en-sala', !!actual?.sala);
   const ad = $('#aviso-dardos');
   ad.hidden = !juego.enTiro || juego.j.muerto;
   ad.classList.toggle('disparo', juego.enTiro === 2);

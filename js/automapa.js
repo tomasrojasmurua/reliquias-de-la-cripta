@@ -1,6 +1,6 @@
 // Automapa: plano de lo explorado, como el de Doom. Solo se dibujan las casillas que ya viste.
 
-const COLOR = {
+export const COLOR = {
   fondo: '#e4cf9a',     // pergamino
   muro: '#3a2312',      // tinta
   suelo: '#c9ae74',
@@ -236,18 +236,27 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   ctx.fillText(juego.def.nombre, w / 2, Math.max(18, oy - t * 0.5));
 }
 
-// Minimapa redondo centrado en el jugador: lo ya explorado a su alrededor, tesoros y puertas abiertas.
-export function dibujarMinimapa(ctx, S, juego, radio = 7) {
-  const m = juego.mapa, j = juego.j, v = juego.vistas, t = S / (radio * 2);
+// Los que te persiguen o te atacan (los dormidos y los que esperan ocultos no aparecen).
+const CAZANDO = new Set(['caza', 'ataca', 'lanza', 'embiste']);
+
+// Minimapa redondo: gira con quien mira (arriba = hacia donde miras) y, alrededor, una rosa de los vientos
+// que marca siempre el norte del mapa. Muestra lo ya explorado, las tablillas, los tesoros y los monstruos que te cazan.
+export function dibujarMinimapa(ctx, S, juego, radio = 6.5) {
+  const m = juego.mapa, j = juego.j, v = juego.vistas;
+  const Rm = S / 2 - 18, t = Rm / radio, c0 = S / 2;
+  const giro = -j.yaw - Math.PI / 2;   // lleva hacia arriba la dirección en que miras
   ctx.clearRect(0, 0, S, S);
-  ctx.save(); ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.clip();
+  const ahora = performance.now();
+  // aro de la brújula
+  ctx.fillStyle = '#2a1f14'; ctx.beginPath(); ctx.arc(c0, c0, S / 2 - 2, 0, Math.PI * 2); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(c0, c0, Rm, 0, Math.PI * 2); ctx.clip();
   ctx.fillStyle = COLOR.fondo; ctx.fillRect(0, 0, S, S);
-  const ox = S / 2 - j.x * t, oy = S / 2 - j.z * t;
+  ctx.translate(c0, c0); ctx.rotate(giro); ctx.translate(-c0, -c0);
+  const ox = c0 - j.x * t, oy = c0 - j.z * t;
   const visto = (x, y) => v && x >= 0 && y >= 0 && x < m.ancho && y < m.alto && v[y * m.ancho + x];
   const abierta = (x, y) => { const c = m.celda(x, y); return c && (!m.solida(x, y) || c.tipo === 'puerta' || c.tipo === 'sello'); };
   const x0 = Math.max(0, Math.floor(j.x - radio - 1)), x1 = Math.min(m.ancho - 1, Math.ceil(j.x + radio + 1));
   const y0 = Math.max(0, Math.floor(j.z - radio - 1)), y1 = Math.min(m.alto - 1, Math.ceil(j.z + radio + 1));
-  const ahora = performance.now();
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
     if (!visto(x, y) || !abierta(x, y)) continue;
     const c = m.celda(x, y);
@@ -258,24 +267,73 @@ export function dibujarMinimapa(ctx, S, juego, radio = 7) {
       ctx.strokeStyle = COLOR.abierta; ctx.lineWidth = 2; ctx.globalAlpha = 1 - f;
       ctx.beginPath(); ctx.arc(ox + (x + 0.5) * t, oy + (y + 0.5) * t, t * (0.6 + f * 1.6), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
     }
-    ctx.strokeStyle = COLOR.muro; ctx.lineWidth = Math.max(1, t / 6);
+    ctx.lineCap = 'square';
     for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
       if (abierta(x + dx, y + dy)) continue;
+      const n = m.celda(x + dx, y + dy);
+      // las tablillas por descifrar y las inscripciones se marcan en azul, como en el mapa grande; la salida, en verde
+      const tablilla = n && (n.tipo === 'tablilla' || n.tipo === 'aviso'), salida = n && n.tipo === 'salida';
+      ctx.strokeStyle = tablilla ? COLOR.tablilla : salida ? COLOR.salida : COLOR.muro;
+      ctx.lineWidth = Math.max(1, t / 6) * (tablilla || salida ? 2.2 : 1);
       const ax = ox + (dx === 1 ? x + 1 : x) * t, ay = oy + (dy === 1 ? y + 1 : y) * t;
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(dx === 0 ? ax + t : ax, dx === 0 ? ay : ay + t); ctx.stroke();
+      if (tablilla && n.tipo === 'tablilla' && !n.tex.endsWith('_rota')) {
+        // una tablilla sin descifrar late con un aro azul
+        const f = (ahora % 1300) / 1300, tx = ox + (x + dx / 2 + 0.5) * t, ty = oy + (y + dy / 2 + 0.5) * t;
+        ctx.strokeStyle = COLOR.tablilla; ctx.lineWidth = 2; ctx.globalAlpha = 1 - f;
+        ctx.beginPath(); ctx.arc(tx, ty, t * (0.5 + f * 1.4), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+      }
     }
   }
   const lat = (Math.sin(ahora / 380) + 1) / 2;
+  const girar = (x, y, f) => { ctx.save(); ctx.translate(x, y); ctx.rotate(-giro); f(); ctx.restore(); };   // para que íconos y puntos no giren con el mapa
   for (const o of juego.objetos) {
     if (o.cogido || !visto(Math.floor(o.x), Math.floor(o.z))) continue;
-    icono(ctx, o.tipo, ox + o.x * t, oy + o.z * t, Math.max(4, t * 0.5), lat);
+    girar(ox + o.x * t, oy + o.z * t, () => icono(ctx, o.tipo, 0, 0, Math.max(4, t * 0.5), lat));
   }
-  ctx.translate(S / 2, S / 2); ctx.rotate(j.yaw);
+  // monstruos que te persiguen o te atacan: puntos rojos que laten; los que están fuera del alcance se pegan al borde
+  for (const e of juego.enemigos) {
+    if (!CAZANDO.has(e.estado)) continue;
+    const dx = e.x - j.x, dz = e.z - j.z, d = Math.hypot(dx, dz);
+    if (d > radio * 2.4) continue;
+    const k = d > radio - 0.6 ? (radio - 0.6) / d : 1;
+    girar(ox + (j.x + dx * k) * t, oy + (j.z + dz * k) * t, () => {
+      const f = (ahora % 800) / 800, r = Math.max(3.5, t * 0.42);
+      ctx.strokeStyle = '#d62c1c'; ctx.lineWidth = 2; ctx.globalAlpha = (1 - f) * (k < 1 ? 0.6 : 1);
+      ctx.beginPath(); ctx.arc(0, 0, r * (1 + f * 1.6), 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = k < 1 ? 0.75 : 1;
+      ctx.fillStyle = '#e8321e'; ctx.strokeStyle = '#2a0a06'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
+    });
+  }
+  for (const o of juego.otros || []) {
+    if (!visto(Math.floor(o.x), Math.floor(o.z))) continue;
+    girar(ox + o.x * t, oy + o.z * t, () => {
+      ctx.fillStyle = COLOR_CAZADOR[o.color] || '#fff'; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, Math.max(3.5, t * 0.4), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    });
+  }
+  ctx.restore();
+  // yo, siempre mirando hacia arriba
+  ctx.save(); ctx.translate(c0, c0); ctx.rotate(-Math.PI / 2);
   ctx.fillStyle = juego.colorPropio || COLOR.jugador; ctx.strokeStyle = '#fff6dc'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-  const r = t * 0.8;
+  const r = Math.max(5, t * 0.75);
   ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * 0.6, r * 0.65); ctx.lineTo(-r * 0.3, 0); ctx.lineTo(-r * 0.6, -r * 0.65); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
-  ctx.strokeStyle = COLOR.tinta; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(S / 2, S / 2, S / 2 - 2, 0, Math.PI * 2); ctx.stroke();
+  // rosa de los vientos: N, E, S y O alrededor, girando al revés para que la N apunte siempre al norte del mapa
+  ctx.strokeStyle = COLOR.tinta; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(c0, c0, Rm, 0, Math.PI * 2); ctx.stroke();
+  const Rl = (Rm + S / 2 - 2) / 2;
+  ctx.font = `bold ${Math.round(S * 0.1)}px Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const [letra, a, col] of [['N', -Math.PI / 2, '#ff5a40'], ['E', 0, '#e8d8b0'], ['S', Math.PI / 2, '#e8d8b0'], ['O', Math.PI, '#e8d8b0']]) {
+    const ang = a + giro, lx = c0 + Math.cos(ang) * Rl, ly = c0 + Math.sin(ang) * Rl;
+    ctx.fillStyle = col; ctx.fillText(letra, lx, ly);
+    if (letra === 'N') {
+      ctx.beginPath(); ctx.moveTo(c0 + Math.cos(ang) * (Rm + 1), c0 + Math.sin(ang) * (Rm + 1));
+      ctx.lineTo(c0 + Math.cos(ang + 0.16) * (Rm - 6), c0 + Math.sin(ang + 0.16) * (Rm - 6)); ctx.lineTo(c0 + Math.cos(ang - 0.16) * (Rm - 6), c0 + Math.sin(ang - 0.16) * (Rm - 6)); ctx.closePath();
+      ctx.fillStyle = '#ff5a40'; ctx.fill();
+    }
+  }
+  ctx.textBaseline = 'alphabetic';
+  ctx.strokeStyle = '#120d08'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(c0, c0, S / 2 - 2, 0, Math.PI * 2); ctx.stroke();
 }
 
 // Texto con contorno oscuro, legible sobre cualquier fondo.
@@ -327,7 +385,7 @@ function pergamino(ctx, w, h) {
 }
 
 // Icono de un objeto del suelo, en (x, y) con radio r; `lat` (0..1) hace brillar los tesoros.
-function icono(ctx, tipo, x, y, r, lat) {
+export function icono(ctx, tipo, x, y, r, lat) {
   ctx.save(); ctx.translate(x, y); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.lineWidth = Math.max(1.5, r * 0.22); ctx.strokeStyle = COLOR.tinta;
   const tinta = col => { ctx.fillStyle = col; ctx.fill(); ctx.stroke(); };
@@ -350,3 +408,23 @@ function icono(ctx, tipo, x, y, r, lat) {
   }
   ctx.restore();
 }
+
+// La leyenda del mapa completo: cada entrada pinta su muestra con los mismos colores y dibujos del mapa.
+export const LEYENDA = [
+  ['Tú', ctx => { ctx.fillStyle = COLOR.jugador; ctx.strokeStyle = '#fff6dc'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, 6); ctx.lineTo(-3, 0); ctx.lineTo(-6, -6); ctx.closePath(); ctx.fill(); ctx.stroke(); }],
+  ['Tablilla o inscripción', ctx => { ctx.fillStyle = COLOR.tablilla; ctx.fillRect(-8, -2, 16, 4); }],
+  ['Sello cerrado', ctx => { ctx.fillStyle = COLOR.sello; ctx.fillRect(-7, -7, 14, 14); }],
+  ['Puerta cerrada', ctx => { ctx.fillStyle = COLOR.puerta; ctx.fillRect(-7, -7, 14, 14); }],
+  ['Puerta o sello abierto', ctx => { ctx.strokeStyle = COLOR.abierta; ctx.lineWidth = 2; ctx.strokeRect(-6, -6, 12, 12); ctx.fillStyle = COLOR.abierta; ctx.fillRect(-2.5, -2.5, 5, 5); }],
+  ['Salida', ctx => { ctx.fillStyle = COLOR.salida; ctx.fillRect(-7, -7, 14, 14); }],
+  ['Tesoro', ctx => icono(ctx, 'tesoro', 0, 0, 7, 0.5)],
+  ['Vendas', ctx => icono(ctx, 'vendas', 0, 0, 7, 0)],
+  ['Munición', ctx => icono(ctx, 'balas', 0, 0, 7, 0)],
+  ['Arma', ctx => icono(ctx, 'revolver', 0, 0, 7, 0)],
+  ['Palanca de hierro', ctx => icono(ctx, 'barreta', 0, 0, 7, 0)],
+  ['Trampa de dardos', ctx => { ctx.fillStyle = 'rgba(200, 40, 24, .5)'; ctx.fillRect(-8, -4, 16, 8); ctx.fillStyle = '#ff4a30'; ctx.beginPath(); ctx.moveTo(0, -7); ctx.lineTo(6, 6); ctx.lineTo(-6, 6); ctx.closePath(); ctx.fill(); }],
+  ['Lava', ctx => { ctx.fillStyle = COLOR.lava; ctx.fillRect(-7, -7, 14, 14); }],
+  ['Abismo', ctx => { ctx.fillStyle = COLOR.abismo; ctx.fillRect(-7, -7, 14, 14); }],
+  ['Zona con todas sus reliquias', ctx => { ctx.fillStyle = COLOR.completa; ctx.fillRect(-7, -7, 14, 14); }],
+  ['Otro cazador', ctx => { ctx.fillStyle = COLOR_CAZADOR.azul; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }, 'sala'],
+];
