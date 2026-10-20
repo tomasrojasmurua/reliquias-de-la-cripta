@@ -295,11 +295,28 @@
   <div id="hud-jefe" hidden><b></b><div class="barra"><i></i></div></div>
   <div id="hud-reloj" hidden></div>
   <div id="hud">
-    <div class="caja"><small>Vida</small><b id="hud-vida">100</b></div>
-    <div class="caja"><small id="hud-arma">Látigo</small><b id="hud-balas">—</b></div>
-    <div class="caja"><small>Tesoros</small><b id="hud-tesoros">0/0</b></div>
-    <div class="caja" id="caja-palanca" hidden><small>Palanca</small><b>🔧</b></div>
-    <div class="caja" id="caja-puntos" hidden><small>Puntos</small><b id="hud-puntos">0</b></div>
+    <div class="caja vida" title="Vida">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21C5 16 2 12 2 8.5a5 5 0 0 1 10-1.6A5 5 0 0 1 22 8.5C22 12 19 16 12 21z"/></svg>
+      <div class="medidor"><i id="hud-vida-barra"></i></div><b id="hud-vida">100</b>
+    </div>
+    <div class="caja arma" data-arma="latigo" title="Arma y munición">
+      <svg class="ic-latigo" viewBox="0 0 24 24" aria-hidden="true"><path class="trazo" d="M4 21c-1-9 8-6 9-12 .6-3.500 3-5 7-5"/><path class="trazo" d="M3 21l3-4"/></svg>
+      <svg class="ic-revolver" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 7h17v4.500h-6l-1 2.500 1.500 6.500H8.500L9 14l-1-2.500H2z"/></svg>
+      <svg class="ic-escopeta" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 10h18v3H9.500l-2 6H4l1.500-6H1z"/><path d="M19 9.500h4v5h-4z"/></svg>
+      <svg class="ic-tommy" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 8h13v3h6v3h-6.500l-1 6h-3.500l.8-6H9v5H5.500v-5H1z"/></svg>
+      <div class="dato"><small id="hud-arma">Látigo</small><b id="hud-balas">—</b></div>
+    </div>
+    <div class="caja tesoros" title="Tesoros">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z"/><path class="linea" d="M2 9h20M9 3l-2 6 5 12M15 3l2 6-5 12"/></svg>
+      <b id="hud-tesoros">0/0</b>
+    </div>
+    <div class="caja palanca" id="caja-palanca" hidden title="Palanca de hierro: fuerza un sello">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.700 6.300a4 4 0 0 0-5.400 5.100L3 17.700 6.300 21l6.300-6.300a4 4 0 0 0 5.100-5.400l-2.600 2.600-2.400-.6-.6-2.400z"/></svg>
+    </div>
+    <div class="caja puntos" id="caja-puntos" hidden title="Puntos">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l3 7 7 .5-5.500 4.500 2 7L12 17l-6.500 4 2-7L2 9.500 9 9z"/></svg>
+      <b id="hud-puntos">0</b>
+    </div>
   </div>
   <div id="zona-tactil"></div>
   <div id="joy-base" hidden></div>

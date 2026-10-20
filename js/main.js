@@ -71,7 +71,7 @@ const capaArma = $('#arma');
 const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
-$('#hud-arma').parentElement.dataset.tactil = 'cambiarArma';   // en táctil se cambia de arma tocando su recuadro
+$('#hud-arma').closest('.caja').dataset.tactil = 'cambiarArma';   // en táctil se cambia de arma tocando su recuadro
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
@@ -1057,8 +1057,14 @@ $('#btn-pausa').addEventListener('click', () => { pausar(); $('#pausa').hidden =
 function actualizarHUD() {
   const j = juego.j;
   $('#hud-vida').textContent = j.vida;
-  $('#hud-vida').parentElement.classList.toggle('baja', j.vida <= 25);
+  $('#hud-vida-barra').style.width = `${Math.max(0, Math.min(100, j.vida))}%`;
+  const cv = $('#hud-vida').parentElement;
+  cv.classList.toggle('baja', j.vida <= 25);
+  cv.classList.toggle('media', j.vida > 25 && j.vida <= 50);
   $('#hud-arma').textContent = { revolver: 'Revólver', escopeta: 'Escopeta', tommy: 'Tommy gun' }[j.arma] || 'Látigo';
+  $('#hud-arma').closest('.caja').dataset.arma = j.arma;
+  const carga = { revolver: j.tambor, escopeta: j.tubo, tommy: j.cargador }[j.arma];
+  $('#hud-arma').closest('.caja').classList.toggle('vacia', carga === 0);
   $('#hud-balas').textContent = j.arma === 'tommy' ? `${j.cargador} | ${j.reservaT}` : j.arma === 'escopeta' ? `${j.tubo} | ${j.reservaE}` : j.arma === 'revolver' || j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : j.tieneEscopeta ? `${j.tubo} | ${j.reservaE}` : '—';
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;

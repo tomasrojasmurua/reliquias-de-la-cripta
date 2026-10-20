@@ -317,7 +317,8 @@ body.retro #vista { image-rendering: pixelated; }
 #alerta-dano { position: absolute; z-index: 9; top: calc(max(14px, env(safe-area-inset-top)) + 46px); left: 50%; transform: translateX(-50%); max-width: 90%; padding: 5px 14px; background: rgba(120, 12, 8, .88); border: 1px solid #ff6a4a; border-radius: 6px; color: #ffe2d8; font: 700 16px Georgia, serif; text-align: center; opacity: 0; pointer-events: none; transition: opacity .25s; }
 #alerta-dano.visible { opacity: 1; }
 /* con el mapa abierto el automapa muestra el estado: los indicadores de la partida se esconden para no taparlo */
-body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala, body.mapa-abierto #mensaje { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); max-width: 90%; text-align: center; padding: 8px 14px; background: rgba(18, 13, 8, .75); border: 1px solid var(--borde); border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 17px; }
+body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala, body.mapa-abierto #hud-jefe, body.mapa-abierto #fps { visibility: hidden; }
+#mensaje { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); max-width: 90%; text-align: center; padding: 8px 14px; background: rgba(18, 13, 8, .75); border: 1px solid var(--borde); border-radius: 6px; opacity: 0; transition: opacity .3s; pointer-events: none; font-size: 17px; }
 #mensaje.visible { opacity: 1; }
 #fps { position: absolute; right: 8px; top: 6px; font: 11px monospace; color: rgba(255, 255, 255, .4); pointer-events: none; }
 #btn-pausa { position: absolute; top: max(8px, env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); padding: 6px 12px; opacity: .75; z-index: 3; }
@@ -335,11 +336,30 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px 'Courier New', monospace; color: var(--oro); pointer-events: none; }
 #hud-reloj.urgente { color: #ff5a4a; border-color: #8a2a1a; animation: latido 1s infinite; }
-#hud { position: absolute; left: 50%; bottom: max(6px, env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; gap: 5px; pointer-events: none; z-index: 2; }
-#hud .caja { min-width: 60px; text-align: center; background: rgba(18, 13, 8, .6); border: 1px solid var(--borde); border-radius: 5px; padding: 1px 7px; }
-#hud small { display: block; color: var(--suave); font-size: 9px; line-height: 1.2; text-transform: uppercase; letter-spacing: 1px; }
-#hud b { font-size: 16px; line-height: 1.15; color: var(--oro); font-family: 'Courier New', monospace; }
-#hud .caja.baja b { color: #ff5a4a; animation: latido 1s infinite; }
+#hud { position: absolute; left: max(10px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); display: flex; align-items: stretch; gap: 8px; pointer-events: none; z-index: 2; }
+#hud .caja { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 4px 12px; background: rgba(18, 13, 8, .6); border: 1px solid rgba(232, 184, 58, .35); border-radius: 12px; backdrop-filter: blur(2px); }
+#hud svg { flex: none; width: 28px; height: 28px; fill: currentColor; }
+#hud svg .trazo { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+#hud svg .linea { fill: none; stroke: rgba(18, 13, 8, .55); stroke-width: 1; }
+#hud b { white-space: nowrap; font: 700 22px 'Courier New', monospace; line-height: 1; color: #f1e4c8; text-shadow: 0 1px 3px #000; }
+#hud small { display: block; margin-bottom: 2px; color: var(--suave); font-size: 11px; line-height: 1; text-transform: uppercase; letter-spacing: 1px; }
+#hud .vida svg { color: #e0453a; }
+#hud .medidor { width: 96px; height: 14px; background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .25); border-radius: 7px; overflow: hidden; }
+#hud .medidor i { display: block; height: 100%; width: 100%; background: linear-gradient(#6fdc7a, #2f9a45); border-radius: 6px; transition: width .2s, background .3s; }
+#hud .vida.media .medidor i { background: linear-gradient(#ffd25a, #d9962a); }
+#hud .vida.media b { color: #ffd25a; }
+#hud .vida.baja .medidor i { background: linear-gradient(#ff6a5a, #c0261a); }
+#hud .vida.baja b { color: #ff6a5a; }
+#hud .vida.baja { border-color: #ff5a4a; animation: latido 1s infinite; }
+#hud .arma svg { display: none; color: #cfd3da; }
+#hud .arma[data-arma="latigo"] .ic-latigo, #hud .arma[data-arma="revolver"] .ic-revolver, #hud .arma[data-arma="escopeta"] .ic-escopeta, #hud .arma[data-arma="tommy"] .ic-tommy { display: block; }
+#hud .arma .dato { min-width: 64px; text-align: left; }
+#hud .arma.vacia b { color: #ff6a5a; }
+#hud .tesoros svg { color: #ffd34d; }
+#hud .tesoros b { color: #ffd34d; }
+#hud .palanca svg { color: #9fd0ff; }
+#hud .puntos svg { color: #ffb347; }
+#hud .puntos b { color: #ffe08a; }
 @keyframes latido { 50% { opacity: .5; } }
 
 .capa { position: absolute; inset: 0; z-index: 5; background: rgba(10, 7, 4, .82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; touch-action: pan-y; overflow-y: auto; }
@@ -404,9 +424,9 @@ body.tactil.zurdo #hud { left: auto; right: 12px; }
 body.tactil #hud { left: 12px; transform: none; bottom: max(8px, env(safe-area-inset-bottom)); }
 /* en táctil el recuadro del arma es el botón para cambiarla */
 body.tactil #hud .caja[data-tactil] { pointer-events: auto; position: relative; }
-body.tactil #hud .caja[data-tactil]::after { content: '⇄'; position: absolute; top: -9px; right: -9px; width: 20px; height: 20px; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); font-size: 12px; line-height: 18px; text-align: center; color: var(--oro); }
+body.tactil #hud .caja[data-tactil]::after { content: '⇄'; position: absolute; top: -9px; right: -9px; width: 22px; height: 22px; border-radius: 50%; background: #2a1f14; border: 1px solid var(--oro); font-size: 13px; line-height: 20px; text-align: center; color: var(--oro); }
 body.tactil #hud .caja.pulsado { border-color: var(--oro); background: rgba(232, 184, 58, .3); }
-@media (max-width: 520px) { #hud .caja { min-width: 48px; padding: 1px 5px; } #hud b { font-size: 14px; } #hud small { font-size: 8px; } }
+@media (max-width: 520px) { #hud { gap: 5px; } #hud .caja { min-height: 40px; padding: 3px 8px; gap: 5px; } #hud svg { width: 22px; height: 22px; } #hud b { font-size: 18px; } #hud .medidor { width: 64px; } #hud small { font-size: 9px; } #hud .arma .dato { min-width: 48px; } }
 @media (max-width: 420px) {
   .menu .pieza, .menu .pieza:hover { width: 70px; height: 82px; }
   .pieza canvas { width: 56px; height: 56px; }
