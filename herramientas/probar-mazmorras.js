@@ -34,6 +34,8 @@ const fallos = [];
 // Cada mazmorra, entrando por el menú.
 const pruebas = [
   ...MAZMORRAS.map((m, i) => ({ nombre: m.nombre, entrar: async p => {
+    // la introducción: un toque la empieza y otro la salta
+    if (await p.$('#intro')) { await p.click('#intro'); await p.click('#intro'); await p.waitForSelector('#intro', { state: 'detached' }); }
     await p.click('#portada [data-ir="entrar"]');
     await p.click('#btn-solo');
     await p.locator('#lista-mazmorras .mazmorra').nth(i).click();
