@@ -71,7 +71,7 @@ const capaArma = $('#arma');
 const ctxArma = capaArma.getContext('2d');
 const capaMapa = $('#automapa');
 const ctxMapa = capaMapa.getContext('2d');
-$('#hud-arma').parentElement.dataset.tactil = 'cambiarArma';   // en táctil se cambia de arma tocando su recuadro
+$('#hud-arma').closest('.caja').dataset.tactil = 'cambiarArma';   // en táctil se cambia de arma tocando su recuadro
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
@@ -130,6 +130,17 @@ function mensaje(t, seg = 3) {
 function destello(clase) {
   const d = $('#destello');
   d.className = ''; void d.offsetWidth; d.className = clase;
+}
+
+// Aviso de daño por encima del mapa y de las tablillas, donde el destello rojo solo no basta: dice cuánto y quién o qué.
+let alertaT = 0;
+function avisarDaño(n, causa) {
+  const a = $('#alerta-dano');
+  const que = !causa || causa === 'Has caído en la cripta.' ? '¡Te están atacando!' : causa.replace(/ te derrotó\.$/, ' te ataca').replace(/\.$/, '');
+  a.textContent = `−${Math.round(n)} · ${que}`;
+  a.classList.remove('visible'); void a.offsetWidth; a.classList.add('visible');
+  clearTimeout(alertaT);
+  alertaT = setTimeout(() => a.classList.remove('visible'), 2600);
 }
 
 // ---------- Menús ----------
@@ -549,7 +560,6 @@ function enlazarSala(s) {
   s.alTesoro = (i, id) => tesoroDeSala(i, id);
   s.alEnlace = ok => { if (enPartidaDeSala()) mensaje(ok ? 'Volviste a la sala.' : 'Se cortó la conexión con la sala. Reconectando…', ok ? 3 : 6); };
   s.alConexion = (id, ok) => { if (enPartidaDeSala()) mensaje(`${s.jugadores.find(j => j.id === id)?.nombre || 'Un cazador'} ${ok ? 'volvió a la cripta' : 'perdió la conexión'}`, 3); };
-  s.alEmote = (id, k) => { if (enPartidaDeSala()) { mensaje(`${s.jugadores.find(j => j.id === id)?.nombre || 'Un cazador'}: ${EMOTES[k]}`, 2.5); sonar('menu_alternar'); } };
   s.alEnemigos = snap => { if (enPartidaDeSala()) juego.recibirEnemigos(snap); };
   s.alGolpe = (i, daño) => { const e = enPartidaDeSala(true) && juego.enemigos[i]; if (e && e.estado !== 'muerto') juego.herir(e, daño); };
   s.alPvp = (de, d) => { if (enPartidaDeSala()) juego.recibirGolpe(d, { id: de, nombre: nombreDe(de) }); };
@@ -559,6 +569,7 @@ function enlazarSala(s) {
     mensaje(k === sala.yo ? `Derrotaste a ${nombreDe(v)}` : `${nombreDe(k)} derrotó a ${nombreDe(v)}`, 4);
   };
   s.alDano = (n, causa) => { if (enPartidaDeSala()) juego.dañarJugador(n, causa); };
+  s.alResuelto = (a, id) => acertijoDeSala(a, id);
   s.alForzado = (id, a) => { if (enPartidaDeSala()) mensaje(`${sala.jugadores.find(q => q.id === id)?.nombre || 'Otro cazador'} forzó una puerta`, 3); };
   s.alSuelto = (i, x, z) => { const o = actual?.sala && juego?.objetos[i]; if (o?.tipo === 'tesoro') juego.reponer(o, x, z); };
 }
@@ -580,7 +591,7 @@ function perderSala(motivo) {
   clearInterval(cuentaAtras);
   $('#cuenta').hidden = true;
   const donde = document.querySelector('.pantalla:not([hidden])')?.id;
-  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = $('#emotes').hidden = true; if (juego) juego.rol = null; }   // sin anfitrión, cada enemigo lo simula uno mismo
+  if (donde === 'juego') { mensaje(motivo, 5); $('#hud-sala').hidden = true; if (juego) juego.rol = null; }   // sin anfitrión, cada enemigo lo simula uno mismo
   else if (donde === 'resumen') pintarMarcador();
   else { abrirUnirse(); $('#unirse-error').textContent = motivo; }
 }
@@ -651,7 +662,7 @@ function comenzarCuenta(p) {
 function iniciarPartidaEnSala() {
   cazadores.clear();
   envioT = 0; hudSalaClave = ''; ultimoMarcador = null;
-  $('#hud-sala').hidden = $('#emotes').hidden = !actual.sala;
+  $('#hud-sala').hidden = !actual.sala;
   if (actual.sala) sala?.ponerEstado('jugando');
 }
 
@@ -675,20 +686,28 @@ function tesoroDeSala(i, id) {
   mensaje(`${j?.nombre || 'Otro cazador'} se llevó ${TESORO[o.tesoro].nombre}`, 3);
 }
 
-// Mensajes rápidos para los demás: botones en el celular, Z X C V en el computador.
-const EMOTES = ['¡Aquí!', '¡Cuidado!', '¡Ayuda!', '¡Es mío!'];
-let emoteT = 0;
-function mandarEmote(k) {
-  if (!enPartidaDeSala() || !sala || performance.now() - emoteT < 1200) return;
-  emoteT = performance.now();
-  sala.emote(k);
-  mensaje(`Tú: ${EMOTES[k]}`, 2);
+// Con tesoros exclusivos cada acertijo se descifra una sola vez: el anfitrión dice quién fue primero.
+// El sello se abre para todos, pero los puntos son solo de quien lo descifró.
+const acertijosExclusivos = () => !!sala && !!actual?.sala && actual.sala.tesoros !== 'compartidos';
+let tablillaAbierta = null;
+function enviarAcertijo(a, bono) {
+  a.enviado = true; a.bonoPendiente = bono;
+  sala.resolver(a.id);
+  setTimeout(() => { if (a.enviado && !a.resuelto && sala) sala.resolver(a.id); }, 2500);   // por si la respuesta se pierde
 }
-for (const b of document.querySelectorAll('[data-emote]')) b.addEventListener('click', () => mandarEmote(+b.dataset.emote));
-addEventListener('keydown', e => {
-  const k = ['KeyZ', 'KeyX', 'KeyC', 'KeyV'].indexOf(e.code);
-  if (k >= 0 && !e.repeat && $('#panel').hidden && !e.target.closest?.('input, textarea')) mandarEmote(k);
-});
+function acertijoDeSala(id, quien) {
+  const a = actual?.sala && !actual.sala.fin && juego?.mapa.acertijos[id];
+  if (!a || a.resuelto) return;
+  a.enviado = false;
+  if (quien === sala.yo) { juego.resolverAcertijo(a, a.bonoPendiente || 0); return; }
+  const nombre = nombreDe(quien);
+  const tarde = tablillaAbierta === a || a.bonoPendiente !== undefined;
+  a.ajeno = { nombre };
+  if (tablillaAbierta === a) { $('#panel').hidden = true; tablillaAbierta = null; reanudar(); }
+  juego.resolverAcertijo(a, 0, nombre, tarde);
+}
+
+const HEX_CAZADOR = { rojo: '#ff5a48', azul: '#4f8cff', verde: '#4fd070', amarillo: '#ffd23a' };   // más vivos que los del sombrero, para verse sobre el mapa
 
 // ¿Hay una partida de sala en curso? (`aunqueTermine`: el anfitrión sigue simulando a los enemigos para los demás)
 const enPartidaDeSala = (aunqueTermine = false) => !!juego && !!actual?.sala && (aunqueTermine || !actual.sala.fin);
@@ -735,7 +754,7 @@ function cuadroDeSala(t, dt, sprites) {
     const camina = antes / Math.max(dt, 0.001) > 0.8;
     const color = sala?.jugadores.find(j => j.id === id)?.color || COLORES[id % COLORES.length];
     const aviso = (avisos.get(id) || 0) > t;
-    if (aviso || !juego.combate) juego.otros.push({ x: c.rx, z: c.rz, color, aviso });   // con combate, solo se les ve en el mapa tras tomar un tesoro
+    if (aviso || !juego.combate) juego.otros.push({ x: c.rx, z: c.rz, color, aviso, nombre: c.nombre });   // con combate, solo se les ve en el mapa tras tomar un tesoro
     sprites.push({ x: c.rx, z: c.rz, y: c.ry, ancho: 0.95, alto: 0.95, tex: `cazador_${color}_${camina ? Math.floor(t / 180) % 2 : 8}`, luz: Math.max(0.6, m.celda(Math.floor(c.rx), Math.floor(c.rz))?.luz ?? 0.5) });
   }
   if (t - hudSalaT > 400) { hudSalaT = t; pintarHudSala(); }
@@ -747,6 +766,7 @@ function pintarHudSala() {
   const filas = sala.jugadores.map(j => ({ j, mio: j.id === sala.yo, aqui: j.id === sala.yo || cazadores.has(j.id) }))
     .map(({ j, mio, aqui }) => ({ ...j, mio, aqui, pt: mio ? juego.puntos() : (cazadores.get(j.id)?.pt ?? ultimoMarcador?.find(f => f.id === j.id)?.puntos ?? 0) }));
   filas.sort((a, b) => b.pt - a.pt || a.id - b.id);   // el que va ganando, arriba
+  juego.marcador = filas.map(f => ({ nombre: f.nombre, color: f.color, pt: f.pt, yo: f.mio }));   // el automapa lo repite
   const clave = JSON.stringify(filas.map(f => [f.id, f.nombre, f.pt, f.aqui]));
   if (clave === hudSalaClave) return;
   hudSalaClave = clave;
@@ -773,7 +793,7 @@ function resumenSala(puntos, exito) {
     mostrar('sala');
     pintarLobby();
   };
-  const detalle = { tesoros: juego.tesoros, resueltos: Object.values(juego.mapa.acertijos).filter(a => a.resuelto).map(a => String(a.id)) };
+  const detalle = { tesoros: juego.tesoros, resueltos: Object.values(juego.mapa.acertijos).filter(a => a.resuelto && !a.ajeno).map(a => String(a.id)) };
   if (sala) sala.terminar(puntos, exito, detalle);
   else ultimoMarcador = null;
   pintarMarcador();
@@ -839,7 +859,7 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
       destello('oro');
       actualizarHUD();
     },
-    daño() { destello('rojo'); },
+    daño(n, causa) { destello('rojo'); avisarDaño(n, causa); },
     reclamar: enSala && enSala.tesoros !== 'compartidos' ? o => reclamarTesoro(o) : undefined,
     golpear: enSala ? (i, d) => sala?.golpear(i, d) : undefined,
     pegarA: enSala?.combate ? (id, d) => sala?.pegarA(id, d) : undefined,
@@ -853,7 +873,8 @@ function empezar(def, tamano = 'grande', limite = 0, diaria = null, enSala = nul
     salida: r => terminar(r, true),
     muerte: r => juego.limite ? juego.caer() : setTimeout(() => terminar(r, false), 1400),
     tiempoAgotado: r => terminar(r, false),
-  }, (diaria || enSala)?.semilla, { limite, modificadores: diaria?.modificadores, real: !!enSala, combate: !!enSala?.combate, rol: enSala ? (sala?.soyAnfitrion ? 'anfitrion' : 'invitado') : null });
+  }, (diaria || enSala)?.semilla, { limite, modificadores: diaria?.modificadores, real: !!enSala, combate: !!enSala?.combate, rol: enSala ? (sala?.soyAnfitrion ? 'anfitrion' : 'invitado') : null, puesto: enSala ? sala?.yo ?? 0 : 0 });
+  juego.colorPropio = enSala && sala ? HEX_CAZADOR[sala.jugadores.find(q => q.id === sala.yo)?.color] || null : null;
   $('#hud-reloj').hidden = !limite;
   $('#caja-puntos').hidden = !limite;
   document.body.classList.toggle('contrarreloj', !!limite);
@@ -917,11 +938,17 @@ function abrirPanelTablilla(a) {
   const enUso = () => new Set(Object.values(juego.mapa.acertijos).filter(o => o !== a && o.estado).map(o => o.estado.pista.id));
   if (!a.estado && a.tipo !== 'palancas') a.estado = { titulo: a.titulo, pista: elegirPista(dificultad, resueltas, enUso(), azar), nivel: 0, vistas: new Set() };
   const panel = $('#panel');
+  tablillaAbierta = a;
   if (a.tipo === 'palancas') {
     a.estadoPalancas ||= { titulo: a.titulo, acertijo: crearPalancas(azar) };
     abrirPalancas(panel, a.estadoPalancas, {
-      alResolver() { panel.hidden = true; juego.resolverAcertijo(a, a.estadoPalancas.ayudas ? 0 : BONO_PALANCAS); reanudar(); },
-      alCerrar() { panel.hidden = true; reanudar(); },
+      alResolver() {
+        panel.hidden = true; tablillaAbierta = null;
+        const bono = a.estadoPalancas.ayudas ? 0 : BONO_PALANCAS;
+        if (acertijosExclusivos()) enviarAcertijo(a, bono); else juego.resolverAcertijo(a, bono);
+        reanudar();
+      },
+      alCerrar() { panel.hidden = true; tablillaAbierta = null; reanudar(); },
     });
     return;
   }
@@ -933,17 +960,17 @@ function abrirPanelTablilla(a) {
       const antes = rangoDe(sinAyudas()).nombre;
       anotarEnCuaderno(p, (Date.now() - a.estado.inicio) / 1000, ayudas);
       const despues = rangoDe(sinAyudas()).nombre;
-      panel.hidden = true;
-      juego.resolverAcertijo(a, bonoAcertijo(p.dificultad, ayudas));
+      panel.hidden = true; tablillaAbierta = null;
+      if (acertijosExclusivos()) enviarAcertijo(a, bonoAcertijo(p.dificultad, ayudas)); else juego.resolverAcertijo(a, bonoAcertijo(p.dificultad, ayudas));
       if (despues !== antes) juego.ev.mensaje(`¡Nuevo rango en el cuaderno: ${despues}!`, 5);
       reanudar();
     },
-    alCerrar() { panel.hidden = true; reanudar(); },
+    alCerrar() { panel.hidden = true; tablillaAbierta = null; reanudar(); },
   });
 }
 
 function terminar(r, exito) {
-  if (actual.sala) { actual.sala.fin = true; $('#hud-sala').hidden = $('#emotes').hidden = true; }
+  if (actual.sala) { actual.sala.fin = true; $('#hud-sala').hidden = true; }
   pausar();
   sonar(exito ? 'victoria' : 'derrota');
   $('#panel').hidden = true;
@@ -1030,9 +1057,30 @@ $('#btn-pausa').addEventListener('click', () => { pausar(); $('#pausa').hidden =
 function actualizarHUD() {
   const j = juego.j;
   $('#hud-vida').textContent = j.vida;
-  $('#hud-vida').parentElement.classList.toggle('baja', j.vida <= 25);
-  $('#hud-arma').textContent = { revolver: 'Revólver', escopeta: 'Escopeta', tommy: 'Tommy gun' }[j.arma] || 'Látigo';
-  $('#hud-balas').textContent = j.arma === 'tommy' ? `${j.cargador} | ${j.reservaT}` : j.arma === 'escopeta' ? `${j.tubo} | ${j.reservaE}` : j.arma === 'revolver' || j.tieneRevolver ? `${j.tambor} | ${j.reserva}` : j.tieneEscopeta ? `${j.tubo} | ${j.reservaE}` : '—';
+  const pv = `${Math.max(0, Math.min(100, j.vida))}%`;
+  $('#hud-vida-barra').style.width = pv;
+  $('#hud-vida-rastro').style.width = pv;   // se queda atrás un momento (transición con retardo en el CSS)
+  const cv = $('#hud-vida').parentElement;
+  cv.classList.toggle('baja', j.vida <= 25);
+  cv.classList.toggle('media', j.vida > 25 && j.vida <= 50);
+  // el arma que llevas: su dibujo, las balas cargadas (una por una en el revólver y la escopeta) y la reserva
+  const caja = $('#hud-arma').closest('.caja');
+  const datos = { revolver: ['Revólver', j.tambor, j.reserva, 6], escopeta: ['Escopeta', j.tubo, j.reservaE, 2], tommy: ['Tommy gun', j.cargador, j.reservaT, 30] }[j.arma];
+  caja.dataset.arma = j.arma;
+  caja.classList.toggle('sin-municion', !datos);
+  caja.classList.toggle('vacia', !!datos && datos[1] === 0);
+  $('#hud-arma').textContent = datos ? datos[0] : 'Látigo';
+  if (datos) {
+    const [, carga, reserva, cabe] = datos;
+    $('#hud-balas').textContent = carga;
+    $('#hud-reserva').textContent = `/ ${reserva}`;
+    const pips = $('#hud-pips'), clave = `${j.arma}:${carga}`;
+    if (pips.dataset.clave !== clave) {
+      pips.dataset.clave = clave;
+      pips.innerHTML = cabe > 8 ? `<span class="tira" style="--lleno:${Math.round(carga / cabe * 100)}%"></span>`
+        : Array.from({ length: cabe }, (_, k) => `<i class="${k < carga ? '' : 'gastada'}"></i>`).join('');
+    }
+  }
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;
   if (juego.limite) {
@@ -1095,6 +1143,10 @@ function cuadro(t) {
     if (capaMapa.width !== w || capaMapa.height !== h) { capaMapa.width = w; capaMapa.height = h; }
     dibujarAutomapa(ctxMapa, w, h, juego);
   }
+  document.body.classList.toggle('mapa-abierto', !capaMapa.hidden);
+  const ad = $('#aviso-dardos');
+  ad.hidden = !juego.enTiro || juego.j.muerto;
+  ad.classList.toggle('disparo', juego.enTiro === 2);
   actualizarHUD();
   $('#t-mapa').classList.toggle('aviso', !!juego.avisoMapa && capaMapa.hidden);
   botonUsar.classList.toggle('listo', juego.puedeUsar());

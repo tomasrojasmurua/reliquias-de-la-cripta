@@ -90,6 +90,8 @@ const SALPICA = {
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
   escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso', brujo: 'sangre',
 };
+const SALIDA_REVELADA = 0.6;   // fracción del tiempo tras la cual se marca la salida en las salas
+
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
 // al empezar la partida y al reaparecer, para que nadie espere a otro en la entrada.
 // (la Tommy gun, que dispara una ráfaga, pega menos aún para que una sola ráfaga no decida el duelo)
@@ -117,8 +119,9 @@ export class Juego {
     this.mapa = cargarMazmorra(def, semilla);
     this.ev = eventos; // {mensaje, tesoro, daño, abrirTablilla, salida, muerte, tiempoAgotado}
     const m = this.mapa;
+    this.inicioJ = (opciones.puesto > 0 && m.puestos?.[opciones.puesto]) || { x: m.inicio.x, z: m.inicio.z, yaw: def.angulo || 0 };   // en una sala cada cazador parte de un puesto distinto
     this.j = {
-      x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: def.angulo || 0, cabeceo: 0,
+      x: this.inicioJ.x, z: this.inicioJ.z, y: m.piso(Math.floor(this.inicioJ.x), Math.floor(this.inicioJ.z)), yaw: this.inicioJ.yaw, cabeceo: 0,
       vida: this.vidaInicial, arma: 'latigo', tieneRevolver: false, tieneEscopeta: false, tieneTommy: false, cargador: 0, reservaT: 0, barreta: 0, tambor: 0, reserva: 0, tubo: 0, reservaE: 0, recargaArma: null,
       espera: 0, recargando: 0, ataque: 0, paso: 0, muerto: false,
     };
@@ -145,6 +148,7 @@ export class Juego {
     this.derrumbe = def.derrumbe ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
     this.temblor = 0;
     this.salidaVista = false;
+    this.salidaRevelada = false;
     this.prepararAmbiente();
   }
 
@@ -591,6 +595,13 @@ export class Juego {
 
   actualizarDardos() {
     const j = this.j;
+    // ¿estoy en la línea de tiro de alguna trampa? (1 = sí; 2 = y hay un dardo en el aire hacia mí)
+    const cx = Math.floor(j.x), cz = Math.floor(j.z);
+    this.enTiro = 0;
+    for (const d of this.dardos) {
+      if (!d.carril.some(([x, z]) => x === cx && z === cz)) continue;
+      this.enTiro = Math.max(this.enTiro, this.dardoEn(d) ? 2 : 1);
+    }
     for (const d of this.dardos) {
       const t = (this.tiempo + d.fase) % DARDOS.ciclo;
       if (t < d.prev && Math.hypot(d.x - j.x, d.z - j.z) < 14) sonar('dardo');   // acaba de dispararse
@@ -754,7 +765,7 @@ export class Juego {
   recibirGolpe(n, de) {
     const j = this.j;
     if (!this.combate || j.muerto || this.proteccion > 0) return;
-    this.dañarJugador(n, `${de.nombre} te derrotó.`);
+    this.dañarJugador(n, `${de.nombre} te derrotó.`, `${de.nombre} te ataca`);
     if (j.muerto) this.ev.baja?.(de.id);
   }
 
@@ -889,7 +900,8 @@ export class Juego {
     }
     else if (c.tipo === 'tablilla') {
       const a = m.acertijos[c.acertijo];
-      if (a.resuelto) this.ev.mensaje('Ya descifraste esta inscripción.');
+      if (a.resuelto) this.ev.mensaje(a.ajeno ? `${a.ajeno.nombre} ya descifró esta inscripción.` : 'Ya descifraste esta inscripción.');
+      else if (a.enviado) this.ev.mensaje('Esperando que la cripta confirme tu respuesta…', 2);
       else this.ev.abrirTablilla(a);
     }
     else if (c.tipo === 'aviso') this.ev.mensaje(`«${c.texto}»`, 6);
@@ -905,7 +917,8 @@ export class Juego {
     this.avisoMapa = true;
   }
 
-  resolverAcertijo(a, bono = 0) {
+  // `por`: en una sala, el cazador que se adelantó a descifrarla (el sello se abre igual, pero sin puntos para mí).
+  resolverAcertijo(a, bono = 0, por = null, tarde = false) {
     a.resuelto = true;
     this.bonoAcertijos += bono;
     this.abrirSellos(a);
@@ -913,6 +926,7 @@ export class Juego {
     for (const c of this.mapa.celdas) if (c.tipo === 'tablilla' && c.acertijo === a.id && !c.tex.endsWith('_rota')) c.tex += '_rota';
     this.ev.reconstruir?.();
     sonar('puerta');
+    if (por) { this.ev.mensaje(tarde ? `¡Llegaste tarde! ${por} descifró «${a.titulo}» antes. El sello se abre.` : `${por} descifró «${a.titulo}». El sello se abre.`, 4); return; }
     this.ev.mensaje(bono ? `Se oye un mecanismo antiguo. El sello se abre. ¡Sin ayudas! +${bono} punto${bono === 1 ? '' : 's'}` : 'Se oye un mecanismo antiguo. El sello se abre.');
   }
 
@@ -941,6 +955,13 @@ export class Juego {
     this.reloj = this.real ? (Date.now() - this.inicioReal) / 1000 : this.reloj + dt;
     const r = this.restante();
     if (antes > 60 && r <= 60) { sonar('campanada'); this.ev.mensaje('¡Queda un minuto! Las antorchas empiezan a apagarse.', 4); }
+    // en una sala la salida se marca en el automapa pasado el 60 % del tiempo: nadie se queda dando vueltas sin encontrarla
+    if (this.real && !this.salidaRevelada && this.reloj >= this.limite * SALIDA_REVELADA) {
+      this.salidaRevelada = true;
+      this.avisoMapa = true;
+      sonar('campanada');
+      this.ev.mensaje('La salida quedó marcada en el automapa.', 5);
+    }
     if (r <= 0) { this.terminado = true; this.ev.tiempoAgotado(this.resumen('Se apagó la última antorcha.')); }
   }
 
@@ -957,8 +978,18 @@ export class Juego {
     const j = this.j, id = this.tesoros.pop();
     const o = id && this.objetos.find(q => q.tipo === 'tesoro' && q.tesoro === id);
     if (o) {
-      const c = this.mapa.celda(Math.floor(j.x), Math.floor(j.z));
-      if (j.cayendo === undefined && c?.tipo === 'suelo' && !c.peligro && !c.trampa) { o.x = j.x; o.z = j.z; }
+      // queda donde caíste; si ahí no se puede recoger (lava, abismo, pinchos), en la casilla firme más cercana, no en su puesto de origen
+      const m = this.mapa, firme = (x, z) => { const c = m.celda(x, z); return c?.tipo === 'suelo' && !c.peligro && !c.trampa && !c.estatua; };
+      const cx = Math.floor(j.x), cz = Math.floor(j.z);
+      if (j.cayendo === undefined && firme(cx, cz)) { o.x = j.x; o.z = j.z; }
+      else {
+        let mejor = null, md = Infinity;
+        for (let dz = -5; dz <= 5; dz++) for (let dx = -5; dx <= 5; dx++) {
+          const d = Math.hypot(dx, dz);
+          if (d < md && firme(cx + dx, cz + dz)) { md = d; mejor = [cx + dx + 0.5, cz + dz + 0.5]; }
+        }
+        if (mejor) [o.x, o.z] = mejor;
+      }
       o.cogido = false;
       const z = this.zonas[o.zona];
       if (z) z.halladas--;
@@ -970,7 +1001,8 @@ export class Juego {
 
   revivir() {
     const j = this.j, m = this.mapa;
-    Object.assign(j, { x: m.inicio.x, z: m.inicio.z, y: m.piso(Math.floor(m.inicio.x), Math.floor(m.inicio.z)), yaw: this.def.angulo || 0, cabeceo: 0, vida: this.vidaInicial, muerto: false, quemadura: 0 });
+    const p = this.inicioJ;
+    Object.assign(j, { x: p.x, z: p.z, y: m.piso(Math.floor(p.x), Math.floor(p.z)), yaw: p.yaw, cabeceo: 0, vida: this.vidaInicial, muerto: false, quemadura: 0 });
     delete j.cayendo;
     if (this.combate) { this.proteccion = TREGUA_REAPARECER; this.ev.mensaje('Estás protegido unos segundos.', 3); }
   }
@@ -981,7 +1013,7 @@ export class Juego {
       mazmorra: this.def, tesoros: this.tesoros, totalTesoros: this.totalTesoros,
       secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
       abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,
-      acertijos: Object.values(this.mapa.acertijos).filter(a => a.resuelto).length,
+      acertijos: Object.values(this.mapa.acertijos).filter(a => a.resuelto && !a.ajeno).length,
       totalAcertijos: Object.keys(this.mapa.acertijos).length, bonoAcertijos: this.bonoAcertijos,
     };
   }
@@ -1274,12 +1306,12 @@ export class Juego {
     sonarEnemigo(e.tipo, momento, d, d > 0.01 ? (dx * -Math.sin(j.yaw) + dz * Math.cos(j.yaw)) / d : 0);
   }
 
-  dañarJugador(n, causa = 'Has caído en la cripta.') {
+  dañarJugador(n, causa = 'Has caído en la cripta.', aviso = causa) {
     const j = this.j;
     if (j.muerto) return;
     j.vida = Math.max(0, j.vida - Math.round(n));
     sonar('dolor');
-    this.ev.daño();
+    this.ev.daño(n, aviso);
     this.ev.vibrar?.(60);
     if (j.vida <= 0) { j.muerto = true; this.ev.muerte(this.resumen(causa)); }
   }

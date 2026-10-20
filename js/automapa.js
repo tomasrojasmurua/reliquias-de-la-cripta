@@ -9,6 +9,7 @@ const COLOR = {
   lava: '#c2410c',
   abismo: '#05070a',
   puerta: '#c27a3a',
+  abierta: '#7fe0a0',   // puerta o sello ya abierto
   sello: '#ffd34d',
   tablilla: '#5fa8ff',
   salida: '#4fbf7f',
@@ -60,8 +61,8 @@ export function dibujarAutomapa(ctx, w, h, juego) {
     let col = COLOR.suelo;
     if (c.peligro === 'lava') col = COLOR.lava;
     else if (c.peligro === 'abismo') col = COLOR.abismo;
-    else if (c.tipo === 'puerta') col = COLOR.puerta;
-    else if (c.tipo === 'sello') col = c.abierto >= 1 ? COLOR.suelo : COLOR.sello;
+    else if (c.tipo === 'puerta') col = c.abriendo || c.abierto > 0.02 ? mezclar(COLOR.suelo, COLOR.abierta, 0.35) : COLOR.puerta;
+    else if (c.tipo === 'sello') col = c.abierto >= 1 ? mezclar(COLOR.suelo, COLOR.abierta, 0.35) : COLOR.sello;
     else if (pmax > pmin) col = mezclar(c.zona !== undefined && completa(c.zona) ? COLOR.completa : COLOR.suelo, COLOR.alto, (c.piso - pmin) / (pmax - pmin));
     else if (completa(c.zona)) col = COLOR.completa;
     ctx.fillStyle = col;
@@ -88,6 +89,17 @@ export function dibujarAutomapa(ctx, w, h, juego) {
       else { ctx.moveTo(x0, oy + y * t); ctx.lineTo(x0, oy + (y + 1) * t); }
       ctx.stroke();
     }
+  }
+  // trampas de dardos: su línea de tiro en rojo, en las casillas ya vistas, con una marca en el muro que dispara
+  for (const d of juego.dardos || []) {
+    ctx.fillStyle = 'rgba(214, 44, 28, .55)';
+    for (const [cx, cz] of d.carril) if (visto(cx, cz)) ctx.fillRect(ox + cx * t, oy + cz * t, t, t);
+    const bx = Math.floor(d.x), bz = Math.floor(d.z);
+    if (!d.carril.some(([cx, cz]) => visto(cx, cz))) continue;
+    ctx.fillStyle = '#ff4a30';
+    ctx.beginPath();
+    ctx.moveTo(ox + (bx + 0.5) * t, oy + bz * t + t * 0.1); ctx.lineTo(ox + (bx + 0.95) * t, oy + (bz + 0.9) * t); ctx.lineTo(ox + (bx + 0.05) * t, oy + (bz + 0.9) * t);
+    ctx.closePath(); ctx.fill();
   }
   // tesoros y objetos ya vistos
   for (const o of juego.objetos) {
@@ -116,10 +128,27 @@ export function dibujarAutomapa(ctx, w, h, juego) {
       ctx.fillText(txt, ox + (sx / n + 0.5) * t, oy + (sy / n + 0.5) * t);
     });
   }
-  // la salida, una vez vista, con su letrero
-  if (juego.salidaVista) {
+  // puertas y sellos que ya se abrieron: un marco verde con una muesca, para ver por dónde pasó alguien
+  for (let i = 0; i < m.celdas.length; i++) {
+    const c = m.celdas[i];
+    if ((c.tipo !== 'puerta' && c.tipo !== 'sello') || !(c.abriendo || c.abierto > 0.02) || !v[i]) continue;
+    const x = i % m.ancho, y = Math.floor(i / m.ancho), e = Math.max(2, t * 0.14);
+    ctx.strokeStyle = COLOR.abierta; ctx.lineWidth = e;
+    ctx.strokeRect(ox + x * t + e / 2, oy + y * t + e / 2, t - e, t - e);
+    ctx.fillStyle = COLOR.abierta;
+    ctx.fillRect(ox + x * t + t * 0.3, oy + y * t + t * 0.3, t * 0.4, t * 0.4);
+  }
+  // la salida, una vez vista (o revelada con el tiempo en una sala), con su letrero
+  if (juego.salidaVista || juego.salidaRevelada) {
+    const fase = (performance.now() % 1400) / 1400;
     for (let i = 0; i < m.celdas.length; i++) {
-      if (m.celdas[i].tipo !== 'salida' || !v[i]) continue;
+      if (m.celdas[i].tipo !== 'salida' || (!v[i] && !juego.salidaRevelada)) continue;
+      if (!v[i]) {
+        const sx = ox + (i % m.ancho + 0.5) * t, sy = oy + (Math.floor(i / m.ancho) + 0.5) * t, R = Math.max(8, t * 0.9);
+        ctx.strokeStyle = COLOR.salida; ctx.lineWidth = 3;
+        ctx.globalAlpha = 1 - fase; ctx.beginPath(); ctx.arc(sx, sy, R + fase * R * 2.5, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(sx, sy, R, 0, Math.PI * 2); ctx.stroke();
+      }
       const x = i % m.ancho, y = Math.floor(i / m.ancho);
       ctx.fillStyle = COLOR.salida;
       ctx.fillRect(ox + x * t, oy + y * t, t, t);
@@ -165,20 +194,49 @@ export function dibujarAutomapa(ctx, w, h, juego) {
     }
     ctx.fillStyle = col; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.arc(px, py, Math.max(4, t * 0.45), 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (o.nombre) etiqueta(ctx, o.nombre, px, py - Math.max(4, t * 0.45) - 4, col, Math.max(11, Math.round(t * 0.9)));
   }
-  // jugador
-  const px = ox + j.x * t, py = oy + j.z * t, r = Math.max(5, t * 0.55);
+  // jugador: flecha grande con borde claro, un aro que late y el rótulo «TÚ», para encontrarse de un vistazo
+  const px = ox + j.x * t, py = oy + j.z * t, r = Math.max(8, t * 0.8), col = juego.colorPropio || COLOR.jugador;
+  const latido = (performance.now() % 1100) / 1100;
+  ctx.strokeStyle = col; ctx.lineWidth = 3;
+  ctx.globalAlpha = 1 - latido; ctx.beginPath(); ctx.arc(px, py, r * (1 + latido * 1.8), 0, Math.PI * 2); ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(10, 7, 4, .55)'; ctx.beginPath(); ctx.arc(px, py, r * 1.15, 0, Math.PI * 2); ctx.fill();
   ctx.save();
   ctx.translate(px, py); ctx.rotate(j.yaw);
-  ctx.fillStyle = COLOR.jugador; ctx.strokeStyle = '#120d08'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * 0.6, r * 0.55); ctx.lineTo(-r * 0.3, 0); ctx.lineTo(-r * 0.6, -r * 0.55); ctx.closePath();
+  ctx.fillStyle = col; ctx.strokeStyle = '#fff6dc'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(r * 1.15, 0); ctx.lineTo(-r * 0.7, r * 0.75); ctx.lineTo(-r * 0.35, 0); ctx.lineTo(-r * 0.7, -r * 0.75); ctx.closePath();
   ctx.fill(); ctx.stroke();
   ctx.restore();
+  etiqueta(ctx, 'TÚ', px, py - r * 1.5, col, Math.max(13, Math.round(t * 1.0)));
+  // estado y marcador, sobre el propio mapa (los indicadores de la partida se esconden mientras está abierto)
+  const f = Math.max(12, Math.round(Math.min(w, h) / 38));
+  ctx.font = `bold ${f}px Georgia, serif`; ctx.textAlign = 'center';
+  const linea = [`Vida ${Math.round(j.vida)}`, `Tesoros ${juego.tesoros.length}/${juego.totalTesoros}`, juego.limite ? `Puntos ${juego.puntos()}` : null, juego.limite ? `${Math.floor(juego.restante() / 60)}:${String(Math.ceil(juego.restante()) % 60).padStart(2, '0')}` : null].filter(Boolean).join('   ·   ');
+  etiqueta(ctx, linea, w / 2, h - Math.max(8, margen * 0.4), '#f1e4c8', f);
+  if (juego.marcador?.length) {
+    ctx.textAlign = 'left';
+    juego.marcador.forEach((q, k) => {
+      const yy = Math.max(8, margen * 0.4) + f * (k + 1.3);
+      ctx.fillStyle = COLOR_CAZADOR[q.color] || '#fff'; ctx.fillRect(10, yy - f * 0.8, f * 0.9, f * 0.6);
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10, 7, 4, .9)';
+      const txt = `${q.nombre}  ${q.pt}`;
+      ctx.strokeText(txt, 10 + f * 1.3, yy); ctx.fillStyle = q.yo ? '#ffd34d' : '#f1e4c8'; ctx.fillText(txt, 10 + f * 1.3, yy);
+    });
+  }
   // título
   ctx.fillStyle = '#f1e4c8';
   ctx.font = `${Math.max(13, Math.round(t * 0.7))}px Georgia, serif`;
   ctx.textAlign = 'center';
   ctx.fillText(juego.def.nombre, w / 2, Math.max(18, oy - t * 0.5));
+}
+
+// Texto con contorno oscuro, legible sobre cualquier fondo.
+function etiqueta(ctx, txt, x, y, color, tam) {
+  ctx.font = `bold ${tam}px Georgia, serif`; ctx.textAlign = 'center';
+  ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(10, 7, 4, .95)'; ctx.lineJoin = 'round';
+  ctx.strokeText(txt, x, y); ctx.fillStyle = color; ctx.fillText(txt, x, y);
 }
 
 function mezclar(a, b, k) {

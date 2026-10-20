@@ -663,6 +663,21 @@ registrar('agujeros', b => {
   muro(b, rng(147), [94, 88, 80], { alto: 32, ancho: 32, junta: 1, bisel: 3, mortero: [34, 30, 27], variacion: 0.16,
     capa: { alto: (x, y, v) => hueco(x, y) ? 0 : v, color: (x, y, v, c) => hueco(x, y) ? [14, 10, 8] : c } });
 });
+// Línea de tiro de una trampa de dardos: marcas rojas sobre el suelo (fondo transparente) a lo largo del pasillo,
+// con rayas en los bordes y puntas de flecha, para ver de lejos dónde hay peligro y dónde no. `eje`: por dónde corre el pasillo.
+for (const eje of ['x', 'z']) {
+  registrar(`carril_dardos_${eje}`, b => {
+    const pon = (u, v, c) => (eje === 'z' ? b.set(u, v, ...c) : b.set(v, u, ...c));   // u: a lo ancho del pasillo, v: a lo largo
+    for (let v = 0; v < T; v++) {
+      const raya = v % 16 < 11;
+      for (let u = 0; u < 4; u++) if (raya) { pon(u, v, [214, 44, 28]); pon(T - 1 - u, v, [214, 44, 28]); }
+      if (raya) { pon(4, v, [110, 18, 10]); pon(T - 5, v, [110, 18, 10]); }
+    }
+    // un «!» en el centro de cada casilla
+    for (let v = 18; v < 38; v++) for (let u = 30; u < 34; u++) pon(u, v, [214, 44, 28]);
+    for (let v = 42; v < 46; v++) for (let u = 30; u < 34; u++) pon(u, v, [214, 44, 28]);
+  });
+}
 registrar('abismo', b => {
   const r = rng(149), niebla = fbm(r, 2, 4);
   superficie(b, (x, y) => niebla(x, y), (x, y, v) => escalar([20, 17, 18], 0.5 + v * 0.9), { hondo: 0, fuerza: 0.6, niveles: 64 });
@@ -1397,23 +1412,45 @@ for (const tipo of TIPOS_ENEMIGO) {
 const COLORES_CAZADOR = { rojo: ['#d23a2e', '#8a1f18'], azul: ['#2f66d8', '#1c3f8a'], verde: ['#33a852', '#1d6a32'], amarillo: ['#e6b91f', '#9a7a0c'] };
 function cazador(g, [claro, oscuro], pose) {
   const paso = pose === 0 ? 2 : pose === 1 ? -2 : 0;   // brazos y pies se alternan al caminar
-  const abrigo = '#8a6a42', abrigoSombra = '#5e4528', pantalon = '#4a3a2a', piel = '#e0b48a';
-  // piernas y botas
-  r(g, 24, 46 + Math.max(0, -paso), 7, 11 - Math.max(0, -paso), pantalon); r(g, 33, 46 + Math.max(0, paso), 7, 11 - Math.max(0, paso), pantalon);
-  r(g, 22, 56 - Math.max(0, paso) + (paso > 0 ? -2 : 0), 10, 5, '#2a2018'); r(g, 32, 56 - Math.max(0, -paso) + (paso < 0 ? -2 : 0), 10, 5, '#2a2018');
-  // abrigo con cinturón y mochila al hombro
-  r(g, 20, 26, 24, 22, abrigo); r(g, 20, 42, 24, 3, abrigoSombra); r(g, 30, 42, 4, 3, '#d8b04a');
-  r(g, 16, 28, 5, 14, '#6e4f2c');
-  // brazos: el derecho sostiene la antorcha
-  r(g, 14, 27 + paso, 7, 16, abrigo); r(g, 14, 41 + paso, 7, 4, piel);
-  r(g, 43, 27 - paso, 7, 16, abrigo); r(g, 43, 41 - paso, 7, 4, piel);
-  r(g, 45, 30 - paso, 3, 13, '#6b4a22');
-  r(g, 44, 24 - paso, 5, 6, '#ff8a1a'); r(g, 45, 22 - paso, 3, 4, '#ffd24a'); r(g, 46, 20 - paso, 1, 3, '#fff3b8');
-  // pañuelo, cabeza y sombrero
-  r(g, 25, 23, 14, 4, claro); r(g, 29, 26, 6, 3, oscuro);
-  r(g, 25, 11, 14, 13, piel); r(g, 28, 17, 2, 2, '#241a12'); r(g, 34, 17, 2, 2, '#241a12'); r(g, 29, 21, 6, 1, '#8a4a3a');
-  r(g, 14, 9, 36, 4, oscuro); r(g, 16, 8, 32, 2, claro);
-  r(g, 23, 0, 18, 10, claro); r(g, 23, 6, 18, 3, oscuro);
+  const sube = pose === 8 ? 0 : 1;                      // al caminar el cuerpo sube y baja un poco
+  const abrigo = '#8a6a42', luz = '#a98254', sombra = '#5e4528', pantalon = '#54402c', piel = '#e0b48a', pielSombra = '#b98a60', cuero = '#2a2018', borde = '#150e08';
+  // con borde oscuro de 1 píxel: así se lee la silueta incluso con poca luz
+  const pieza = (x, y, w, h, c) => { r(g, x - 1, y - 1, w + 2, h + 2, borde); r(g, x, y, w, h, c); };
+  const y0 = pose === 1 ? 1 : 0;   // en el paso largo baja un píxel
+  // mochila con el petate enrollado del color del puesto
+  pieza(13, 29 + y0, 8, 16, '#6e4f2c'); r(g, 14, 30 + y0, 2, 14, '#8a6a42'); pieza(11, 27 + y0, 11, 5, claro); r(g, 12, 28 + y0, 9, 1, '#fff6'); r(g, 11, 31 + y0, 11, 1, oscuro);
+  // botas altas con puño vuelto, una pierna adelante y otra atrás
+  const pa = Math.max(0, paso), pb = Math.max(0, -paso);
+  pieza(23, 47 + y0, 8, 9 - pb, pantalon); pieza(33, 47 + y0, 8, 9 - pa, pantalon);
+  pieza(22, 54 - pb + y0, 10, 8 - (pose === 1 ? 1 : 0) + pb, cuero); pieza(32, 54 - pa + y0, 10, 8 + pa, cuero);
+  r(g, 22, 54 - pb + y0, 10, 2, '#6b5030'); r(g, 32, 54 - pa + y0, 10, 2, '#6b5030');
+  r(g, 21, 60 + pb, 3, 2, '#120c06'); r(g, 41, 60 + pa, 3, 2, '#120c06');
+  // abrigo de cuero con camisa, cinturón con hebilla, canana cruzada y cartuchos
+  pieza(19, 26 + y0, 26, 22, abrigo); r(g, 20, 27 + y0, 24, 2, luz); r(g, 20, 40 + y0, 24, 6, sombra);
+  r(g, 28, 26 + y0, 8, 9, '#d8cfae'); r(g, 31, 26 + y0, 2, 9, '#b8ad88');
+  for (let k = 0; k < 9; k++) { r(g, 20 + k * 2 + (k > 4 ? 0 : 0), 28 + y0 + Math.floor(k * 1.7), 3, 3, oscuro); }
+  r(g, 21, 29 + y0, 3, 2, claro);
+  for (let k = 0; k < 4; k++) r(g, 25 + k * 3, 34 + y0 + k * 2 - (k > 1 ? 0 : 0), 2, 2, '#e6c35a');
+  pieza(19, 44 + y0, 26, 4, cuero); pieza(29, 44 + y0, 6, 4, '#d8b04a'); r(g, 31, 45 + y0, 2, 2, cuero);
+  // hombreras del color del puesto
+  r(g, 17, 25 + y0, 7, 4, claro); r(g, 17, 28 + y0, 7, 1, oscuro); r(g, 40, 25 + y0, 7, 4, claro); r(g, 40, 28 + y0, 7, 1, oscuro);
+  // brazo izquierdo, junto al cuerpo, con el látigo enrollado en la cintura
+  pieza(13, 29 + paso + y0, 6, 13, abrigo); r(g, 13, 38 + paso + y0, 6, 2, sombra); pieza(13, 41 + paso + y0, 6, 4, piel);
+  pieza(15, 44 + y0, 6, 6, '#7a5a30'); r(g, 16, 45 + y0, 4, 1, '#3a2a14'); r(g, 16, 47 + y0, 4, 1, '#3a2a14');
+  // brazo derecho levantado con la antorcha y su llama
+  pieza(45, 27 - paso + y0, 6, 13, abrigo); r(g, 45, 36 - paso + y0, 6, 2, sombra); pieza(46, 36 - paso + y0, 5, 4, piel);
+  pieza(48, 22 - paso + y0, 3, 15, '#6b4a22'); r(g, 48, 22 - paso + y0, 1, 15, '#9a7038');
+  r(g, 46, 17 - paso + y0, 7, 6, '#ff7a14'); r(g, 47, 14 - paso + y0, 5, 5, '#ffb52a'); r(g, 48, 12 - paso + y0, 3, 4, '#ffe27a'); r(g, 49, 10 - paso + y0, 1, 3, '#fff6c8');
+  // pañuelo anudado
+  pieza(25, 24 + y0, 14, 5, claro); r(g, 28, 28 + y0, 8, 3, claro); r(g, 31, 30 + y0, 2, 3, oscuro); r(g, 26, 25 + y0, 12, 1, '#fff6');
+  // cabeza: orejas, ojos con blanco, nariz, bigote y barba corta
+  pieza(24, 13 + y0, 16, 12, piel); r(g, 24, 20 + y0, 16, 5, pielSombra); r(g, 22, 17 + y0, 2, 4, piel); r(g, 40, 17 + y0, 2, 4, piel);
+  r(g, 27, 17 + y0, 4, 3, '#fff'); r(g, 33, 17 + y0, 4, 3, '#fff'); r(g, 29, 17 + y0, 2, 3, '#1c140c'); r(g, 35, 17 + y0, 2, 3, '#1c140c');
+  r(g, 27, 15 + y0, 4, 1, '#3a2a1a'); r(g, 33, 15 + y0, 4, 1, '#3a2a1a');
+  r(g, 31, 19 + y0, 2, 3, pielSombra); r(g, 28, 22 + y0, 8, 2, '#3a2a1a'); r(g, 30, 24 + y0, 4, 1, '#3a2a1a');
+  // sombrero de ala ancha con cinta del color del puesto y ala caída
+  pieza(12, 10 + y0, 40, 4, oscuro); r(g, 13, 10 + y0, 38, 1, claro); r(g, 12, 13 + y0, 5, 2, oscuro); r(g, 47, 13 + y0, 5, 2, oscuro);
+  pieza(21, 1 + y0, 22, 10, claro); r(g, 21, 7 + y0, 22, 3, oscuro); r(g, 29, 1 + y0, 6, 2, oscuro); r(g, 22, 2 + y0, 2, 5, '#fff5');
 }
 for (const [color, tonos] of Object.entries(COLORES_CAZADOR)) {
   for (const pose of [0, 1, 8]) registrar(`cazador_${color}_${pose}`, sprite(g => cazador(g, tonos, pose)));

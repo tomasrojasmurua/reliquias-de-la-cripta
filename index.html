@@ -285,34 +285,97 @@
   <canvas id="automapa" hidden></canvas>
   <div id="mira"></div>
   <div id="destello"></div>
+  <div id="alerta-dano"></div>
+  <div id="aviso-dardos" hidden>⚠ Línea de tiro de una trampa</div>
   <div id="mensaje"></div>
   <div id="fps"></div>
   <button id="btn-pausa" aria-label="Pausa">II</button>
   <div id="hud-zona" hidden><b></b> <span></span> <em></em></div>
   <ul id="hud-sala" hidden></ul>
-  <div id="emotes" hidden>
-    <button data-emote="0">¡Aquí!</button><button data-emote="1">¡Cuidado!</button><button data-emote="2">¡Ayuda!</button><button data-emote="3">¡Es mío!</button>
-  </div>
   <div id="hud-jefe" hidden><b></b><div class="barra"><i></i></div></div>
   <div id="hud-reloj" hidden></div>
   <div id="hud">
-    <div class="caja"><small>Vida</small><b id="hud-vida">100</b></div>
-    <div class="caja"><small id="hud-arma">Látigo</small><b id="hud-balas">—</b></div>
-    <div class="caja"><small>Tesoros</small><b id="hud-tesoros">0/0</b></div>
-    <div class="caja" id="caja-palanca" hidden><small>Palanca</small><b>🔧</b></div>
-    <div class="caja" id="caja-puntos" hidden><small>Puntos</small><b id="hud-puntos">0</b></div>
+    <div class="fila">
+      <div class="caja tesoros" title="Tesoros">
+        <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="#ffd34d" stroke="#5a3a06" stroke-width="1" stroke-linejoin="round" d="M9 5h14l6 8-13 15L3 13z"/>
+          <path fill="#fff1a8" d="M9 5h14l-3 8h-8z"/><path fill="#e8a820" d="M3 13h9l4 15z"/><path fill="#b8800c" d="M29 13h-9l-4 15z"/>
+          <path fill="#ffe680" d="M12 13h8l-4 15z"/><path fill="#fffbe0" d="M9 5l3 8H3z"/><path fill="#f0b830" d="M23 5l-3 8h9z"/>
+        </svg>
+        <b id="hud-tesoros">0/0</b>
+      </div>
+      <div class="caja palanca" id="caja-palanca" hidden title="Palanca de hierro: fuerza un sello una vez">
+        <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="none" stroke="#1a2430" stroke-width="5" stroke-linecap="round" d="M6 27 22.5 8.5c1.6-1.8 4.4-1.6 5.4.4.6 1.2.2 2.4-.9 3M6 27l-2.6-1.2"/>
+          <path fill="none" stroke="#8fb0cc" stroke-width="3" stroke-linecap="round" d="M6 27 22.5 8.5c1.6-1.8 4.4-1.6 5.4.4.6 1.2.2 2.4-.9 3M6 27l-2.6-1.2"/>
+          <path fill="none" stroke="#e6f2ff" stroke-width="1" stroke-linecap="round" d="M7.4 25 21.6 9"/>
+        </svg>
+      </div>
+      <div class="caja puntos" id="caja-puntos" hidden title="Puntos">
+        <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
+          <path fill="#ff9a2a" stroke="#5a2a06" stroke-width="1" stroke-linejoin="round" d="M16 2.5l4 8.6 9.4 1.1-6.9 6.5 1.8 9.3L16 23.4 7.7 28l1.8-9.3-6.9-6.5 9.4-1.1z"/>
+          <path fill="#ffe08a" d="M16 7.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6L16 21l-5.4 3 1.2-6-4.5-4.2 6.1-.7z"/>
+        </svg>
+        <b id="hud-puntos">0</b>
+      </div>
+    </div>
+    <div class="caja vida" title="Vida">
+      <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
+        <defs><linearGradient id="g-corazon" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a68"/><stop offset=".55" stop-color="#d8302a"/><stop offset="1" stop-color="#8a1410"/></linearGradient></defs>
+        <path fill="url(#g-corazon)" stroke="#4a0806" stroke-width="1.2" d="M16 28C7 21.5 3 16.5 3 11.5 3 7.4 6 4.5 9.6 4.5c2.7 0 4.9 1.5 6.4 3.8 1.5-2.3 3.7-3.8 6.4-3.8C26 4.5 29 7.4 29 11.5 29 16.5 25 21.5 16 28z"/>
+        <ellipse fill="#fff" opacity=".6" cx="9.6" cy="10" rx="2.8" ry="1.7" transform="rotate(-35 9.6 10)"/>
+      </svg>
+      <div class="medidor"><i class="rastro" id="hud-vida-rastro"></i><i class="barra" id="hud-vida-barra"></i></div>
+      <b id="hud-vida">100</b>
+    </div>
+    <div class="caja arma" data-arma="latigo" title="Arma y munición">
+      <svg class="icono ic-latigo" viewBox="0 0 32 32" aria-hidden="true">
+        <path class="cuero" d="M19 13c6-.5 9 2 8.5 5s-6 4.5-12 3.8S6 18.6 7.5 15.6s7-3.4 11.5-2.6c4.5.8 6.5 2.6 5.8 4.4s-5 2.4-9 2"/>
+        <path class="cuero fino" d="M15.5 19.8c-3 .2-4.5 1.6-3.5 3.5s4 4 9 4.5"/>
+        <path class="madera" d="M3 29.5 1.6 28l7-8 2.3 2z"/><circle class="laton" cx="2.4" cy="28.6" r="1.3"/>
+      </svg>
+      <svg class="icono ic-revolver" viewBox="0 0 32 32" aria-hidden="true">
+        <path class="madera" d="M5.5 16.5h5.2c.6 3.6-.2 7.6-1.6 11H4.2c-1.3-3.6-.9-7.4 1.3-11z"/><circle class="laton" cx="7.4" cy="21" r="1"/>
+        <path class="aro" d="M9.6 16.6c0 4 1.5 5.4 3.7 5.4 1.8 0 2.7-1.5 2.7-4.5"/><path class="aro fino" d="M12 16.8l.8 3"/>
+        <path class="acero" d="M4.8 9.6h4.6v7.4H5.2z"/><path class="acero" d="M5.3 9.9 3.5 6.7l1.7-.8 2.4 3.8z"/>
+        <rect class="acero" x="8" y="8.3" width="8.6" height="1.7"/>
+        <rect class="claro" x="8.6" y="9.3" width="7.6" height="7.3" rx="1.7"/><path class="estria" d="M9.7 11.6h5.4M9.7 14.3h5.4"/>
+        <rect class="acero" x="15.8" y="9.6" width="14.2" height="3.2"/><rect class="oscuro" x="15.8" y="12.8" width="9.2" height="1.6"/>
+        <rect class="brillo" x="15.8" y="9.6" width="14.2" height=".7"/><path class="acero" d="M28.4 9.6V7.9h1.3v1.7z"/>
+      </svg>
+      <svg class="icono ic-escopeta" viewBox="0 0 32 32" aria-hidden="true">
+        <path class="madera" d="M1 16.5 9 13.8l1.2 3.6-7.4 4.6c-1.4-1.6-2.2-3.6-1.8-5.5z"/>
+        <path class="aro" d="M10.6 17.6c0 3 1.2 4 3 4 1.4 0 2-1.2 2-3.6"/>
+        <rect class="templado" x="9" y="12.2" width="6.6" height="5.6" rx="1.2"/><path class="acero" d="M10.3 12.5 9 10.1l1.3-.6 1.8 2.9z"/>
+        <rect class="acero" x="15" y="11.4" width="16" height="2.3"/><rect class="claro" x="15" y="13.9" width="16" height="2.1"/>
+        <rect class="brillo" x="15" y="11.4" width="16" height=".6"/><path class="madera" d="M15.6 16h8.4c.8 0 1.2.5 1.2 1.2v.6h-9.6z"/>
+        <circle class="laton" cx="30.4" cy="10.9" r=".7"/>
+      </svg>
+      <svg class="icono ic-tommy" viewBox="0 0 32 32" aria-hidden="true">
+        <path class="madera" d="M.8 12.8 7.4 12v4.4L1.6 19.6C.4 17.6.3 15 .8 12.8z"/><path class="madera" d="M8.4 15.4h3.6l.6 6.4H9.2z"/>
+        <rect class="acero" x="7" y="10.6" width="10.4" height="5" rx=".8"/><circle class="oscuro" cx="11.6" cy="10" r="1"/>
+        <rect class="acero" x="17" y="11.4" width="9" height="2.6"/><path class="estria" d="M18.4 10.9v3.6M19.9 10.9v3.6M21.4 10.9v3.6M22.9 10.9v3.6M24.4 10.9v3.6"/>
+        <rect class="oscuro" x="26" y="11" width="5" height="3.4" rx=".6"/><path class="madera" d="M20 14h2.8l.2 6.2-1.4 1.2H20z"/>
+        <circle class="claro" cx="14.6" cy="20.6" r="4.7"/><circle class="aro fino" cx="14.6" cy="20.6" r="3.2"/><circle class="oscuro" cx="14.6" cy="20.6" r="1.2"/>
+      </svg>
+      <div class="dato">
+        <small id="hud-arma">Látigo</small>
+        <div class="carga"><b id="hud-balas">—</b><span class="reserva" id="hud-reserva"></span></div>
+        <div class="pips" id="hud-pips"></div>
+      </div>
+    </div>
   </div>
   <div id="zona-tactil"></div>
   <div id="joy-base" hidden></div>
   <div id="joy-palanca" hidden></div>
   <div id="botones-tactiles">
-    <button id="t-disparar" data-tactil="disparar" aria-label="Atacar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/><circle cx="12" cy="12" r="1.2" class="lleno"/></svg></button>
-    <button id="t-usar" data-tactil="usar" aria-label="Usar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V11M11 10V4.5a1.5 1.5 0 0 1 3 0V11M14 10.5V6a1.5 1.5 0 0 1 3 0v8a7 7 0 0 1-7 7h-.5a6 6 0 0 1-4.6-2.2L3.6 15.5a1.5 1.5 0 0 1 2.3-1.9L8 15.5"/></svg></button>
-    <button id="t-mapa" data-tactil="mapa" aria-label="Mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></button>
+    <button id="t-disparar" data-tactil="disparar" aria-label="Atacar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4" class="fino"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5"/><circle cx="12" cy="12" r="1.5" class="lleno"/></svg></button>
+    <button id="t-usar" data-tactil="usar" aria-label="Usar"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="lleno" d="M9.2 3.2c.8 0 1.4.6 1.4 1.4v6h.7V3.1c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v7.5h.7V4.2c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v7.3h.7V7c0-.8.6-1.4 1.4-1.4s1.4.6 1.4 1.4v8.2c0 4.3-3 7.3-7.1 7.3h-.9c-2.2 0-4-1-5.3-2.7l-3.6-5c-.5-.7-.4-1.6.3-2.1.6-.5 1.5-.4 2 .2l1.7 2V4.6c0-.8.6-1.4 1.4-1.4z"/></svg></button>
+    <button id="t-mapa" data-tactil="mapa" aria-label="Mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="papel" d="M3 6.2 8.6 4l6.8 2.4L21 4.2v13.6L15.4 20l-6.8-2.4L3 19.8z"/><path d="M8.6 4v13.6M15.4 6.4V20" class="fino"/><path d="M5.5 14.5c1.5-.5 2-2 3.5-2.2s2.4 1.6 4 1.4" class="punteado"/><path d="M15.6 10.2l3 3M18.6 10.2l-3 3" class="cruz"/></svg></button>
   </div>
   <div id="pausa" class="capa" hidden>
     <h2>Pausa</h2>
-    <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen. Mensajes rápidos: Z, X, C y V.</p>
+    <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen.</p>
     <button id="btn-continuar" class="principal">Continuar</button>
     <button id="btn-menu-pausa">Salir al menú</button>
   </div>

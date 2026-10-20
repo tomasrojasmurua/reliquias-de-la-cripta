@@ -272,6 +272,14 @@ export class Render {
       const c = mapa.celda(x, y);
       if (c.trampa === 'pinchos') this.trampas.push({ x, y, piso: c.piso, luz: c.luz });
     }
+    // líneas de tiro de las trampas de dardos, marcadas en el suelo con un resplandor fijo para que se vean aun a oscuras
+    for (const d of mapa.dardos || []) {
+      const tile = casilla(d.dx ? 'carril_dardos_x' : 'carril_dardos_z');
+      for (const [cx, cz] of d.carril) {
+        const y = mapa.piso(cx, cz) + 0.012;
+        quad(arr, [cx, y, cz + 1], [cx + 1, y, cz + 1], [cx + 1, y, cz], [cx, y, cz], tile, 1);
+      }
+    }
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bufFijo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
