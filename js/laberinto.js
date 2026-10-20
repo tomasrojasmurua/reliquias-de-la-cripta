@@ -199,7 +199,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
   });
   for (const [x, y] of finales) {
     const r = azar();
-    if (r < 0.2) g[y][x] = azar() < 0.4 ? 'q' : 'b';
+    if (r < 0.2) g[y][x] = azar() < 0.5 ? 'q' : 'b';
     else if (r < 0.3) g[y][x] = 'v';
     else if (r < 0.4) g[y][x] = enemigo(); // algo espera al fondo del callejón
   }
@@ -211,7 +211,7 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
     const r = azar();
     const n = r < 0.4 ? 1 + Math.floor(azar() * 3) : r < 0.65 ? 1 : 0;
     for (let i = 0; i < n && casillas.length; i++) { const [x, y] = casillas.pop(); g[y][x] = enemigo(); }
-    if (azar() < 0.35 && casillas.length) { const [x, y] = casillas.pop(); g[y][x] = azar() < 0.6 ? 'b' : 'v'; }
+    if (azar() < 0.35 && casillas.length) { const [x, y] = casillas.pop(); g[y][x] = azar() < 0.45 ? 'b' : azar() < 0.4 ? 'q' : 'v'; }
     // antorcha en una pared de la sala
     if (azar() < 0.6) {
       const muros = [];
@@ -744,7 +744,7 @@ export function conZonas(def, azar = Math.random) {
     if (b.zona !== ultima && b.zona >= 1) {
       ponerRocas(t.g, azar, Math.max(1, Math.round(b.ancho * b.alto / 1500)), t.enSala);
       if (b.zona === 1 && Z.bloques.findIndex(o => o.zona === 1) === k) { ponerEnCallejones(t, 'ɸ', 1); ponerEnCallejones(t, 'ʠ', 2); }
-      else if (azar() < 0.75) ponerEnCallejones(t, 'ʠ', 1 + (azar() < 0.4 ? 1 : 0));
+      else if (azar() < 0.95) ponerEnCallejones(t, 'ʠ', 2 + (azar() < 0.5 ? 1 : 0));
     }
     // los sellos (y el pasadizo secreto antes del sello de la cámara extra)
     for (const s of sellos[k]) {

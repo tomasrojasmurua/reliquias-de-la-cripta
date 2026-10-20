@@ -1083,6 +1083,8 @@ function actualizarHUD() {
   }
   $('#hud-tesoros').textContent = `${juego.tesoros.length}/${juego.totalTesoros}`;
   $('#caja-palanca').hidden = !j.barreta;
+  $('#t-curar').hidden = !j.vendas;
+  $('#caja-vendas').hidden = !j.vendas;
   if (juego.limite) {
     const r = Math.ceil(juego.restante()), rel = $('#hud-reloj');
     rel.textContent = `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
