@@ -7,10 +7,12 @@ import { readFile } from 'node:fs/promises';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { MAZMORRAS } from '../datos/mazmorras.js';
+import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
+
+const TODOS = MAZMORRAS.flatMap(tesorosDe);
 
 const servidor = createServer(async (pet, res) => {
   const ruta = normalize(decodeURIComponent(new URL(pet.url, 'http://x').pathname)).replace(/^[/\\]+/, '') || 'index.html';
@@ -46,6 +48,8 @@ for (const prueba of pruebas) {
   pagina.on('console', msg => { if (msg.type() === 'error') errores.push(msg.text()); });
   // sin conexión a las fuentes de Google no pasa nada: se usan las del sistema
   await pagina.route(/fonts\.(googleapis|gstatic)\.com/, r => r.abort());
+  // con todos los tesoros reunidos, ninguna mazmorra está bloqueada
+  await pagina.addInitScript(ids => localStorage.setItem('reliquias:v1', JSON.stringify({ tesoros: ids, pistas: [], mazmorras: {}, opciones: {} })), TODOS);
   try {
     await pagina.goto(url);
     await prueba.entrar(pagina);
