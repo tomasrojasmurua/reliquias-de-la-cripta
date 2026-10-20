@@ -90,6 +90,7 @@ const SALPICA = {
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
   escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso', brujo: 'sangre',
 };
+const PUNTOS_ESTRELLA = 2, PUNTOS_AYUDA = 2;   // por cada estrella de un acertijo descifrado / por cada ayuda pedida
 const SALIDA_REVELADA = 0.6;   // fracción del tiempo tras la cual se marca la salida en las salas
 
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
@@ -133,6 +134,8 @@ export class Juego {
     this.secretos = 0;
     this.abatidos = 0;
     this.ayudas = 0;
+    this.bonoAcertijos = 0;   // puntos por descifrar tablillas, menos lo que costaron las ayudas
+    this.costoAyudas = 0;
     this.tiempo = 0;
     this.fogonazo = 0;
     this.particulas = [];
@@ -1029,6 +1032,13 @@ export class Juego {
   // `por`: en una sala, el cazador que se adelantó a descifrarla (el sello se abre igual, pero sin puntos para mí).
   resolverAcertijo(a, por = null, tarde = false) {
     a.resuelto = true;
+    if (!por) {
+      // descifrarlo por tu cuenta suma (2 por estrella; las palancas valen 3 estrellas); cada ayuda pedida resta 2: usarlas no sale a cuenta
+      const e = a.estado || a.estadoPalancas, estrellas = a.estado?.pista?.dificultad ?? 3, pedidas = e?.ayudas || 0;
+      this.bonoAcertijos += PUNTOS_ESTRELLA * estrellas - PUNTOS_AYUDA * pedidas;
+      this.costoAyudas += PUNTOS_AYUDA * pedidas;
+      this.ayudas += pedidas;
+    }
     this.abrirSellos(a);
     // la tablilla se agrieta: el hechizo que mantenía cerrada la puerta se disipa
     for (const c of this.mapa.celdas) if (c.tipo === 'tablilla' && c.acertijo === a.id && !c.tex.endsWith('_rota')) c.tex += '_rota';
@@ -1087,7 +1097,9 @@ export class Juego {
   penumbra() { return this.limite ? 0.35 + 0.65 * Math.min(1, this.restante() / 60) : 1; }
 
   // Puntos según la rareza de cada tesoro (común 1, raro 3, épico 8, legendario 20): el marcador de las salas.
-  puntos() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0); }
+  // A eso se suman los acertijos descifrados y se restan las ayudas pedidas: el esfuerzo de resolver pesa más que el tesoro que se alcanzó con ayuda.
+  puntosTesoros() { return this.tesoros.reduce((n, id) => n + RAREZAS[TESORO[id].rareza].valor, 0); }
+  puntos() { return Math.max(0, this.puntosTesoros() + this.bonoAcertijos); }
 
   // En una sala morir no termina la partida: sueltas tu último tesoro y reapareces en tu puesto.
   caer() {
@@ -1155,7 +1167,7 @@ export class Juego {
 
   resumen(causa = null) {
     return {
-      causa, puntos: this.puntos(), limite: this.limite, reloj: Math.min(this.reloj, this.limite),
+      causa, puntos: this.puntos(), puntosTesoros: this.puntosTesoros(), bonoAcertijos: this.bonoAcertijos, costoAyudas: this.costoAyudas, limite: this.limite, reloj: Math.min(this.reloj, this.limite),
       mazmorra: this.def, tesoros: this.tesoros, totalTesoros: this.totalTesoros,
       secretos: this.secretos, totalSecretos: this.mapa.totalSecretos,
       abatidos: this.abatidos, totalEnemigos: this.enemigos.length, tiempo: this.tiempo,

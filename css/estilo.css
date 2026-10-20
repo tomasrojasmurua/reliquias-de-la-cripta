@@ -444,16 +444,22 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 .tablilla .pista { font-size: clamp(18px, 3.4vw, 23px); line-height: 1.45; text-align: center; margin: 12px 0; font-style: italic; }
 .tablilla .long { font-style: normal; color: var(--suave); white-space: nowrap; }
 .tablilla mark { color: inherit; border-radius: 3px; padding: 0 2px; }
-.tablilla mark.def { background: rgba(232, 184, 58, .35); }
-.tablilla mark.ind { background: rgba(95, 168, 255, .35); }
-.tablilla mark.rel { background: rgba(120, 200, 120, .3); }
+.tablilla mark.def { background: rgba(255, 178, 107, .5); }   /* naranjo pastel */
+.tablilla mark.ind { background: rgba(143, 188, 255, .5); }   /* azul pastel */
+.tablilla mark.rel { background: rgba(163, 222, 163, .45); } /* verde pastel */
 .casillas { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin: 8px 0 12px; }
 .palabra { display: flex; gap: 3px; }
 .letra { width: 26px; height: 32px; border-bottom: 3px solid var(--oro); display: flex; align-items: center; justify-content: center; font: bold 20px 'Courier New', monospace; background: rgba(0, 0, 0, .25); }
 .letra.dada { color: var(--suave); }
 .responder { display: flex; gap: 8px; }
 .responder input { flex: 1; min-width: 0; font: 18px 'Courier New', monospace; text-transform: uppercase; padding: 10px; background: #120d08; color: var(--texto); border: 2px solid var(--borde); border-radius: 6px; }
-.ayuda p { margin: 8px 0; font-size: 15px; color: #e6d6b4; }
+.rotulo-ayuda { margin: 6px 0 4px; font-size: 13px; color: var(--suave); text-align: center; }
+.ayudas { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ayudas button { flex: 1 1 auto; font-size: 14px; padding: 8px 10px; }
+.ayudas button.ya { opacity: .55; }
+.ayudas button[data-a="ind"] { border-color: #8fbcff; }
+.ayudas button[data-a="def"] { border-color: #ffb26b; }
+.ayudas button[data-a="rel"] { border-color: #a3dea3; }
 .acciones { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
 .sacudir { animation: sacudir .35s; }
 @keyframes sacudir { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
