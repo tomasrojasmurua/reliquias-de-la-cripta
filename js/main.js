@@ -425,11 +425,11 @@ function abrirUnirse(codigo = '') {
 $('#sala-codigo').addEventListener('input', e => { e.target.value = normalizarCodigo(e.target.value); });
 
 async function conectar(boton, texto, tarea, alFallar) {
-  const antes = boton.textContent;
+  const antes = boton.innerHTML;   // el botón puede llevar título y subtítulo: se restaura tal cual
   boton.disabled = true; boton.textContent = texto;
   try { return await tarea(); }
   catch (e) { alFallar(e.message); }
-  finally { boton.disabled = false; boton.textContent = antes; }
+  finally { boton.disabled = false; boton.innerHTML = antes; }
 }
 
 $('#btn-unirse').onclick = async () => {
@@ -439,6 +439,17 @@ $('#btn-unirse').onclick = async () => {
   const nombre = guardarNombreSala($('#sala-nombre').value);
   const s = await conectar($('#btn-unirse'), 'Conectando…', () => Sala.unirse(codigo, nombre), m => { error.textContent = m; });
   if (s) { enlazarSala(s); mostrar('sala'); pintarLobby(); }
+};
+
+// Nombres de leyenda para quien no se decide: un título y un lugar, o un epíteto.
+const NOMBRES_A = ['Sombra', 'Halcón', 'Escarabajo', 'Chacal', 'Cuervo', 'Lobo', 'Ceniza', 'Arena', 'Brasa', 'Eco', 'Ónice', 'Jaguar'];
+const NOMBRES_B = ['del Nilo', 'de Jade', 'de la Cripta', 'del Desierto', 'sin Miedo', 'de Oro', 'del Ocaso', 'de Piedra', 'Silente', 'Errante', 'del Norte', 'de Obsidiana'];
+$('#btn-sugerir-nombre').onclick = () => {
+  const el = $('#entrar-nombre'), pick = l => l[Math.floor(Math.random() * l.length)];
+  let n;
+  do { n = `${pick(NOMBRES_A)} ${pick(NOMBRES_B)}`; } while (n.length > 16 || n === el.value);
+  el.value = n;
+  el.focus();
 };
 
 // Pantalla «Entrar»: jugar solo, crear una sala (los ajustes se eligen después, en el lobby) o unirse con un código.
