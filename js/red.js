@@ -61,6 +61,7 @@ function cargarPeerJS() {
 //   alPosicion(id, p)      un cazador se movió: { x, y, z, yaw, pt }
 //   alTesoro(i, id)        el tesoro `i` se lo llevó el cazador `id` (puede ser yo, o llegué tarde)
 //   alSuelto(i, x, z)      el tesoro `i` volvió al suelo en (x, z)
+//   alCuenta(seg, id)      competitivo: el cazador `id` encontró la salida, empieza la cuenta atrás de `seg` segundos
 //   alMundo(k, n, id)      otro cazador abrió el cofre / encendió la antorcha / recogió el objeto `n`
 //   alEnlace(enLinea)      (invitado) se cortó la conexión con el anfitrión (false) o volvió (true)
 //   alConexion(id, enLinea) otro cazador perdió la conexión o volvió
@@ -92,7 +93,7 @@ export class Sala {
     this.visto = new Map();      // anfitrión: puesto -> última vez que se supo de él
     this.vistoHost = Date.now(); // invitado: última vez que se supo del anfitrión
     this.alEnlace = this.alConexion = () => {};
-    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alMundo = this.alPvp = this.alBaja = this.alResuelto = () => {};
+    this.alCambiar = this.alEmpezar = this.alPosicion = this.alMarcador = this.alPerderse = this.alTesoro = this.alSuelto = this.alEnemigos = this.alGolpe = this.alDano = this.alForzado = this.alMundo = this.alCuenta = this.alPvp = this.alBaja = this.alResuelto = () => {};
   }
 
   // ---------- Crear y unirse ----------
@@ -350,6 +351,7 @@ export class Sala {
 
   empezar(partida) {
     this.enPartida = true;
+    this.cuentaIniciada = false;
     this.duenos.clear();
     this.resolvio.clear();
     for (const j of this.jugadores) { j.estado = 'jugando'; j.puntos = 0; j.fin = null; j.tesoros = j.resueltos = null; }
@@ -362,6 +364,11 @@ export class Sala {
     if (!j) return;
     j.puntos = m.puntos | 0;
     j.fin = m.escapo ? 'escapó' : 'atrapado';
+    if (m.escapo && this.config?.modo === 'competitivo' && this.config.apuro && !this.cuentaIniciada) {
+      this.cuentaIniciada = true;   // el primero en salir pone en marcha el reloj de todos los demás
+      this.#aviso({ t: 'cuenta', seg: this.config.apuro, id });
+      this.alCuenta(this.config.apuro, id);
+    }
     const ids = l => (Array.isArray(l) ? l : []).slice(0, 80).map(x => String(x).slice(0, 40));
     j.tesoros = ids(m.tesoros); j.resueltos = ids(m.resueltos);
     this.#difundirMarcador();
@@ -411,6 +418,8 @@ export class Sala {
       this.alTesoro(m.i, m.id);
     } else if (m.t === 'suelto') {
       this.alSuelto(m.i, m.x, m.z);
+    } else if (m.t === 'cuenta') {
+      this.alCuenta(Math.min(600, m.seg | 0), m.id | 0);
     } else if (m.t === 'mundo') {
       this.alMundo(String(m.k), m.n | 0, m.id);
     } else if (m.t === 'forzo') {

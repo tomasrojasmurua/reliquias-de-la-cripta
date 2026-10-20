@@ -110,6 +110,8 @@ export class Juego {
     this.rol = opciones.rol || null;   // en una sala: 'anfitrion' (simula a los enemigos) o 'invitado' (los copia del anfitrión)
     this.blancos = [];                 // el anfitrión: los otros cazadores, que los enemigos también persiguen
     this.soloRemotos = false;
+    this.coop = !!opciones.coop;        // sala cooperativa: sin daño entre cazadores, y al caer te reaniman en vez de reaparecer
+    this.companeros = [];               // los otros cazadores de la sala: { id, x, z, muerto }
     this.combate = !!opciones.combate;  // en una sala: los cazadores pueden herirse entre sí
     this.rivales = [];                  // los otros cazadores a tiro: { id, x, y, z, muerto }
     this.proteccion = this.combate ? TREGUA_INICIAL : 0;   // segundos sin recibir daño de otros cazadores
@@ -980,6 +982,8 @@ export class Juego {
     const j = this.j, m = this.mapa;
     const cofre = this.cofreEnMira();
     if (cofre) { this.abrirCofre(cofre); return; }
+    const caido = this.caidoCerca();
+    if (caido) { this.ev.reanimar?.(caido.id); sonar('palanca'); this.ev.mensaje('Reanimas a tu compañero.', 3); return; }
     const fx = Math.cos(j.yaw), fz = Math.sin(j.yaw);
     const h = this.rayo(j.x, j.z, fx, fz, 1.4);
     if (h.dist >= 1.4) return;
@@ -1071,6 +1075,14 @@ export class Juego {
 
   restante() { return Math.max(0, this.limite - this.reloj); }
 
+  // Competitivo: alguien encontró la salida. Empieza la cuenta atrás para los demás y la salida queda marcada.
+  iniciarCuenta(seg) {
+    if (this.limite || this.terminado) return;
+    this.limite = seg; this.reloj = 0; this.inicioReal = Date.now();
+    this.salidaRevelada = true; this.avisoMapa = true;
+    sonar('campanada');
+  }
+
   // En el último minuto las antorchas de los muros se apagan poco a poco (1 = luz normal).
   penumbra() { return this.limite ? 0.35 + 0.65 * Math.min(1, this.restante() / 60) : 1; }
 
@@ -1109,9 +1121,28 @@ export class Juego {
       this.ev.solto?.(q);
     });
     j.llaves = 0; j.barreta = 0; this.barretaObj = null;
-    this.reaparecer = 4;
+    this.reaparecer = this.coop ? 0 : 4;   // en cooperativo te levanta un compañero
+    if (this.coop) { this.ev.cayo?.(); this.ev.mensaje('Estás caído. Un compañero puede reanimarte: no salgas sin él.', 8); return; }
     const extra = soltados.length ? ` y ${soltados.length === 1 ? 'un objeto' : 'tus objetos'}` : '';
     this.ev.mensaje(o ? `Soltaste ${TESORO[id].nombre}${extra}. Reapareces en el inicio…` : soltados.length ? `Soltaste ${extra.slice(3)}. Reapareces en el inicio…` : 'Reapareces en el inicio…', 4);
+  }
+
+  // Un compañero me reanima: me levanto donde caí.
+  levantar() {
+    const j = this.j;
+    if (!j.muerto || this.terminado) return;
+    Object.assign(j, { vida: 50, muerto: false, quemadura: 0 });
+    delete j.cayendo;
+    this.reaparecer = 0;
+    sonar('recoger');
+    this.ev.mensaje('Un compañero te reanimó.', 4);
+  }
+
+  // El compañero caído más cercano a mi alcance.
+  caidoCerca() {
+    const j = this.j;
+    if (!this.coop || j.muerto) return null;
+    return this.companeros.find(c => c.muerto && Math.hypot(c.x - j.x, c.z - j.z) < 1.8) || null;
   }
 
   revivir() {
