@@ -8,6 +8,9 @@ import { ALTO_MURO } from './render.js';
 const ALCANCE = 11;      // más lejos no se rotula
 const ALCANCE_FADE = 8;  // desde aquí se va apagando
 
+// Altura (px) de la franja de arriba ocupada por el HUD; una etiqueta cuya base cae por encima se oculta.
+const ZONA_HUD = 130;
+
 export class Etiquetas {
   constructor(contenedor, lienzo) {
     this.el = contenedor;
@@ -61,6 +64,7 @@ export class Etiquetas {
         const nx = (f / aspecto) * xc / prof, ny = f * yc / prof;
         visible = Math.abs(nx) < 1.15 && ny > -1.1 && ny < 1.3;
         px = (nx + 1) / 2 * w; py = (1 - ny) / 2 * h;
+        if (py < ZONA_HUD) visible = false;   // bajo los botones de arriba no se rotula: quedaría tapado por ellos
       }
       // que no se rotule a través de las paredes: el rayo hacia la casilla debe llegar a ella
       if (visible && dist > 0.8) {

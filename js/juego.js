@@ -1463,8 +1463,10 @@ export class Juego {
         e.vaga = false;
         const mx = e.visto.x - e.x, mz = e.visto.z - e.z, ml = Math.hypot(mx, mz);
         if (ml > 0.6) {
-          const v = e.vel * dt;
+          const v = e.vel * dt, antes = { x: e.x, z: e.z };
           this.mover(e, mx / ml * v, mz / ml * v, e.radio || 0.28, true);
+          // topó con un muro rumbo a donde cree que estás: se rinde y vaga, en vez de empujar contra la pared
+          if (Math.hypot(e.x - antes.x, e.z - antes.z) < v * 0.3 && !this.seVe(e, e.visto)) e.visto = null;
         } else e.visto = null;
       }
       // separación entre enemigos
