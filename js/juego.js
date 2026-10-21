@@ -91,7 +91,7 @@ const SALPICA = {
   escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso', brujo: 'sangre',
 };
 const PUNTOS_ESTRELLA = 2, PUNTOS_AYUDA = 2;   // por cada estrella de un acertijo descifrado / por cada ayuda pedida
-const SALIDA_REVELADA = 0.6;   // fracción del tiempo tras la cual se marca la salida en las salas
+const SALIDA_REVELADA = 0.6;   // fracción del tiempo tras la cual se marca la salida en el automapa (en solitario y en las salas)
 
 // Combate entre cazadores: el daño de las armas contra otro cazador, y los segundos sin recibir golpes de ellos
 // al empezar la partida y al reaparecer, para que nadie espere a otro en la entrada.
@@ -1075,8 +1075,8 @@ export class Juego {
     this.reloj = this.real ? (Date.now() - this.inicioReal) / 1000 : this.reloj + dt;
     const r = this.restante();
     if (antes > 60 && r <= 60) { sonar('campanada'); this.ev.mensaje('¡Queda un minuto! Las antorchas empiezan a apagarse.', 4); }
-    // en una sala la salida se marca en el automapa pasado el 60 % del tiempo: nadie se queda dando vueltas sin encontrarla
-    if (this.real && !this.salidaRevelada && this.reloj >= this.limite * SALIDA_REVELADA) {
+    // la salida se marca en el automapa pasado el 60 % del tiempo: nadie se queda dando vueltas sin encontrarla
+    if (!this.salidaRevelada && this.reloj >= this.limite * SALIDA_REVELADA) {
       this.salidaRevelada = true;
       this.avisoMapa = true;
       sonar('campanada');
