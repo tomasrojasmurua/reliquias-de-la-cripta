@@ -55,7 +55,7 @@ export const MAZMORRAS = [
       zonas: [
         { nombre: 'La antecámara', tesoros: ['ushebti', 'paleta_escriba'], camaras: 1, acertijo: { dificultad: [1, 2], titulo: 'La estela de las galerías' } },
         { nombre: 'Las galerías del embalsamador', tesoros: ['cuchillo_embalsamador', 'jarra_natron', 'amuleto_tyet', 'escarabajo_corazon'], camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El papiro del embalsamador' } },
-        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
+        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo', 'caliz_oro'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
         { nombre: 'La cámara de Jepri', tesoros: ['escarabajo_jepri'] },
       ],
     },
@@ -80,7 +80,7 @@ export const MAZMORRAS = [
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El obelisco del patio' } },
       { nombre: 'Los almacenes del templo', tesoros: ['daga_bronce', 'anfora_aceite', 'monedas_plata', 'cetro_bronce'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El inventario del escriba real' } },
-      { nombre: 'La necrópolis de los sacerdotes', tesoros: ['escarabajo_bronce', 'anfora_jade', 'daga_plata', 'amuleto_oro'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La letanía de los sacerdotes' } },
+      { nombre: 'La necrópolis de los sacerdotes', tesoros: ['escarabajo_bronce', 'anfora_jade', 'daga_plata', 'amuleto_oro', 'corona_plata'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La letanía de los sacerdotes' } },
       { nombre: 'El santuario del primer faraón', tesoros: ['corona_oro'] },
     ],
     laberinto: { lado: 'abajo', puerta: [14, 16], ancho: 43, alto: 17, tesoros: ['espejo_bronce', 'collar_cornalina'] },
