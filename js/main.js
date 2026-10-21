@@ -1141,9 +1141,10 @@ function actualizarHUD() {
     rel.classList.toggle('urgente', r <= 60);
     $('#hud-puntos').textContent = juego.puntos();
   }
-  // el guardián, mientras pelea
+  // el guardián, solo mientras pelea: te ve (o te vio hace un momento) y está cerca; si te pierde, la barra se va
   const g = juego.guardian, hj = $('#hud-jefe');
-  hj.hidden = !g || g.estado === 'dormido' || g.estado === 'muerto';
+  hj.hidden = !g || !['caza', 'ataca', 'lanza', 'embiste', 'dolor', 'surge'].includes(g.estado)
+    || (g.sinVerte ?? 0) >= 3 || Math.hypot(g.x - j.x, g.z - j.z) > 12;
   if (!hj.hidden) {
     hj.children[0].textContent = g.nombre;
     hj.querySelector('i').style.width = `${Math.max(0, g.vida / g.vidaMax) * 100}%`;
