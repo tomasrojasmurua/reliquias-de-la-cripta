@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
 // Revisa que las mazmorras se puedan jugar: carga cada una con varias semillas y en cada tamaño
 // (pequeña, mediana y grande) y busca errores que no saltan a la vista en el plano de texto.
 // Uso: node herramientas/validar-mazmorras.js [semillas]   (por defecto 25 semillas por mazmorra)
 
-import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
-import { TESORO } from '../datos/tesoros.js';
+import { MAZMORRAS, tesorosDe, tesorosDeMapa } from '../datos/mazmorras.js';
+import { TESORO, TESOROS } from '../datos/tesoros.js';
+import { HISTORIAS } from '../datos/historias.js';
 import { EMBLEMAS } from '../datos/emblemas.js';
 import { PISTAS } from '../datos/pistas.js';
 import { cargarMazmorra } from '../js/mapa.js';
@@ -167,6 +169,19 @@ function revisarMapa(def, m, donde, juego) {
     }
   } else error(donde, 'no tiene guardián');
 
+  // cada coloso de piedra lleva una reliquia común de esta mazmorra que suelta al caer
+  const comunesDe = new Set(tesorosDeMapa(def).filter(t => TESORO[t]?.rareza === 'comun'));
+  for (const e of juego.enemigos.filter(q => q.tipo === 'coloso')) {
+    const b = e.botin;
+    if (!b || !b.oculto || !b.cogido) { error(donde, 'un coloso no lleva su reliquia'); continue; }
+    if (!comunesDe.has(b.tesoro)) error(donde, `el coloso lleva «${b.tesoro}», que no es una reliquia común de la mazmorra`);
+    const total = juego.totalTesoros;
+    juego.herir(e, e.vida + 1);
+    if (b.cogido || b.oculto || juego.totalTesoros !== total + 1) error(donde, 'el coloso cae y no suelta su reliquia');
+    else if (!llega(Math.floor(b.x), Math.floor(b.z))) error(donde, `la reliquia del coloso cae donde no se llega (${b.x.toFixed(1)}, ${b.z.toFixed(1)})`);
+    else { juego.tomar(b); if (!juego.tesoros.includes(b.tesoro)) error(donde, 'la reliquia del coloso no se puede recoger'); }
+  }
+
   // tesoros: existen en el catálogo y se puede llegar a ellos
   for (const o of m.objetos) {
     if (o.tipo !== 'tesoro') continue;
@@ -182,6 +197,30 @@ function firma(m) {
 
 // el juego avisa de lo que pasa con estos eventos; aquí no hace falta escucharlos
 const SIN_EVENTOS = new Proxy({}, { get: () => () => {} });
+
+// cada reliquia tiene su propia descripción, su propia historia y su propio dibujo (js/tesoros-arte.js; la forma de js/texturas.js sirve a una sola por forma)
+for (const campo of ['nombre', 'descripcion']) {
+  const vistos = new Map();
+  for (const t of TESOROS) {
+    if (vistos.has(t[campo])) error(t.id, `su ${campo} es igual al de ${vistos.get(t[campo])}`);
+    vistos.set(t[campo], t.id);
+  }
+}
+const historias = new Map();
+for (const t of TESOROS) {
+  const h = HISTORIAS[t.id];
+  if (!h) error(t.id, 'no tiene historia en datos/historias.js');
+  else if (historias.has(h)) error(t.id, `su historia es igual a la de ${historias.get(h)}`);
+  else historias.set(h, t.id);
+}
+for (const id of Object.keys(HISTORIAS)) if (!TESORO[id]) error(id, 'tiene historia pero no existe en datos/tesoros.js');
+
+// dibujo propio: cada forma conserva el suyo para una sola reliquia, el resto tiene `D.<id>` en js/tesoros-arte.js
+const propios = new Set([...readFileSync(new URL('../js/tesoros-arte.js', import.meta.url), 'utf8').matchAll(/^\s{2}D\.(\w+) =/gm)].map(m => m[1]));
+for (const id of propios) if (!TESORO[id]) error(id, 'tiene dibujo propio pero no existe en datos/tesoros.js');
+const sinPropio = {};
+for (const t of TESOROS) if (!propios.has(t.id)) (sinPropio[t.forma] ||= []).push(t.id);
+for (const [forma, lista] of Object.entries(sinPropio)) if (lista.length > 1) error(forma, `${lista.join(', ')} comparten el mismo dibujo`);
 
 const ids = new Set();
 const dueño = {};

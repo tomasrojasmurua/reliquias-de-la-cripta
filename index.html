@@ -85,6 +85,7 @@
       <p class="nota" id="nota-tamano"></p>
       <p class="nota" id="nota-modo"></p>
     </div>
+    <div class="grupo" id="prep-top"></div>
   </div>
   <div class="accion-fija">
     <button id="btn-entrar" class="principal">Entrar</button>
@@ -225,7 +226,7 @@
     <p>Cada mazmorra tiene además un <b>laberinto de túneles</b> que cambia cada vez que entras: callejones sin salida, salas llenas de monstruos y unos pocos tesoros escondidos en lo más hondo, a veces tras un muro agrietado o en una <b>cámara sellada</b> que se abre con el acertijo de alguna tablilla del laberinto.</p>
     <p>Cada mazmorra es grande: tiene <b>cuatro zonas</b>. Al entrar, la entrada se derrumba a tus espaldas, y la salida está escondida en algún ramal de las zonas del fondo, cada vez en otro lugar. Para pasar de una zona a la siguiente hay que descifrar la tablilla de la zona. Arriba a la izquierda ves cuántas reliquias de la zona llevas, y el automapa marca las zonas completas. Encontrar la salida no termina la partida: sales cuando quieras.</p>
     <h3>Computador</h3>
-    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, H para usar las vendas guardadas, 1, 2, 3 y 4 o Q para cambiar de arma, Tab o M para ver el mapa, Esc para pausar.</p>
+    <p>WASD o flechas para moverte, ratón para mirar, clic para atacar, E o Espacio para usar, R para recargar, H para usar las vendas guardadas, 1, 2, 3 y 4 o Q para cambiar de arma, Tab o M para ver el mapa, B (o tocar el contador de reliquias) para abrir la mochila, Esc para pausar.</p>
     <h3>Celular</h3>
     <p>Arrastra en la mitad izquierda para moverte. Arrastra en la derecha para mirar. Mantén el botón de atacar y arrastra el dedo sin soltarlo para apuntar mientras atacas. La puntería te ayuda a encontrar al enemigo. La mano aparece cuando hay algo que usar enfrente, para recargar toca el recuadro del arma (o dispara con el arma vacía), mientras recargas caminas más lento, y el arma se cambia con el botón de flechas que está arriba del de atacar. En Opciones puedes cambiar la sensibilidad, activar el modo zurdo y la vibración. Se juega mejor en horizontal.</p>
   </div>
@@ -300,7 +301,7 @@
   <div id="hud-reloj" hidden></div>
   <div id="hud">
     <div class="fila">
-      <div class="caja tesoros" title="Tesoros">
+      <div class="caja tesoros" id="caja-tesoros" role="button" tabindex="0" title="Mochila (B): lo que llevas contigo">
         <svg class="icono" viewBox="0 0 32 32" aria-hidden="true">
           <path fill="#ffd34d" stroke="#5a3a06" stroke-width="1" stroke-linejoin="round" d="M9 5h14l6 8-13 15L3 13z"/>
           <path fill="#fff1a8" d="M9 5h14l-3 8h-8z"/><path fill="#e8a820" d="M3 13h9l4 15z"/><path fill="#b8800c" d="M29 13h-9l-4 15z"/>
@@ -395,8 +396,16 @@
     <h2>Pausa</h2>
     <p class="nota" id="pausa-sala" hidden>La partida sigue en la sala: el tiempo y los enemigos no se detienen.</p>
     <button id="btn-continuar" class="principal">Continuar</button>
+    <button id="btn-mochila-pausa">Mochila</button>
     <button id="btn-ajustes-pausa">Ajustes</button>
     <button id="btn-menu-pausa">Salir al menú</button>
+  </div>
+  <div id="mochila" class="capa" hidden>
+    <h2>Mochila</h2>
+    <p class="nota" id="mochila-resumen"></p>
+    <div id="mochila-reliquias"></div>
+    <ul id="mochila-llevas"></ul>
+    <button id="btn-cerrar-mochila" class="principal">Cerrar</button>
   </div>
   <div id="panel" class="capa" hidden></div>
 </section>

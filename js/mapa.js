@@ -108,6 +108,7 @@ export function cargarMazmorra(def, semilla = Math.floor(Math.random() * 4294967
       };
       const h = def.alturas?.[y]?.[x];
       if (h && h !== '.' && h !== ' ') { c.piso = altura(h); c.techoY = Math.max(ALTO, c.piso + ALTO); }
+      if (l.antorcha || l.apagada) c.tex = `${l.antorcha ? 'antorcha' : 'antorcha_apagada'}_${def.muro}`;   // sobre el muro de esta mazmorra
       if (l.peligro === 'lava') c.luz = 1.2;
       if (l.tipo === 'puerta' || l.tipo === 'sello') c.tex = l.tex;
       if (l.tipo === 'secreto') totalSecretos++;
