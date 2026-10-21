@@ -103,14 +103,16 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
         <input type="text" inputmode="text" autocapitalize="characters" spellcheck="false" placeholder="Tu respuesta">
         <button type="submit" class="principal">Probar</button>
       </form>
-      <p class="rotulo-ayuda">Pedir una ayuda (cada una resta puntos al resolver)</p>
-      <div class="ayudas"></div>
       <div class="acciones">
+        <button type="button" data-a="pista" aria-expanded="false">Pista</button>
+        <button type="button" data-a="cerrar">Volver</button>
+      </div>
+      <div class="ayudas" hidden>
+        <p class="rotulo-ayuda">Cada pista resta puntos al resolver</p>
         <button type="button" data-a="ind">Indicadores</button>
         <button type="button" data-a="def">Definición</button>
         <button type="button" data-a="rel">Relleno</button>
         <button type="button" data-a="letra">Una letra</button>
-        <button type="button" data-a="cerrar">Volver</button>
       </div>
     </div>`;
   const $ = s => el.querySelector(s);
@@ -145,6 +147,8 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
     const bl = $('[data-a="letra"]');
     bl.disabled = ay.letras >= MAX_LETRAS;
     bl.textContent = `Una letra (${ay.letras}/${MAX_LETRAS})`;
+    const quedan = ['ind', 'def', 'rel'].some(k => !ay[k] && { ind: p().indicador, def: p().definicion, rel: p().relleno }[k].length) || ay.letras < MAX_LETRAS;
+    botonPista.disabled = !quedan;
   }
 
   input.addEventListener('input', pintar);
@@ -158,17 +162,27 @@ export function abrirTablilla(el, estado, { alResolver, alCerrar }) {
       $('.tablilla').classList.remove('sacudir'); void $('.tablilla').offsetWidth; $('.tablilla').classList.add('sacudir');
     }
   });
-  el.querySelector('.acciones').addEventListener('click', e => {
+  const selector = $('.ayudas'), botonPista = $('[data-a="pista"]');
+  const alternarSelector = abrir => {
+    selector.hidden = !abrir;
+    botonPista.setAttribute('aria-expanded', abrir);
+  };
+  el.querySelector('.tablilla').addEventListener('click', e => {
     const a = e.target.dataset.a;
+    if (a === 'pista') return alternarSelector(selector.hidden);
+    if (a && !['ind', 'def', 'rel', 'letra'].includes(a)) alternarSelector(false);
+    if (!a && !e.target.closest('.ayudas') && !e.target.closest('.acciones')) alternarSelector(false);
     if (a === 'cerrar') alCerrar();
     if (a === 'ind' || a === 'def' || a === 'rel') {
       const ay = ayudas();
       if (!ay[a]) { ay[a] = true; estado.ayudas = (estado.ayudas || 0) + 1; }
+      alternarSelector(false);
       pintar();
     }
     if (a === 'letra') {
       const ay = ayudas();
       if (ay.letras < MAX_LETRAS) { ay.letras++; estado.ayudas = (estado.ayudas || 0) + 1; }
+      alternarSelector(false);
       pintar();
     }
   });
