@@ -443,7 +443,7 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 
 /* ---------- Tablilla (acertijo) ---------- */
 
-.tablilla { width: min(620px, 100%); max-height: 100%; overflow-y: auto; background: linear-gradient(#3a2e20, #2a2015); border: 3px solid #8a7048; border-radius: 8px; padding: 16px 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, .6); -webkit-user-select: text; user-select: text; }
+.tablilla { position: relative; width: min(620px, 100%); max-height: 100%; overflow-x: hidden; overflow-y: auto; background: linear-gradient(#3a2e20, #2a2015); border: 3px solid #8a7048; border-radius: 8px; padding: 16px 18px; box-shadow: 0 10px 40px rgba(0, 0, 0, .6); -webkit-user-select: text; user-select: text; }
 .tablilla h2 { margin: 0; text-align: center; font-size: 20px; }
 .tablilla .estrellas { text-align: center; color: var(--oro); letter-spacing: 3px; }
 .tablilla .pista { font-size: clamp(18px, 3.4vw, 23px); line-height: 1.45; text-align: center; margin: 12px 0; font-style: italic; }
@@ -459,13 +459,17 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 .responder { display: flex; gap: 8px; }
 .responder input { flex: 1; min-width: 0; font: 18px Cinzel, Georgia, serif; text-transform: uppercase; padding: 10px; background: #120d08; color: var(--texto); border: 2px solid var(--borde); border-radius: 6px; }
 .rotulo-ayuda { margin: 6px 0 4px; font-size: 13px; color: var(--suave); text-align: center; }
-.ayudas { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-.ayudas button { flex: 1 1 auto; font-size: 14px; padding: 8px 10px; }
+.ayudas { position: absolute; left: 8px; right: 8px; bottom: 62px; z-index: 2; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; padding: 8px; background: #2a2015; border: 2px solid #8a7048; border-radius: 8px; box-shadow: 0 -6px 24px rgba(0, 0, 0, .7); }
+.ayudas[hidden] { display: none; }
+.ayudas .rotulo-ayuda { flex: 1 0 100%; margin: 0; }
+.ayudas button { flex: 1 1 40%; min-width: 0; font-size: 14px; padding: 8px 6px; }
 .ayudas button.ya { opacity: .55; }
 .ayudas button[data-a="ind"] { border-color: #8fbcff; }
 .ayudas button[data-a="def"] { border-color: #ffb26b; }
 .ayudas button[data-a="rel"] { border-color: #a3dea3; }
-.acciones { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.acciones { display: flex; gap: 8px; margin-top: 10px; }
+.acciones button { flex: 1; min-width: 0; }
+body.contrarreloj #panel { padding-top: calc(54px + env(safe-area-inset-top)); }
 .sacudir { animation: sacudir .35s; }
 @keyframes sacudir { 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
 
@@ -726,6 +730,22 @@ body.tactil #hud .arma.pulsado { border-color: var(--oro); background: rgba(232,
 .tablilla h2 { font-family: Cinzel, Georgia, serif; letter-spacing: .1em; text-transform: uppercase; color: var(--oro); }
 .tablilla button { font-family: Cinzel, Georgia, serif; font-weight: 700; letter-spacing: .06em; }
 .ayudas button { font-size: 13px; }
+/* celular acostado: la tablilla entra entera en el cuadro, sin scroll */
+@media (max-height: 460px) {
+  #panel.capa { padding: 8px 12px; gap: 6px; }
+  body.contrarreloj #panel { padding-top: calc(48px + env(safe-area-inset-top)); }
+  .tablilla { padding: 8px 14px; text-align: center; }
+  .tablilla h2 { font-size: 15px; display: inline; }
+  .tablilla .estrellas { display: inline; margin-left: 10px; font-size: 14px; }
+  .tablilla .pista { font-size: 17px; line-height: 1.3; margin: 6px 0; }
+  .casillas { gap: 10px; margin: 4px 0 8px; }
+  .letra { width: 22px; height: 26px; font-size: 16px; }
+  .responder input { font-size: 15px; padding: 6px 10px; }
+  .tablilla button { font-size: 13px; padding: 7px 10px; letter-spacing: .04em; }
+  .acciones { margin-top: 8px; }
+  .ayudas { bottom: 52px; }
+  .ayudas button { flex: 1 1 22%; font-size: 12px; }
+}
 
 /* un respiro entre la cabecera y la primera línea, para que nada quede pegado ni a medio tapar */
 .cabecera { margin-bottom: 16px; }
