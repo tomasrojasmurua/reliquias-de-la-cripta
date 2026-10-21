@@ -5,9 +5,10 @@
   "description": "Herramientas para revisar el juego. El juego en sí no necesita instalar nada.",
   "scripts": {
     "validar": "node herramientas/validar-mazmorras.js",
+    "tesoros": "node herramientas/auditar-tesoros.js 80",
     "cache": "node herramientas/cache.js",
     "probar": "node herramientas/probar-mazmorras.js",
-    "revisar": "node herramientas/validar-mazmorras.js && node herramientas/cache.js --revisar && node herramientas/probar-mazmorras.js"
+    "revisar": "node herramientas/validar-mazmorras.js && node herramientas/auditar-tesoros.js 80 && node herramientas/cache.js --revisar && node herramientas/probar-mazmorras.js"
   },
   "devDependencies": {
     "playwright": "1.56.1"

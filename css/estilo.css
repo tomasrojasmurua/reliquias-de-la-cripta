@@ -377,10 +377,20 @@ body.mapa-abierto #hud, body.mapa-abierto #hud-zona, body.mapa-abierto #hud-sala
 #hud-zona.completa em { color: #7fe0a0; }
 @media (max-width: 620px) { #hud-zona span { display: none; } }
 /* barra de vida del guardián, arriba al centro mientras pelea */
-#hud-jefe { position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 52px); left: 50%; transform: translateX(-50%); width: min(420px, 70vw); text-align: center; pointer-events: none; z-index: 2; }
-#hud-jefe b { display: block; font: 700 14px Cinzel, Georgia, serif; letter-spacing: .08em; color: #ff9a6a; text-shadow: 0 1px 3px #000; margin-bottom: 4px; }
-#hud-jefe .barra { height: 8px; border: 1px solid #5a1a10; }
-#hud-jefe .barra i { background: linear-gradient(90deg, #7a1010, #e0304a); transition: width .2s; }
+#hud-jefe { --aura: #ffb627; position: absolute; top: calc(max(14px, env(safe-area-inset-top)) + 52px); left: 50%; transform: translateX(-50%); width: min(460px, 76vw); text-align: center; pointer-events: none; z-index: 2; filter: drop-shadow(0 0 10px color-mix(in srgb, var(--aura) 55%, transparent)); }
+#hud-jefe small { display: block; font: 600 10px Cinzel, Georgia, serif; letter-spacing: .32em; text-transform: uppercase; color: var(--aura); text-shadow: 0 1px 3px #000; opacity: .9; }
+#hud-jefe b { display: block; font: 700 clamp(15px, 3.6vw, 20px) Cinzel, Georgia, serif; letter-spacing: .1em; margin: 1px 0 5px;
+  background: linear-gradient(180deg, #fff3c4 0%, #ffd25a 45%, #d08a1c 55%, #ffe58a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+#hud-jefe b::before, #hud-jefe b::after { content: '❖'; margin: 0 .5em; font-size: .7em; vertical-align: .12em; -webkit-text-fill-color: var(--aura); color: var(--aura); }
+/* la barra: marco de oro con doble filo, hueco oscuro, relleno de rojo a oro con un brillo arriba y una marca en cada tercio (cuando llama a sus siervos) */
+#hud-jefe .barra { position: relative; height: 14px; padding: 2px; background: #140806; border: 2px solid #c8942a; border-radius: 3px; box-shadow: 0 0 0 1px #3a2208, inset 0 0 6px #000, 0 2px 6px #000a; }
+#hud-jefe .barra::before, #hud-jefe .barra::after { content: ''; position: absolute; z-index: 1; top: calc(50% - 7px); width: 10px; height: 10px; background: linear-gradient(135deg, #ffe58a, #b8741a); border: 1px solid #3a2208; transform: rotate(45deg); }
+#hud-jefe .barra::before { left: -10px; }
+#hud-jefe .barra::after { right: -10px; }
+#hud-jefe .barra i { position: relative; display: block; height: 100%; background: linear-gradient(180deg, rgba(255,255,255,.35) 0, rgba(255,255,255,0) 45%), linear-gradient(90deg, #8a1010, #e0304a 70%, #ffb627); transition: width .2s; box-shadow: 0 0 8px #e0304a99; }
+#hud-jefe .barra u { position: absolute; top: 0; bottom: 0; width: 2px; background: #c8942a; box-shadow: 0 0 0 1px #140806; }
+#hud-jefe .barra u:nth-of-type(1) { left: 33.3%; }
+#hud-jefe .barra u:nth-of-type(2) { left: 66.6%; }
 
 /* contrarreloj: arriba a la derecha y por encima de la tablilla, para no olvidar que el tiempo corre */
 #hud-reloj { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); z-index: 6; padding: 3px 12px; background: rgba(18, 13, 8, .78); border: 2px solid var(--borde); border-radius: 6px; font: bold 24px Cinzel, Georgia, serif; color: var(--oro); pointer-events: none; }

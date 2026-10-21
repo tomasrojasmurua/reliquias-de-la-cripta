@@ -1,4 +1,4 @@
-import { crearAtlas, registrarTesoros, miniatura } from './texturas.js';
+import { crearAtlas, registrarTesoros, miniatura, AURAS } from './texturas.js';
 import { Render } from './render.js';
 import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
@@ -1146,7 +1146,8 @@ function actualizarHUD() {
   hj.hidden = !g || !['caza', 'ataca', 'lanza', 'embiste', 'dolor', 'surge'].includes(g.estado)
     || (g.sinVerte ?? 0) >= 3 || Math.hypot(g.x - j.x, g.z - j.z) > 12;
   if (!hj.hidden) {
-    hj.children[0].textContent = g.nombre;
+    hj.querySelector('b').textContent = g.nombre;
+    hj.style.setProperty('--aura', AURAS[g.tipo] || '#ffb627');
     hj.querySelector('i').style.width = `${Math.max(0, g.vida / g.vidaMax) * 100}%`;
   }
   // en las mazmorras por zonas: «Zona 2 · Las galerías: 1 de 4 reliquias»
