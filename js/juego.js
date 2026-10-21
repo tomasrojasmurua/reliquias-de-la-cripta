@@ -1,6 +1,7 @@
 // Estado y reglas de una partida dentro de una mazmorra.
 
 import { cargarMazmorra } from './mapa.js';
+import { azarConSemilla } from './laberinto.js';
 import { ALTO_MURO } from './render.js';
 import { sonar, sonarEnemigo } from './audio.js';
 import { explorar } from './automapa.js';
@@ -149,7 +150,8 @@ export class Juego {
       this.botinGuardian = { tipo: 'tesoro', tesoro: this.def.guardian.tesoro, x: this.guardian.x, z: this.guardian.z, fase: 0, n: this.objetos.length, cogido: true, guardian: true };
       this.objetos.push(this.botinGuardian);
     }
-    this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
+    this.prepararBotinColosos(semilla);
+    this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro' && !o.oculto).length;
     // zonas: cuántas reliquias tiene cada una (para el HUD y el automapa)
     this.zonas = (m.regiones || []).map((r, i) => ({ nombre: r.nombre, total: this.objetos.filter(o => o.tipo === 'tesoro' && o.zona === i).length, halladas: 0 }));
     this.derrumbe = m.def.derrumbe && !(opciones.jugadores > 1) ? 1.1 : 0;   // la entrada se viene abajo poco después de entrar
@@ -480,7 +482,7 @@ export class Juego {
   encender(i, desdeRed = false) {
     const m = this.mapa, c = m.celdas[i];
     if (!c?.apagada) return;
-    c.apagada = false; c.antorcha = true; c.tex = 'antorcha';
+    c.apagada = false; c.antorcha = true; c.tex = `antorcha_${this.def.muro}`;
     const x = i % m.ancho, z = Math.floor(i / m.ancho);
     m.iluminar(x, z);
     for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
@@ -924,7 +926,7 @@ export class Juego {
         this.temblor = 0.6;
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
-      }
+      } else if (e.botin) this.soltarBotin(e);
     } else if (e.jefe) {
       // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
       if (e.estado === 'dormido') e.estado = 'caza';
@@ -941,10 +943,29 @@ export class Juego {
     }
   }
 
-  // El guardián deja caer su reliquia legendaria donde murió (en la casilla firme más cercana si ahí no se puede recoger).
+  // Cada coloso de piedra lleva una reliquia común de la mazmorra, elegida al azar con la semilla (igual para todos en una sala):
+  // mejor una que no esté ya escondida en el mapa. Espera oculta hasta que el coloso cae.
+  prepararBotinColosos(semilla) {
+    const d = this.def;
+    const comunes = [...new Set(d.reserva || [...Object.values(d.tesoros || {}), ...(d.sectores?.zonas || []).flatMap(z => z.tesoros || [])])].filter(id => TESORO[id]?.rareza === 'comun');
+    if (!comunes.length) return;
+    const puestas = new Set(this.objetos.map(o => o.tesoro));
+    this.enemigos.forEach((e, i) => {
+      if (e.tipo !== 'coloso') return;
+      const azarC = azarConSemilla(((semilla | 0) + 1) * 40503 + i * 977);
+      const nuevas = comunes.filter(id => !puestas.has(id));
+      const lista = nuevas.length ? nuevas : comunes;
+      const id = lista[Math.floor(azarC() * lista.length)];
+      puestas.add(id);
+      e.botin = { tipo: 'tesoro', tesoro: id, x: e.x, z: e.z, fase: 0, n: this.objetos.length, cogido: true, oculto: true };
+      this.objetos.push(e.botin);
+    });
+  }
+
+  // Un guardián o un coloso deja caer su reliquia donde murió (en la casilla firme más cercana si ahí no se puede recoger).
   soltarBotin(e) {
-    const o = this.botinGuardian;
-    if (!o || e !== this.guardian || !o.cogido || o.nota) return;
+    const o = e === this.guardian ? this.botinGuardian : e.botin;
+    if (!o || !o.cogido || o.nota) return;
     const m = this.mapa, firme = (x, z) => { const c = m.celda(x, z); return c?.tipo === 'suelo' && !c.peligro && !c.trampa && !c.estatua; };
     let [x, z] = [e.x, e.z];
     if (!firme(Math.floor(x), Math.floor(z))) {
@@ -955,7 +976,8 @@ export class Juego {
       }
     }
     Object.assign(o, { x, z, cogido: false, pendiente: false });
-    setTimeout(() => this.ev.mensaje(`${TESORO[o.tesoro].nombre} brilla entre los restos de ${e.nombre}.`, 5), 1500);
+    if (o.oculto) { o.oculto = false; this.totalTesoros++; }
+    setTimeout(() => this.ev.mensaje(`${TESORO[o.tesoro].nombre} ${e.jefe ? 'brilla' : 'asoma'} entre los restos de ${e.nombre || 'el coloso'}.`, 5), 1500);
   }
 
   // El cofre cerrado que tienes enfrente, a menos de 1,7 m.
@@ -1358,7 +1380,7 @@ export class Juego {
         this.temblor = 0.6;
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
-      }
+      } else if (e.botin) this.soltarBotin(e);
     } else if (nuevo === 'dolor') { e.golpe = 0.12; this.voz(e, 'dolor'); }
     else if (nuevo === 'surge') this.voz(e, 'surgir');
     else if (nuevo === 'caza' && (antes === 'dormido' || antes === 'oculto' || antes === 'surge')) { e.alerta = true; this.voz(e, 'alerta'); }

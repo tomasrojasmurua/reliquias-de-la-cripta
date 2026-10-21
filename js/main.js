@@ -13,7 +13,8 @@ import { recortarZonas, azarConSemilla } from './laberinto.js';
 import { Sala, COLORES, HZ_POSICION, codigoValido, normalizarCodigo, enlaceDeSala, enlaceWhatsApp } from './red.js';
 import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
-import { SALAS, LORE_FORMA, LORE_RAREZA } from '../datos/museo.js';
+import { SALAS } from '../datos/museo.js';
+import { HISTORIAS } from '../datos/historias.js';
 import { lienzoEmblema } from '../datos/emblemas.js';
 
 const $ = s => document.querySelector(s);
@@ -28,6 +29,21 @@ function leerProgreso() {
   return { tesoros: [], pistas: [], mazmorras: {}, opciones: {} };
 }
 const progreso = leerProgreso();
+
+// Las 3 mejores expediciones de cada mazmorra y tamaño (solo cuentan las que escapan): más puntos primero y, a igualdad, menos tiempo.
+const TOP = 3;
+const claveRecord = (id, tamano) => `${id}:${tamano}`;
+const mejores = (id, tamano) => progreso.records?.[claveRecord(id, tamano)] || [];
+// Guarda una expedición y devuelve su puesto (1 a TOP) o 0 si no entra.
+function anotarRecord(id, tamano, puntos, tiempo) {
+  const lista = (progreso.records ||= {})[claveRecord(id, tamano)] ||= [];
+  const nueva = { puntos, tiempo: Math.round(tiempo), fecha: Date.now() };
+  lista.push(nueva);
+  lista.sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo || a.fecha - b.fecha);
+  lista.length = Math.min(lista.length, TOP);
+  return lista.indexOf(nueva) + 1;
+}
+const reloj = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 progreso.opciones ||= {};
 function guardar() { try { localStorage.setItem(CLAVE, JSON.stringify(progreso)); } catch (e) { /* sin almacenamiento */ } }
 
@@ -127,6 +143,7 @@ $('#btn-cerrar-mapa').onclick = alternarMapa;
   capaMapa.addEventListener('wheel', e => { e.preventDefault(); acercar(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.offsetX * k(), e.offsetY * k()); }, { passive: false });
 }
 $('#hud-arma').closest('.caja').dataset.tactil = 'recargar';   // en táctil, tocar el recuadro del arma recarga
+$('#caja-tesoros').dataset.tactil = 'mochila';   // y el contador de reliquias abre la mochila
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
@@ -153,9 +170,10 @@ function mostrar(id) {
 // Atrás: cierra la ficha abierta, pausa la partida o vuelve al menú anterior. Responde si hizo algo.
 function atras() {
   if (!$('#ficha').hidden) { $('#ficha').hidden = true; return true; }
+  if (!$('#mochila').hidden) { cerrarMochila(); return true; }
   const visible = document.querySelector('.pantalla:not([hidden])');
   if (visible?.id === 'juego') {
-    if ($('#pausa').hidden && $('#panel').hidden) { pausar(); $('#pausa').hidden = false; }
+    if ($('#pausa').hidden && $('#panel').hidden && $('#mochila').hidden) { pausar(); $('#pausa').hidden = false; }
     return true;
   }
   const b = visible?.querySelector('.atras, .atras-texto');
@@ -247,6 +265,11 @@ function pintarPreparar() {
     : n === 2 ? `Las dos primeras zonas: ${minuscula(z[0].nombre)} y ${minuscula(z[1].nombre)}.`
     : `Las ${z.length} zonas, con ${minuscula(z.at(-1).nombre)} tras un pasadizo secreto.`;
   $('#nota-modo').textContent = `Tienes ${limiteDe(def) / 60} minutos para reunir reliquias y salir. Solo cuentan las que te llevas al escapar: si te atrapan o caes, pierdes todo el botín.`;
+  // tus mejores expediciones en esta mazmorra y tamaño
+  const top = mejores(def.id, tam);
+  $('#prep-top').innerHTML = `<p class="rotulo">Tus mejores expediciones</p>` + (top.length
+    ? `<ol>${top.map((r, i) => `<li><span class="puesto">${i + 1}</span><b>${r.puntos}</b> pts<span class="tiempo">${reloj(r.tiempo)}</span></li>`).join('')}</ol>`
+    : `<p class="nota">Aún no escapas de aquí en este tamaño.</p>`);
 }
 const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave] = valor; guardar(); pintarPreparar(); };
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
@@ -360,8 +383,8 @@ function abrirFicha(t, lo) {
   f.querySelector('h3').textContent = lo ? t.nombre : '???';
   f.querySelector('em').textContent = r.nombre;
   f.querySelector('p').textContent = lo ? t.descripcion : 'Aún no lo encuentras.';
-  // el lore de la pieza: su forma, su rareza y la mazmorra donde se esconde (solo una vez hallada)
-  f.querySelector('.lore').textContent = lo ? [LORE_FORMA[t.forma], LORE_RAREZA[t.rareza], m && SALAS[m.id] ? `Se expone en la ${SALAS[m.id].sala}${m.guardian ? `, la que vigilaba ${m.guardian.nombre}` : ''}.` : ''].filter(Boolean).join(' ') : '';
+  // la historia propia de la pieza y la sala donde se expone (solo una vez hallada)
+  f.querySelector('.lore').textContent = lo ? [HISTORIAS[t.id], m && SALAS[m.id] ? `Se expone en la ${SALAS[m.id].sala}${m.guardian ? `, la que vigilaba ${m.guardian.nombre}` : ''}.` : ''].filter(Boolean).join(' ') : '';
   f.querySelector('small').textContent = m ? (lo ? 'Hallado en ' : 'Se esconde en ') + m.nombre : '';
   f.hidden = false;
 }
@@ -895,7 +918,7 @@ function pintarDetalleSala() {
     }
   };
   if (!juego) return;
-  pinta($('#resumen-tesoros'), juego.objetos.filter(o => o.tipo === 'tesoro').map(o => [TESORO[o.tesoro].nombre, o.tesoro]), 'tesoros');
+  pinta($('#resumen-tesoros'), juego.objetos.filter(o => o.tipo === 'tesoro' && !o.oculto).map(o => [TESORO[o.tesoro].nombre, o.tesoro]), 'tesoros');
   pinta($('#resumen-acertijos'), Object.values(juego.mapa.acertijos).map(a => [a.titulo, String(a.id)]), 'resueltos');
 }
 
@@ -1024,7 +1047,50 @@ function abrirPanelTablilla(a) {
   });
 }
 
+// La mochila: lo que llevas contigo en la partida (las reliquias de esta expedición, las llaves y las vendas).
+function abrirMochila() {
+  if (!juego || !$('#mochila').hidden || (pausado && $('#pausa').hidden)) return;
+  pausar();
+  const j = juego.j, lista = juego.tesoros.map(id => TESORO[id]).filter(Boolean)
+    .sort((a, b) => ORDEN_RAREZA.indexOf(a.rareza) - ORDEN_RAREZA.indexOf(b.rareza) || a.nombre.localeCompare(b.nombre));
+  const cont = $('#mochila-reliquias');
+  cont.innerHTML = '';
+  for (const t of lista) {
+    const c = document.createElement('div');
+    c.className = 'reliquia-mochila';
+    c.style.setProperty('--rareza', RAREZAS[t.rareza].color);
+    c.title = t.descripcion;
+    c.appendChild(miniatura(atlas, 'tesoro_' + t.id, 1));
+    c.insertAdjacentHTML('beforeend', '<b></b><small></small>');
+    c.querySelector('b').textContent = t.nombre;
+    c.querySelector('small').textContent = RAREZAS[t.rareza].nombre;
+    cont.appendChild(c);
+  }
+  const valor = lista.reduce((s, t) => s + RAREZAS[t.rareza].valor, 0);
+  $('#mochila-resumen').textContent = lista.length
+    ? `${lista.length} de ${juego.totalTesoros} reliquias · valor ${valor}. Solo cuentan si escapas con ellas.`
+    : `Aún no llevas ninguna reliquia (0 de ${juego.totalTesoros}). Búscalas por la mazmorra.`;
+  const llevas = [];
+  if (j.llaves) llevas.push(`🗝 Llaves: ${j.llaves}`);
+  if (j.vendas) llevas.push(`🩹 Vendas: ${j.vendas}`);
+  if (j.barreta) llevas.push('🔧 Palanca de hierro');
+  const arma = $('#hud-arma').textContent, balas = $('#hud-balas').textContent;
+  llevas.push(`⚔ ${arma}${balas && balas !== '—' ? ` · ${balas} ${$('#hud-reserva').textContent}` : ''}`);
+  $('#mochila-llevas').innerHTML = llevas.map(t => `<li>${t}</li>`).join('');
+  $('#mochila').hidden = false;
+}
+function cerrarMochila() {
+  if ($('#mochila').hidden) return;
+  $('#mochila').hidden = true;
+  if ($('#pausa').hidden && $('#panel').hidden) reanudar();
+}
+$('#caja-tesoros').addEventListener('click', abrirMochila);
+$('#caja-tesoros').addEventListener('keydown', e => { if (e.key === 'Enter') abrirMochila(); });
+$('#btn-cerrar-mochila').onclick = cerrarMochila;
+$('#btn-mochila-pausa').onclick = abrirMochila;
+
 function terminar(r, exito) {
+  $('#mochila').hidden = true;
   if (actual.sala) { actual.sala.fin = true; $('#hud-sala').hidden = true; }
   pausar();
   sonar(exito ? 'victoria' : 'derrota');
@@ -1032,6 +1098,7 @@ function terminar(r, exito) {
   $('#resumen-sala').hidden = $('#btn-volver-sala').hidden = true;
   $('#btn-reintentar').hidden = false;
   if (actual.sala) return terminarSala(r, exito);
+  let puestoRecord = 0;
   // el botín solo cuenta si escapas con él: si te atrapan o caes, se pierde
   const nuevos = exito ? r.tesoros.filter(id => !progreso.tesoros.includes(id)) : [];
   if (exito) {
@@ -1042,13 +1109,14 @@ function terminar(r, exito) {
       est.completada = true;
       est.secretos = Math.max(est.secretos || 0, r.secretos);
     }
+    puestoRecord = anotarRecord(r.mazmorra.id, actual.tamano, r.puntos, r.reloj);
     guardar();
   }
   const min = Math.floor(r.reloj / 60), seg = Math.floor(r.reloj % 60);
   $('#resumen h2').textContent = exito ? '¡Escapaste con vida!' : `${r.causa || 'Has caído en la cripta.'} Pierdes todo el botín.`;
   $('#resumen .datos').innerHTML = `
     <li>Tesoros ${exito ? 'rescatados' : 'perdidos'}: <b>${r.tesoros.length}/${r.totalTesoros}</b></li>
-    <li>Puntos: <b>${r.puntos}</b> <small>(${desglosePuntos(r)})</small></li>
+    <li>Puntos: <b>${r.puntos}</b> <small>(${desglosePuntos(r)})</small>${puestoRecord ? ` <em class="record">${puestoRecord === 1 ? '¡Tu mejor expedición!' : `¡Tu ${puestoRecord}.º mejor puntaje!`}</em>` : ''}</li>
     <li>Acertijos: <b>${r.acertijos}/${r.totalAcertijos}</b></li>
     <li>Pasadizos secretos: <b>${r.secretos}/${r.totalSecretos}</b></li>
     <li>Enemigos: <b>${r.abatidos}/${r.totalEnemigos}</b></li>
@@ -1176,6 +1244,7 @@ function cuadro(t) {
   const ent = entrada.leer();
   if (ent.pulsos.has('pausa') && !pausado) { pausar(); $('#pausa').hidden = false; }
   if (ent.pulsos.has('mapa') && !pausado) alternarMapa();
+  if (ent.pulsos.has('mochila') && !pausado) abrirMochila();
   if (!pausado || (actual?.sala && !actual.sala.fin)) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
   else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 

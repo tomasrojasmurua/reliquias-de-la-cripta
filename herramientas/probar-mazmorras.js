@@ -39,6 +39,8 @@ const pruebas = [
     await p.click('#portada [data-ir="entrar"]');
     await p.click('#btn-solo');
     await p.locator('#lista-mazmorras .mazmorra').nth(i).click();
+    // antes de empezar se ve el top 3 de esa mazmorra y tamaño (aunque aún no haya partidas)
+    if (!(await p.textContent('#prep-top')).trim()) throw new Error('la pantalla de preparación no muestra el top 3');
     await p.click('#btn-entrar');
   } })),
 ];
@@ -65,6 +67,12 @@ for (const prueba of pruebas) {
       return !c || c.width === 0 || c.height === 0;
     });
     if (vacia) errores.push('la vista del juego no tiene tamaño');
+    // la tecla B abre la mochila (con el ratón capturado no se puede tocar el contador) y cerrarla devuelve la partida
+    await pagina.keyboard.press('b');
+    await pagina.waitForTimeout(300);
+    if (await pagina.isHidden('#mochila')) errores.push('la mochila no se abre con la tecla B');
+    await pagina.click('#btn-cerrar-mochila');
+    if (await pagina.isVisible('#mochila')) errores.push('la mochila no se cierra');
   } catch (e) {
     errores.push(e.message.split('\n')[0]);
   }

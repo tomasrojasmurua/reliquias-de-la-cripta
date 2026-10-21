@@ -1,5 +1,4 @@
-// Museo del cazador: una sala por mazmorra con su historia, y una línea de lore por forma y por rareza
-// para contar algo más de cada tesoro en su ficha.
+// Museo del cazador: una sala por mazmorra con su historia (la de cada reliquia está en datos/historias.js).
 
 export const SALAS = {
   'cripta-escarabajo': {
@@ -30,38 +29,4 @@ export const SALAS = {
     sala: 'Cripta del Último Cruzado',
     lore: 'Tres caballeros juraron proteger el cáliz; dos volvieron a casa y uno se quedó. Bajo la biblioteca dejaron tres pruebas para el penitente, el sabio y el que sabe dónde pisar.',
   },
-};
-
-export const LORE_FORMA = {
-  monedas: 'Las monedas cuentan quién mandaba: cada rey nuevo fundía las del anterior.',
-  daga: 'Una daga así no era para pelear: se usaba para jurar, sellar pactos o acompañar al muerto.',
-  anfora: 'En las ánforas viajaban aceite, vino y perfumes; las mejores se enterraban selladas con cera.',
-  amuleto: 'Se colgaba al cuello del recién nacido y no se quitaba hasta la tumba.',
-  escarabajo: 'El escarabajo empuja su bola como el dios empuja el sol: por eso era símbolo de volver a nacer.',
-  caliz: 'Beber del mismo cáliz era jurar lealtad; romperlo, declarar la guerra.',
-  mascara: 'La máscara guardaba el rostro del difunto para que su alma lo reconociera al volver.',
-  gema: 'Los joyeros antiguos creían que cada gema guardaba un poco de la luz del día en que se halló.',
-  corona: 'Una corona pasa de cabeza en cabeza; algunas cargan más traiciones que joyas.',
-  cetro: 'Quien sostenía el cetro hablaba por el dios; quien lo perdía, ya no hablaba por nadie.',
-  calavera: 'Las calaveras talladas se ponían en los altares para recordar que todo poder termina.',
-  idolo: 'Los ídolos se tallaban con los ojos abiertos: un dios nunca duerme.',
-  cuerno: 'Un cuerno así llamaba a los guerreros a la batalla o al banquete, que a veces eran lo mismo.',
-  hacha: 'Las hachas de jefe se heredaban con el nombre de todos los que la habían blandido.',
-  catalejo: 'Con un buen catalejo se veía venir al enemigo, la tormenta y el puerto, casi siempre en ese orden.',
-  brujula: 'Una brújula vale lo que el capitán que la lee; esta conoció a varios.',
-  cofre: 'Nadie entierra un cofre vacío, pero muchos lo abren y lo encuentran así.',
-  disco: 'Los discos de piedra medían el tiempo: cuándo sembrar, cuándo rezar y cuándo esconderse.',
-  piedra: 'Las piedras sagradas no se compran ni se venden: se guardan, o se roban.',
-  libro: 'Copiar un libro llevaba años; perder uno, una tarde.',
-  escudo: 'En el escudo iban los colores de la casa: quien lo dejaba caer, la deshonraba.',
-  ankh: 'La cruz con asa es la llave de la vida: los dioses la acercaban a la nariz del faraón para darle aliento.',
-  anillo: 'Un anillo de sello firmaba cartas, leyes y sentencias sin decir una palabra.',
-  cruz: 'Las cruces de los peregrinos se gastaban en el pecho durante años de camino.',
-};
-
-export const LORE_RAREZA = {
-  comun: 'Pieza de uso diario: alguien la tuvo en la mano muchas veces.',
-  raro: 'Pocos podían pagar algo así; sus dueños se cuidaban de mostrarla.',
-  epico: 'Obra de un taller real. Solo unas pocas manos la tocaron en siglos.',
-  legendario: 'De esas piezas que cambian la historia de quien las encuentra. Las leyendas la daban por perdida.',
 };

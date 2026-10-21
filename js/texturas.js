@@ -1,5 +1,7 @@
 // Texturas y sprites pixel art generados por código (sin archivos de imagen).
 // Todo va a un atlas de COLS x FILAS casillas de T x T píxeles.
+import { crearDisenos } from './tesoros-arte.js';
+
 
 export const T = 64;
 export const COLS = 16;
@@ -303,10 +305,11 @@ function llama(x, y, cx, arriba, abajo, ancho) {
 }
 
 // Antorcha de muro; apagada es la misma copa sin llama ni resplandor (se enciende al acercarle la tuya).
-const antorchaMuro = (b, encendida) => {
-  const r = rng(11), oxido = fbm(rng(12), 8, 2);
+// El fondo es el muro de cada mazmorra (`dibuja(b, capa)`), para que la pared de la antorcha no desentone con las demás.
+const antorchaMuro = (b, encendida, dibuja = capa => dibujaPiedra(b, rng(11), capa)) => {
+  const oxido = fbm(rng(12), 8, 2);
   const zona = new Uint8Array(T * T);
-  dibujaPiedra(b, r, {
+  dibuja({
     alto: (x, y, v, i) => {
       // placa clavada al muro, brazo y copa de hierro, mango de madera
       if (x >= 29 && x < 35 && y >= 36 && y < 48) { zona[i] = 1; return 1.2 + suave(Math.min(x - 29, 34 - x, y - 36, 47 - y) / 1.5) * 0.15; }
@@ -331,8 +334,6 @@ const antorchaMuro = (b, encendida) => {
     if (c) b.set(x, y, ...c);
   }
 };
-registrar('antorcha', b => antorchaMuro(b, true));
-registrar('antorcha_apagada', b => antorchaMuro(b, false));
 
 registrar('puerta', b => {
   const r = rng(31), veta = fbm(r, 4, 3), oxido = fbm(semilla(r), 8, 2), tono = Array.from({ length: 6 }, () => r());
@@ -723,6 +724,21 @@ registrar('catacumba_grieta', b => dibujaCatacumba(b, rng(151), null, grietasHon
 registrar('tablilla_catacumba', b => dibujaCatacumba(b, rng(151), capaTablilla([176, 164, 136])));
 registrar('tablilla_catacumba_rota', b => dibujaCatacumba(b, rng(151), capaTablilla([176, 164, 136], true)));
 
+
+// Una antorcha (y su versión apagada) sobre el muro de cada mazmorra: `antorcha_<muro>`.
+const MUROS_ANTORCHA = {
+  piedra: (b, capa) => dibujaPiedra(b, rng(11), capa),
+  arenisca: (b, capa) => dibujaArenisca(b, rng(21), capa),
+  hielo: (b, capa) => dibujaHielo(b, rng(101), capa),
+  roca: (b, capa) => dibujaRoca(b, rng(111), capa),
+  selva: (b, capa) => dibujaSelva(b, rng(131), capa),
+  volcanica: (b, capa) => dibujaVolcanica(b, rng(141), capa),
+  catacumba: (b, capa) => dibujaCatacumba(b, rng(151), capa),
+};
+for (const [muro, dibuja] of Object.entries(MUROS_ANTORCHA)) {
+  registrar(`antorcha_${muro}`, b => antorchaMuro(b, true, capa => dibuja(b, capa)));
+  registrar(`antorcha_apagada_${muro}`, b => antorchaMuro(b, false, capa => dibuja(b, capa)));
+}
 
 // ---------- Sprites (fondo transparente) ----------
 
@@ -2683,7 +2699,9 @@ function destellos(d, luz, t, colorRareza) {
 }
 
 const COLOR_RAREZA = { raro: '#5fa8ff', epico: '#c77dff', legendario: '#ffb627' };
+let DISENOS = null;
 export function registrarTesoros(catalogo) {
+  DISENOS ||= crearDisenos({ r, ovalo, poli, trazo, aro, mezcla, glifo, moteado, PERLA, NOGAL, NOGAL_O, CUERO_G, PAPEL, PAPEL_O, LACRE, ESMALTE, MARFIL_G, NEGRO, RUBI_G, ZAFIRO_G, ESMERALDA_G });
   for (const t of catalogo) {
     if (casillas['tesoro_' + t.id]) continue;
     registrar('tesoro_' + t.id, b => {
@@ -2691,10 +2709,10 @@ export function registrarTesoros(catalogo) {
       c.width = c.height = T;
       const g = c.getContext('2d');
       const P = paletaTesoro(t);
-      FORMAS[t.forma](g, P);
+      (DISENOS[t.id] || FORMAS[t.forma])(g, P);
       const d = g.getImageData(0, 0, T, T).data;
       for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 128 ? 0 : 255;
-      const paleta = [...new Set([P.c, P.o, P.k, P.m, P.l, P.b, P.gema, P.gema2, RUBI_G, ZAFIRO_G, ESMERALDA_G, PERLA, NOGAL, NOGAL_O,
+      const paleta = [...new Set([P.c, P.o, P.k, P.m, P.l, P.b, P.gema, P.gema2, MARFIL_G, '#8a8a92', '#3a3a42', '#9a6e12', '#a82030', '#c83040', '#7a1020', '#2f8a5a', '#1f6a42', '#c8601e', '#8a3a10', '#c8a850', '#b08a50', '#a82020', RUBI_G, ZAFIRO_G, ESMERALDA_G, PERLA, NOGAL, NOGAL_O,
         CUERO_G, PAPEL, PAPEL_O, LACRE, ESMALTE, NEGRO, '#ffffff', '#efe6cc', '#b8a880', '#8a7a5a', '#4a2a12', '#9ad4ff', '#d8a838', '#7a5a10',
         '#c83040', '#e8e2d0', '#ffe0a0', '#0f2048', '#4a2a10', '#6a4a20', '#e8b83a', '#c27a3a', mezcla('#e8b83a', '#000000', 0.5), mezcla('#c27a3a', '#000000', 0.5),
         mezcla(P.gema, '#ffffff', 0.5), mezcla(P.gema, '#000000', 0.45)])];
