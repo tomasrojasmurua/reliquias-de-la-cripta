@@ -522,7 +522,14 @@ body.mapa-abierto #t-mapa, body.mapa-abierto #botones-tactiles { display: none; 
 #leyenda-mapa li { display: flex; align-items: center; gap: 8px; line-height: 1.1; }
 #leyenda-mapa canvas { width: 22px; height: 22px; flex: none; }
 #leyenda-mapa:not(.en-sala) li[data-solo="sala"] { display: none; }
-@media (max-height: 460px) { #leyenda-mapa { font-size: 10px; gap: 0; padding: 4px 8px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 48px); grid-auto-flow: column; grid-template-rows: repeat(6, auto); column-gap: 14px; } #leyenda-mapa canvas { width: 16px; height: 16px; } #leyenda-mapa li { gap: 6px; } #btn-leyenda, #btn-cerrar-mapa { padding: 7px 14px; } #btn-leyenda { right: calc(max(10px, env(safe-area-inset-right)) + 140px); } }
+@media (max-height: 460px) { #btn-leyenda, #btn-cerrar-mapa { padding: 7px 14px; } #btn-leyenda { right: calc(max(10px, env(safe-area-inset-right)) + 140px); } #leyenda-mapa { bottom: calc(max(10px, env(safe-area-inset-bottom)) + 48px); } }
+/* apaisado: la leyenda es un cuadrado a la derecha, en dos columnas, y el mapa se ajusta al resto */
+@media (orientation: landscape) {
+  #leyenda-mapa { width: min(calc(100dvh - 140px), 50vw); aspect-ratio: 1; max-height: none; box-sizing: border-box; grid-template-columns: 1fr 1fr; align-content: space-evenly; column-gap: 10px; gap: 0 10px; padding: 8px 10px; font-size: clamp(9px, 2.5dvh, 13px); overflow: hidden; }
+  #leyenda-mapa li { gap: 6px; }
+  #leyenda-mapa canvas { width: clamp(14px, 3.6dvh, 22px); height: clamp(14px, 3.6dvh, 22px); }
+}
+body.mapa-abierto #automapa { pointer-events: auto; touch-action: none; }
 @media (max-width: 520px) and (min-height: 461px) { #leyenda-mapa { left: 8px; right: 8px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 112px); grid-template-columns: 1fr 1fr; font-size: 11px; } }
 .solo-pc { display: block; }
 body.tactil .solo-pc { display: none; }

@@ -36,9 +36,14 @@ export function explorar(juego, alcance = 9) {
       if (m.solida(cx, cz)) break;
     }
   }
-  // un sello abierto deja de avisarse en cuanto lo ves
+  // un sello abierto deja de avisarse en cuanto lo ves, y deja de latir en cuanto llegas a él
   if (juego.sellosNuevos) for (const i of juego.sellosNuevos) if (v[i]) juego.sellosNuevos.delete(i);
+  m.celdas.forEach((c, i) => { if (c.pulso && Math.hypot(i % m.ancho + 0.5 - j.x, Math.floor(i / m.ancho) + 0.5 - j.z) < 2.5) c.pulso = 0; });
 }
+
+// Zoom y desplazamiento que el jugador le da al mapa (en píxeles del lienzo), y el espacio que tapa la leyenda abierta.
+export const vistaMapa = { zoom: 1, x: 0, y: 0, reservaDer: 0, reservaAbajo: 0 };
+export function reiniciarVistaMapa() { vistaMapa.zoom = 1; vistaMapa.x = 0; vistaMapa.y = 0; }
 
 export function dibujarAutomapa(ctx, w, h, juego) {
   const m = juego.mapa, j = juego.j, v = juego.vistas;
@@ -46,8 +51,20 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   pergamino(ctx, w, h);
   if (!v) return;
   const margen = Math.min(w, h) * 0.06;
-  const t = Math.floor(Math.min((w - margen * 2) / m.ancho, (h - margen * 2.6) / m.alto));
-  const ox = Math.floor((w - t * m.ancho) / 2), oy = Math.floor((h - t * m.alto) / 2 + margen * 0.3);
+  // el mapa se ajusta a lo explorado (no a todo el laberinto), así se ve grande; abajo queda libre la banda de la rosa de los vientos
+  let bx0 = m.ancho, by0 = m.alto, bx1 = -1, by1 = -1;
+  for (let i = 0; i < v.length; i++) if (v[i]) { const x = i % m.ancho, y = (i - x) / m.ancho; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+  if (bx1 < 0) { bx0 = Math.floor(j.x) - 4; bx1 = Math.floor(j.x) + 4; by0 = Math.floor(j.z) - 4; by1 = Math.floor(j.z) + 4; }
+  bx0 -= 1; by0 -= 1; bx1 += 2; by1 += 2;
+  const banda = Math.min(w, h) * 0.21;
+  const ax = margen, ay = margen * 1.4, aw = w - margen * 2 - vistaMapa.reservaDer, ah = h - ay - Math.max(banda, vistaMapa.reservaAbajo + margen * 0.3);
+  const tf = Math.max(3, Math.min(aw / (bx1 - bx0), ah / (by1 - by0), Math.min(w, h) / 14));
+  const ox0 = ax + (aw - tf * (bx1 - bx0)) / 2 - bx0 * tf, oy0 = ay + (ah - tf * (by1 - by0)) / 2 - by0 * tf;
+  // zoom del jugador, alrededor del centro del área, y recorte para no tapar la rosa ni los botones
+  const zc = vistaMapa.zoom, ccx = ax + aw / 2, ccy = ay + ah / 2;
+  const ox = ccx + vistaMapa.x + (ox0 - ccx) * zc, oy = ccy + vistaMapa.y + (oy0 - ccy) * zc, t = tf * zc;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, ay * 0.9, w, ah + ay * 0.1); ctx.clip();
   const visto = (x, y) => x >= 0 && y >= 0 && x < m.ancho && y < m.alto && v[y * m.ancho + x];
   const abierta = (x, y) => { const c = m.celda(x, y); return c && !m.solida(x, y) || c && c.tipo === 'puerta' || c && c.tipo === 'sello'; };
 
@@ -66,7 +83,7 @@ export function dibujarAutomapa(ctx, w, h, juego) {
     else if (pmax > pmin) col = mezclar(c.zona !== undefined && completa(c.zona) ? COLOR.completa : COLOR.suelo, COLOR.alto, (c.piso - pmin) / (pmax - pmin));
     else if (completa(c.zona)) col = COLOR.completa;
     ctx.fillStyle = col;
-    ctx.fillRect(ox + x * t, oy + y * t, t, t);
+    ctx.fillRect(ox + x * t, oy + y * t, t + 0.6, t + 0.6);
   }
   // bordes: muros entre casilla abierta y sólida; líneas finas en los desniveles
   ctx.lineCap = 'square';
@@ -214,6 +231,7 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   ctx.fill(); ctx.stroke();
   ctx.restore();
   etiqueta(ctx, 'TÚ', px, py - r * 1.5, col, Math.max(13, Math.round(t * 1.0)));
+  ctx.restore();
   // estado y marcador, sobre el propio mapa (los indicadores de la partida se esconden mientras está abierto)
   const f = Math.max(12, Math.round(Math.min(w, h) / 38));
   ctx.font = `bold ${f}px Georgia, serif`; ctx.textAlign = 'center';
@@ -231,9 +249,9 @@ export function dibujarAutomapa(ctx, w, h, juego) {
   }
   // título
   ctx.fillStyle = COLOR.tinta;
-  ctx.font = `italic ${Math.max(13, Math.round(t * 0.7))}px Georgia, serif`;
+  ctx.font = `italic ${Math.max(13, Math.round(Math.min(w, h) / 40))}px Georgia, serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(juego.def.nombre, w / 2, Math.max(18, oy - t * 0.5));
+  ctx.fillText(juego.def.nombre, w / 2, Math.max(18, margen * 1.1));
 }
 
 // Los que te persiguen o te atacan (los dormidos y los que esperan ocultos no aparecen).
@@ -370,7 +388,7 @@ function pergamino(ctx, w, h) {
     c.strokeStyle = COLOR.tinta; c.lineWidth = 3; c.strokeRect(m, m, w - m * 2, h - m * 2);
     c.lineWidth = 1; c.strokeRect(m * 1.8, m * 1.8, w - m * 3.6, h - m * 3.6);
     // rosa de los vientos, abajo a la izquierda
-    const R = Math.min(w, h) * 0.07, cx = m * 3 + R * 1.1 + 40, cy = h - m * 3 - R * 1.1;
+    const R = Math.min(w, h) * 0.05, cx = m * 3 + R * 1.1 + 40, cy = h - m * 3 - R * 1.1;
     c.save(); c.translate(cx, cy); c.globalAlpha = 0.75; c.strokeStyle = COLOR.tinta; c.fillStyle = COLOR.tinta;
     c.beginPath(); c.arc(0, 0, R * 0.75, 0, Math.PI * 2); c.lineWidth = 1.5; c.stroke();
     for (let k = 0; k < 4; k++) {

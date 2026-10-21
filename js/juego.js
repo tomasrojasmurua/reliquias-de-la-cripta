@@ -1575,12 +1575,14 @@ export class Juego {
       else pose = [0, 8, 1, 8][Math.floor(e.anim * (e.vel * 6)) % 4];
       s.push({ x: e.x, z: e.z, y, ancho: tam, alto: tam, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
+    // flechas y dardos se dibujan apuntando arriba a la derecha: si cruzan la vista hacia la izquierda, se voltean
+    const yaw = this.j.yaw, haciaIzq = (vx, vz) => vx * -Math.sin(yaw) + vz * Math.cos(yaw) < 0;
     for (const f of this.proyectiles) s.push(f.flecha
-      ? { x: f.x, z: f.z, y: f.y - 0.1, ancho: 0.22, alto: 0.22, tex: 'flecha', luz: luzEn(f.x, f.z) }
+      ? { x: f.x, z: f.z, y: f.y - 0.1, ancho: 0.22, alto: 0.22, tex: 'flecha', luz: luzEn(f.x, f.z), espejo: haciaIzq(f.vx, f.vz) }
       : { x: f.x, z: f.z, y: f.y - 0.15, ancho: 0.3, alto: 0.3, tex: 'fuego_' + (Math.floor(this.tiempo * 12) % 2), luz: 1.3 });
     for (const d of this.dardos) {
       const a = this.dardoEn(d);
-      if (a) s.push({ x: a.x, z: a.z, y: a.y - 0.08, ancho: 0.16, alto: 0.16, tex: 'dardo', luz: luzEn(a.x, a.z) });
+      if (a) s.push({ x: a.x, z: a.z, y: a.y - 0.08, ancho: 0.16, alto: 0.16, tex: 'dardo', luz: luzEn(a.x, a.z), espejo: haciaIzq(d.dx, d.dz) });
     }
     for (const r of this.rocas) {
       const a = this.rocaEn(r);
