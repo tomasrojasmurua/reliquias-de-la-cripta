@@ -311,7 +311,7 @@ export function dibujarMinimapa(ctx, S, juego, radio = 6.5) {
   }
   // monstruos que te persiguen o te atacan: puntos rojos que laten; los que están fuera del alcance se pegan al borde
   for (const e of juego.enemigos) {
-    if (!CAZANDO.has(e.estado) || e.vaga) continue;   // los que te perdieron ya no se marcan
+    if (!CAZANDO.has(e.estado) || e.vaga || (e.sinVerte ?? 0) >= 3) continue;   // los que te perdieron, o te buscan del otro lado de un muro, no se marcan: el mapa no ve a través de las paredes
     const dx = e.x - j.x, dz = e.z - j.z, d = Math.hypot(dx, dz);
     if (d > radio * 2.4) continue;
     const k = d > radio - 0.6 ? (radio - 0.6) / d : 1;
@@ -323,6 +323,28 @@ export function dibujarMinimapa(ctx, S, juego, radio = 6.5) {
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.globalAlpha = 1;
     });
   }
+  // lo que late en el mapa grande late también aquí; si cae fuera del alcance, el aro se pega al borde
+  const pulso = (x, z, col, periodo, fuerte) => {
+    const dx = x - j.x, dz = z - j.z, d = Math.hypot(dx, dz), k = d > radio - 0.6 ? (radio - 0.6) / d : 1;
+    girar(ox + (j.x + dx * k) * t, oy + (j.z + dz * k) * t, () => {
+      const f = (ahora % periodo) / periodo, r = Math.max(3.5, t * 0.42);
+      ctx.strokeStyle = col; ctx.lineWidth = 2;
+      ctx.globalAlpha = (1 - f) * (k < 1 ? 0.7 : 1); ctx.beginPath(); ctx.arc(0, 0, r * (1 + f * 2.2), 0, Math.PI * 2); ctx.stroke();
+      if (fuerte) { ctx.globalAlpha = k < 1 ? 0.8 : 1; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    });
+  };
+  // la salida revelada con el tiempo (en una sala) y aún sin ver, y los sellos recién abiertos que aún no viste
+  if (juego.salidaRevelada) for (let i = 0; i < m.celdas.length; i++) {
+    if (m.celdas[i].tipo === 'salida' && !v[i]) pulso(i % m.ancho + 0.5, Math.floor(i / m.ancho) + 0.5, COLOR.salida, 1400, true);
+  }
+  if (juego.sellosNuevos?.size) {
+    let sx = 0, sz = 0;
+    for (const i of juego.sellosNuevos) { sx += i % m.ancho + 0.5; sz += Math.floor(i / m.ancho) + 0.5; }
+    pulso(sx / juego.sellosNuevos.size, sz / juego.sellosNuevos.size, COLOR.sello, 1400, true);
+  }
+  // los demás cazadores que acaban de llevarse un tesoro
+  for (const o of juego.otros || []) if (o.aviso) pulso(o.x, o.z, COLOR_CAZADOR[o.color] || '#fff', 1200, false);
   for (const o of juego.otros || []) {
     if (!visto(Math.floor(o.x), Math.floor(o.z))) continue;
     girar(ox + o.x * t, oy + o.z * t, () => {
@@ -334,7 +356,10 @@ export function dibujarMinimapa(ctx, S, juego, radio = 6.5) {
   // yo, siempre mirando hacia arriba
   ctx.save(); ctx.translate(c0, c0); ctx.rotate(-Math.PI / 2);
   ctx.fillStyle = juego.colorPropio || COLOR.jugador; ctx.strokeStyle = '#fff6dc'; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-  const r = Math.max(5, t * 0.75);
+  const r = Math.max(5, t * 0.75), latido = (ahora % 1100) / 1100;
+  ctx.save(); ctx.rotate(Math.PI / 2); ctx.strokeStyle = ctx.fillStyle; ctx.globalAlpha = 1 - latido; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, r * (1 + latido * 1.8), 0, Math.PI * 2); ctx.stroke(); ctx.restore();   // el aro que late, como en el mapa grande
+  ctx.globalAlpha = 1; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * 0.6, r * 0.65); ctx.lineTo(-r * 0.3, 0); ctx.lineTo(-r * 0.6, -r * 0.65); ctx.closePath(); ctx.fill(); ctx.stroke();
   ctx.restore();
   // rosa de los vientos: N, E, S y O alrededor, girando al revés para que la N apunte siempre al norte del mapa
