@@ -143,6 +143,12 @@ export class Juego {
     this.dardos = (m.dardos || []).map(d => ({ ...d, prev: 0, golpe: -1 }));
     this.rocas = (m.rocas || []).map(r => ({ ...r, golpe: 0 }));
     this.terminado = false;
+    // la reliquia legendaria del guardián: espera oculta (como si ya estuviera cogida) hasta que él cae; su puesto `n` es igual para todos en una sala
+    this.botinGuardian = null;
+    if (this.guardian && this.def.guardian.tesoro) {
+      this.botinGuardian = { tipo: 'tesoro', tesoro: this.def.guardian.tesoro, x: this.guardian.x, z: this.guardian.z, fase: 0, n: this.objetos.length, cogido: true, guardian: true };
+      this.objetos.push(this.botinGuardian);
+    }
     this.totalTesoros = this.objetos.filter(o => o.tipo === 'tesoro').length;
     // zonas: cuántas reliquias tiene cada una (para el HUD y el automapa)
     this.zonas = (m.regiones || []).map((r, i) => ({ nombre: r.nombre, total: this.objetos.filter(o => o.tipo === 'tesoro' && o.zona === i).length, halladas: 0 }));
@@ -917,6 +923,7 @@ export class Juego {
         this.ev.mensaje(`¡Derrotaste a ${e.nombre}!`, 4);
         this.temblor = 0.6;
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
+        this.soltarBotin(e);
       }
     } else if (e.jefe) {
       // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
@@ -932,6 +939,23 @@ export class Juego {
       else if (e.estado !== 'caza' && e.estado !== 'dolor') e.estado = 'caza';
       this.voz(e, 'dolor');
     }
+  }
+
+  // El guardián deja caer su reliquia legendaria donde murió (en la casilla firme más cercana si ahí no se puede recoger).
+  soltarBotin(e) {
+    const o = this.botinGuardian;
+    if (!o || e !== this.guardian || !o.cogido || o.nota) return;
+    const m = this.mapa, firme = (x, z) => { const c = m.celda(x, z); return c?.tipo === 'suelo' && !c.peligro && !c.trampa && !c.estatua; };
+    let [x, z] = [e.x, e.z];
+    if (!firme(Math.floor(x), Math.floor(z))) {
+      let md = Infinity;
+      for (let dz = -4; dz <= 4; dz++) for (let dx = -4; dx <= 4; dx++) {
+        const d = Math.hypot(dx, dz);
+        if (d < md && firme(Math.floor(e.x) + dx, Math.floor(e.z) + dz)) { md = d; [x, z] = [Math.floor(e.x) + dx + 0.5, Math.floor(e.z) + dz + 0.5]; }
+      }
+    }
+    Object.assign(o, { x, z, cogido: false, pendiente: false });
+    setTimeout(() => this.ev.mensaje(`${TESORO[o.tesoro].nombre} brilla entre los restos de ${e.nombre}.`, 5), 1500);
   }
 
   // El cofre cerrado que tienes enfrente, a menos de 1,7 m.
@@ -1333,6 +1357,7 @@ export class Juego {
         this.ev.mensaje(`¡Cayó ${e.nombre}!`, 4);
         this.temblor = 0.6;
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
+        this.soltarBotin(e);
       }
     } else if (nuevo === 'dolor') { e.golpe = 0.12; this.voz(e, 'dolor'); }
     else if (nuevo === 'surge') this.voz(e, 'surgir');
@@ -1575,6 +1600,15 @@ export class Juego {
       else if (e.estado === 'ataca' || e.estado === 'embiste') pose = 2;
       else if (e.estado === 'dormido') pose = 0;
       else pose = [0, 8, 1, 8][Math.floor(e.anim * (e.vel * 6)) % 4];
+      if (e.jefe && e.estado !== 'muerto' && e.estado !== 'oculto') {
+        // el guardián brilla con el color de su mazmorra y suelta chispas que suben a su alrededor
+        const dx = j.x - e.x, dz = j.z - e.z, dl = Math.hypot(dx, dz) || 1;
+        s.push({ x: e.x - dx / dl * 0.06, z: e.z - dz / dl * 0.06, y: y - tam * 0.12, ancho: tam * 1.75, alto: tam * 1.75, tex: `aura_${e.tipo}_${Math.floor(this.tiempo * 2.5) % 2}`, luz: 1.25 });
+        for (let i = 0; i < 3; i++) {
+          const t = (this.tiempo * 0.7 + i / 3) % 1, a = i * 2.4 + Math.floor(this.tiempo * 0.7 + i / 3) * 1.7;
+          s.push({ x: e.x + Math.cos(a) * 0.34 * (dz / dl) + dx / dl * 0.08, z: e.z - Math.cos(a) * 0.34 * (dx / dl) + dz / dl * 0.08, y: y + tam * (0.1 + t * 0.9), ancho: 0.13, alto: 0.13, tex: 'destello_' + Math.min(3, Math.floor((1 - Math.abs(t * 2 - 1)) * 4)), luz: 1.3 });
+        }
+      }
       s.push({ x: e.x, z: e.z, y, ancho: tam, alto: tam, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
     // flechas y dardos se dibujan apuntando arriba a la derecha: si cruzan la vista hacia la izquierda, se voltean

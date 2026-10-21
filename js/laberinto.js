@@ -9,6 +9,8 @@
 //
 // Todo el azar sale de `azar`, así que con la misma semilla sale la misma mazmorra (para el multijugador).
 
+import { TESORO, RAREZAS } from '../datos/tesoros.js';
+
 const ENEMIGOS = 'mkgpjcn';
 const V = [[0, -1], [1, 0], [0, 1], [-1, 0]];
 
@@ -196,9 +198,9 @@ function poblar(t, ids, nuevoCaracter, tiposEnemigo, camaras = []) {
       if (!ponerTablilla(t, camara.tablilla, true)) g[y + dy][x + dx] = '.';
       else camara.puesta = true;
     } else if (azar() < 0.5 && n < ids.length - 1 && (dx || dy) && !enSala(x + dx, y + dy)) g[y + dy][x + dx] = 'S';   // el último queda a la vista: el guardián necesita un sitio junto a alguna reliquia
-    if (g[y + dy]?.[x + dx] === '.') simples.push(c);   // a la vista en su callejón: puede ir en un cofre
+    if (g[y + dy]?.[x + dx] === '.' && TESORO[id]?.rareza !== 'comun') simples.push(c);   // a la vista en su callejón: puede ir en un cofre (solo reliquias raras o mejores)
   });
-  // un cofre cerrado con llave por cada tres reliquias; cada llave está tirada en alguna sala, y la palanca de hierro también abre
+  // un cofre cerrado con llave por cada tres reliquias (si hay tantas raras o mejores a la vista); cada llave está tirada en alguna sala, y la palanca de hierro también abre
   t.cofres = mezclar(simples).slice(0, Math.floor(ids.length / 3));
   for (const [x, y] of finales) {
     const r = azar();
@@ -666,6 +668,7 @@ export function recortarZonas(def, n) {
   const salida = Z.salida.filter(i => i < n);
   return {
     ...def,
+    reserva: idsDeMapa(def),   // las reliquias de la mazmorra entera: las de las zonas recortadas también pueden salir (ver `sortearTesoros`)
     sectores: {
       ...Z, extra: -1,
       zonas: Z.zonas.slice(0, n).map((z, i) => i === n - 1 ? { ...z, acertijo: undefined } : z),
@@ -730,6 +733,35 @@ function generarInicio(def, azar) {
   };
 }
 
+// Las reliquias que se esconden en el mapa de la mazmorra entera (sin lo que suelta el guardián).
+const idsDeMapa = def => [...Object.values(def.tesoros || {}), ...def.sectores.zonas.flatMap(z => z.tesoros || [])];
+
+// Cada partida sortea qué reliquias de la mazmorra ocupan los sitios del mapa. La mazmorra pequeña tiene menos sitios que
+// reliquias (solo los de su primera zona), así que se elige un puñado al azar de toda la reserva: dentro de una rareza todas
+// son igual de probables, y las más raras salen menos (cada rareza pesa menos en el sorteo, ver PESO_RAREZA). Así cualquier
+// reliquia de la mazmorra puede salir aunque solo juegues en pequeña. En la grande hay un sitio por reliquia y salen todas.
+// Las reliquias elegidas se reparten de más a menos valiosa entre los sitios, también de más a menos valiosos
+// (los sitios conservan el orden de la mazmorra: lo mejor tras lo más difícil).
+const PESO_RAREZA = { comun: 1, raro: 0.6, epico: 0.3, legendario: 0.15 };
+function sortearTesoros(def, azar) {
+  const Z = def.sectores;
+  const valor = id => RAREZAS[TESORO[id].rareza].valor;
+  // los sitios: [dónde, reliquia que traía]
+  const sitios = [
+    ...Object.entries(def.tesoros || {}).map(([c, id]) => ({ id, pon: nuevo => { tesoros[c] = nuevo; } })),
+    ...Z.zonas.flatMap((z, i) => (z.tesoros || []).map((id, k) => ({ id, pon: nuevo => { zonas[i].tesoros[k] = nuevo; } }))),
+  ];
+  const tesoros = { ...def.tesoros };
+  const zonas = Z.zonas.map(z => z.tesoros ? { ...z, tesoros: [...z.tesoros] } : z);
+  // sorteo con pesos sin repetir (Efraimidis y Spirakis): gana la clave u^(1/peso) más alta
+  const elegidas = (def.reserva || idsDeMapa(def))
+    .map(id => ({ id, clave: Math.pow(azar(), 1 / PESO_RAREZA[TESORO[id].rareza]) }))
+    .sort((a, b) => b.clave - a.clave).slice(0, sitios.length).map(x => x.id)
+    .sort((a, b) => valor(b) - valor(a));
+  sitios.map((x, i) => ({ ...x, i })).sort((a, b) => valor(b.id) - valor(a.id) || a.i - b.i).forEach((x, k) => x.pon(elegidas[k]));
+  return { ...def, tesoros, sectores: { ...Z, zonas } };
+}
+
 const CARACTERES_TESORO = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩ';
 
 // Con varios cazadores las reliquias no siguen la jerarquía de las zonas (lo mejor en la última): se mezclan al azar entre
@@ -745,6 +777,7 @@ function mezclarTesoros(def, azar) {
 }
 
 export function conZonas(def, azar = Math.random, { jugadores = 1 } = {}) {
+  def = sortearTesoros(def, azar);
   if (jugadores > 1) def = mezclarTesoros(def, azar);
   if (def.sectores.inicio) def = generarInicio(def, azar);
   const Z = def.sectores, { elegir } = herramientas(azar);

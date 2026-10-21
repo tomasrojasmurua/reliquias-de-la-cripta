@@ -18,6 +18,8 @@ jobs:
       - run: npm ci
       - name: Mazmorras
         run: npm run validar
+      - name: Reparto de reliquias
+        run: npm run tesoros
       - name: Caché sin conexión
         run: node herramientas/cache.js --revisar
       - name: Navegador

@@ -827,13 +827,21 @@ const ESTILOS = {
   caballero: { cuerpo: 'momia', piel: '#8e949c', sombra: '#545a62', ojo: '#ff3a20', liso: true, malla: true },
   // Guardianes: uno por mazmorra, más grandes (el juego los dibuja a 1.2 m). Llevan lo mismo que el
   // enemigo de su mazmorra (`base`) con otros colores, y encima su tocado o una corona.
-  faraon: { cuerpo: 'momia', piel: '#d9c890', sombra: '#9a8656', ojo: '#4fd0ff', brazos: 'adelante', base: 'momia', tocado: 'nemes', franjas: ['#2f5ad0', '#e8b83a'] },
-  anubis: { cuerpo: 'momia', piel: '#3a3028', sombra: '#1c1610', ojo: '#ffcc33', liso: true, tocado: 'nemes', franjas: ['#111111', '#e8b83a'] },
-  jarl: { cuerpo: 'momia', piel: '#7e98a8', sombra: '#3e5464', ojo: '#bff6ff', liso: true, hombros: 4, base: 'draugr', corona: true },
-  capitan: { cuerpo: 'huesos', piel: '#d6c8a4', sombra: '#8e8264', ojo: '#ff3a1a', base: 'pirata' },
-  rey_jaguar: { cuerpo: 'momia', piel: '#7a4a1c', sombra: '#4a2a0c', ojo: '#ff4a1a', liso: true, base: 'jaguar', corona: true },
-  gran_sectario: { cuerpo: 'momia', piel: '#5a0e08', sombra: '#2a0604', ojo: '#ff3a1a', liso: true, tunica: true, base: 'sectario', corona: true },
-  gran_caballero: { cuerpo: 'momia', piel: '#5e636c', sombra: '#2e3238', ojo: '#ff3a1a', liso: true, malla: true, base: 'caballero', corona: true },
+  // Además de su tocado, cada uno lleva capa, hombreras, collar y una joya al pecho, y un detalle propio (ver `detalleGuardian`)
+  faraon: { cuerpo: 'momia', piel: '#d9c890', sombra: '#9a8656', ojo: '#4fd0ff', brazos: 'adelante', base: 'momia', tocado: 'nemes', franjas: ['#2f5ad0', '#e8b83a'],
+    capa: ['#2f5ad0', '#1a3a8a'], hombreras: '#e8b83a', collar: ['#e8b83a', '#2f5ad0'], joya: '#4fd0ff', detalle: 'disco' },
+  anubis: { cuerpo: 'momia', piel: '#3a3028', sombra: '#1c1610', ojo: '#ffcc33', liso: true, tocado: 'nemes', franjas: ['#111111', '#e8b83a'],
+    capa: ['#14100c', '#e8b83a'], hombreras: '#e8b83a', collar: ['#e8b83a', '#3ad08a'], joya: '#3ad08a', detalle: 'orejas' },
+  jarl: { cuerpo: 'momia', piel: '#7e98a8', sombra: '#3e5464', ojo: '#bff6ff', liso: true, hombros: 4, base: 'draugr', corona: true,
+    capa: ['#3a5a8a', '#1c2e52'], hombreras: '#bfe8ff', collar: ['#e8f6ff', '#4f8fb8'], joya: '#bfe8ff', detalle: 'cristales' },
+  capitan: { cuerpo: 'huesos', piel: '#d6c8a4', sombra: '#8e8264', ojo: '#ff3a1a', base: 'pirata',
+    capa: ['#8a1c1c', '#4a0c0c'], hombreras: '#e8b83a', collar: ['#e8b83a', '#e0304a'], joya: '#e0304a', detalle: 'pluma' },
+  rey_jaguar: { cuerpo: 'momia', piel: '#7a4a1c', sombra: '#4a2a0c', ojo: '#ff4a1a', liso: true, base: 'jaguar', corona: true,
+    capa: ['#1f7a4a', '#0e3e26'], hombreras: '#4fbf7f', collar: ['#4fbf7f', '#e8b83a'], joya: '#4fbf7f', detalle: 'colmillos' },
+  gran_sectario: { cuerpo: 'momia', piel: '#5a0e08', sombra: '#2a0604', ojo: '#ff3a1a', liso: true, tunica: true, base: 'sectario', corona: true,
+    capa: ['#1a0606', '#7a1010'], hombreras: '#c8c0b0', collar: ['#e8e2d0', '#e0304a'], joya: '#ff5a1a', detalle: 'cuernos' },
+  gran_caballero: { cuerpo: 'momia', piel: '#5e636c', sombra: '#2e3238', ojo: '#ff3a1a', liso: true, malla: true, base: 'caballero', corona: true,
+    capa: ['#1a1a22', '#5a1010'], hombreras: '#d8dde4', collar: ['#d8dde4', '#e8b83a'], joya: '#e0304a', detalle: 'penacho' },
 };
 const BESTIAS_ARTE = { escorpion, arana, serpiente, coloso };
 const TIPOS_ENEMIGO = [...Object.keys(ESTILOS), ...Object.keys(BESTIAS_ARTE)];
@@ -1167,16 +1175,100 @@ function humanoide(g, tipo, pose) {
   // muerte: el mismo cuerpo (en pose de dolor) que se arrodilla, se desploma y queda tendido
   if (pose === 4 || pose === 5 || pose === 6) { caida(g, pose, () => humanoide(g, tipo, 3)); return; }
   const p = postura(pose);
+  if (e.capa) capaGuardian(g, e, p);
   ad.detras?.(g, e, p);
   if (e.cuerpo === 'momia') cuerpoMacizo(g, e, p);
   else esqueletoDe(g, e, p);
   ad.delante?.(g, e, p);
+  if (e.capa) galaGuardian(g, e, p);
   tocado(g, e, p);
+  if (e.detalle) DETALLES_GUARDIAN[e.detalle](g, e, p);
   herida(g, p, 29, 28 + p.dy);
   if (p.lanza && !e.sinConjuro) { // conjuro: fuego entre las manos
     r(g, 26, 20, 12, 10, '#ff8a1a'); r(g, 28, 22, 8, 6, '#ffe14a'); r(g, 30, 24, 4, 2, '#fff8d0');
   }
 }
+
+// La capa de un guardián cae por detrás de los hombros y se abre hasta los pies, con el borde del segundo color.
+function capaGuardian(g, e, p) {
+  const [c, borde] = e.capa, { dy, vaiven } = p, m = vaiven / 2;
+  g.fillStyle = c; g.beginPath();
+  g.moveTo(22, 30 + dy); g.lineTo(42, 30 + dy); g.lineTo(54 + m, 60); g.lineTo(10 + m, 60); g.closePath(); g.fill();
+  g.fillStyle = borde;
+  g.beginPath(); g.moveTo(10 + m, 60); g.lineTo(54 + m, 60); g.lineTo(53 + m, 57); g.lineTo(11 + m, 57); g.closePath(); g.fill();
+  for (const x of [20, 32, 44]) { g.beginPath(); g.moveTo(x - 1, 38 + dy); g.lineTo(x + (x - 32) * 0.4 + m, 58); g.lineTo(x + 1 + (x - 32) * 0.4 + m, 58); g.lineTo(x + 1, 38 + dy); g.fill(); }
+  g.fillStyle = e.hombreras; for (const x of [22, 40]) g.fillRect(x, 29 + dy, 3, 2);   // broche de la capa
+}
+
+// Hombreras, collar y joya al pecho: lo que hace que un guardián se vea de otra categoría.
+function galaGuardian(g, e, p) {
+  const { dy } = p, [a, b] = e.collar;
+  // collar ancho: una media luna de cuentas del primer color con una cuenta del segundo cada dos
+  for (let i = 0; i <= 8; i++) {
+    const t = i / 8, x = 23 + t * 18, y = 31 + dy + Math.sin(t * Math.PI) * 5;
+    r(g, x - 1, y - 1, 3, 3, i % 2 ? b : a); r(g, x - 1, y - 1, 1, 1, '#ffffff');
+  }
+  // joya engastada en oro al centro del pecho
+  r(g, 29, 37 + dy, 6, 7, '#e8b83a'); r(g, 30, 38 + dy, 4, 5, e.joya); r(g, 30, 38 + dy, 1, 1, '#ffffff'); r(g, 33, 42 + dy, 1, 1, '#00000055');
+  // hombreras: casquete redondo con borde de oro
+  for (const [x, lado] of [[19, -1], [45, 1]]) {
+    ovalo(g, x, 33 + dy, 6, 4.4, '#e8b83a'); ovalo(g, x, 32.6 + dy, 5, 3.4, e.hombreras);
+    r(g, x - 3, 31 + dy, 2, 1, '#ffffffaa'); r(g, x + lado * 3, 34 + dy, 1, 1, '#00000066');
+  }
+}
+
+// Un detalle propio de cada guardián, encima de todo lo demás.
+const DETALLES_GUARDIAN = {
+  // el disco solar de oro entre la cobra y el nemes
+  disco(g, e, p) { ovalo(g, 32, 1.5 + p.dy, 4.5, 2.6, '#e8b83a'); ovalo(g, 32, 1.5 + p.dy, 2.6, 1.5, '#e0304a'); },
+  // orejas de chacal, largas y erguidas, sobre el tocado
+  orejas(g, e, p) {
+    const { dy } = p;
+    for (const lado of [-1, 1]) {
+      const x = 32 + lado * 10;
+      g.fillStyle = '#14100c'; g.beginPath(); g.moveTo(x - 3, 8 + dy); g.lineTo(x + lado * 1.5, -2 + dy); g.lineTo(x + 3, 8 + dy); g.fill();
+      g.fillStyle = '#e8b83a'; g.beginPath(); g.moveTo(x - 1, 7 + dy); g.lineTo(x + lado * 1, 1 + dy); g.lineTo(x + 1.5, 7 + dy); g.fill();
+    }
+  },
+  // cristales de hielo que brotan de las hombreras
+  cristales(g, e, p) {
+    const { dy } = p;
+    for (const [x, lado] of [[19, -1], [45, 1]]) {
+      for (const [dx, h] of [[0, 9], [lado * 3, 6], [-lado * 3, 5]]) {
+        g.fillStyle = '#e8f8ff'; g.beginPath(); g.moveTo(x + dx - 2, 31 + dy); g.lineTo(x + dx, 31 + dy - h); g.lineTo(x + dx + 2, 31 + dy); g.fill();
+        g.fillStyle = '#7fc8f0'; g.beginPath(); g.moveTo(x + dx, 31 + dy - h); g.lineTo(x + dx + 2, 31 + dy); g.lineTo(x + dx, 31 + dy); g.fill();
+      }
+    }
+  },
+  // la pluma roja del tricornio, curvada hacia atrás
+  pluma(g, e, p) {
+    const { dy } = p;
+    g.strokeStyle = '#e0304a'; g.lineWidth = 3; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(40, 4 + dy); g.quadraticCurveTo(52, -2 + dy, 54, 10 + dy); g.stroke();
+    g.strokeStyle = '#ff8a8a'; g.lineWidth = 1; g.beginPath(); g.moveTo(41, 3.5 + dy); g.quadraticCurveTo(51, -1 + dy, 53, 8 + dy); g.stroke();
+  },
+  // colmillos de jaguar a los lados de la boca y un collar de dientes
+  colmillos(g, e, p) {
+    const { dy } = p;
+    for (const x of [28, 35]) { g.fillStyle = '#fff6d8'; g.beginPath(); g.moveTo(x, 17 + dy); g.lineTo(x + 2, 17 + dy); g.lineTo(x + 1, 22 + dy); g.fill(); }
+  },
+  // cuernos curvos de hueso a los lados de la corona
+  cuernos(g, e, p) {
+    const { dy } = p;
+    for (const lado of [-1, 1]) {
+      g.strokeStyle = '#e8e2d0'; g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(32 + lado * 7, 6 + dy); g.quadraticCurveTo(32 + lado * 17, 7 + dy, 32 + lado * 14, -2 + dy); g.stroke();
+      g.strokeStyle = '#a89c80'; g.lineWidth = 1; g.beginPath(); g.moveTo(32 + lado * 8, 7 + dy); g.quadraticCurveTo(32 + lado * 17, 8 + dy, 32 + lado * 15, -1 + dy); g.stroke();
+    }
+  },
+  // un penacho negro y alto que sale de la corona
+  penacho(g, e, p) {
+    const { dy } = p;
+    g.fillStyle = '#14141c'; g.beginPath(); g.moveTo(30, 2 + dy); g.quadraticCurveTo(26, -8 + dy, 38, -6 + dy); g.quadraticCurveTo(46, -3 + dy, 44, 4 + dy);
+    g.quadraticCurveTo(40, -2 + dy, 34, 2 + dy); g.fill();
+    g.fillStyle = '#5a1010'; g.beginPath(); g.moveTo(32, 1 + dy); g.quadraticCurveTo(30, -4 + dy, 38, -4 + dy); g.quadraticCurveTo(34, -2 + dy, 34, 1 + dy); g.fill();
+  },
+};
 
 // Lo que distingue a un guardián de lejos: el nemes de faraón o una corona de oro sobre lo que ya lleve.
 function tocado(g, e, p) {
@@ -1692,6 +1784,14 @@ for (const [rareza, color] of [['raro', '#4f90e0'], ['epico', '#b066f0'], ['lege
   for (let k = 0; k < 2; k++) registrar(`halo_${rareza}_${k}`, sprite(g => tramado(g, color, (x, y) => {
     const d = Math.hypot(x - 32, y - 32);
     return d > 30 ? 0 : (1 - d / 30) * (rareza === 'legendario' ? 0.42 : 0.3);
+  }, k * 2), { relieve: false }));
+}
+// El resplandor que envuelve a cada guardián, del color de su mazmorra (dos cuadros que titilan); detrás de él, más ancho que alto.
+export const AURAS = { faraon: '#4f90ff', anubis: '#3ad08a', jarl: '#8fe0ff', capitan: '#7aff9a', rey_jaguar: '#ffa030', gran_sectario: '#ff4a1a', gran_caballero: '#e8ecff' };
+for (const [tipo, color] of Object.entries(AURAS)) {
+  for (let k = 0; k < 2; k++) registrar(`aura_${tipo}_${k}`, sprite(g => tramado(g, color, (x, y) => {
+    const d = Math.hypot((x - 32) * 0.82, (y - 34) * 0.7);
+    return d > 30 ? 0 : Math.pow(1 - d / 30, 1.4) * 0.62;
   }, k * 2), { relieve: false }));
 }
 for (let k = 0; k < 4; k++) registrar('destello_' + k, sprite(g => {

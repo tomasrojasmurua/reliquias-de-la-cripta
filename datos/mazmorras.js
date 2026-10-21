@@ -32,12 +32,13 @@
 // `ambiente`: sonido de fondo (cripta, desierto, nieve, mar, selva, lava o catacumba).
 // `texTablilla`, `texSello`: texturas de tablillas y sellos. `tinte`: color de la luz [r, g, b].
 // `avisos`: { carácter: 'texto' } pone inscripciones en el muro que se leen con «Usar».
-// `guardian`: { tipo, nombre } el jefe que vigila la reliquia más valiosa (tipos en GUARDIANES, js/juego.js).
+// `guardian`: { tipo, nombre, tesoro } el jefe que vigila la reliquia más valiosa (tipos en GUARDIANES, js/juego.js);
+//   `tesoro` es la reliquia legendaria única que suelta al caer (no está en ningún otro sitio de la mazmorra).
 
 export const MAZMORRAS = [
   {
     id: 'cripta-escarabajo',
-    guardian: { tipo: 'faraon', nombre: 'Jepri, el faraón escarabajo' },
+    guardian: { tipo: 'faraon', nombre: 'Jepri, el faraón escarabajo', tesoro: 'disco_jepri' },
     // Cuatro zonas: el plano fijo con los túneles de abajo, las galerías a la derecha, el hipogeo abajo
     // y, tras un pasadizo secreto y un sello, la cámara de Jepri con la reliquia más valiosa.
     sectores: {
@@ -54,7 +55,7 @@ export const MAZMORRAS = [
       zonas: [
         { nombre: 'La antecámara', tesoros: ['ushebti', 'paleta_escriba'], camaras: 1, acertijo: { dificultad: [1, 2], titulo: 'La estela de las galerías' } },
         { nombre: 'Las galerías del embalsamador', tesoros: ['cuchillo_embalsamador', 'jarra_natron', 'amuleto_tyet', 'escarabajo_corazon'], camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El papiro del embalsamador' } },
-        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
+        { nombre: 'El hipogeo del sumo sacerdote', tesoros: ['pesas_deben', 'papiro_muertos', 'cayado_heka', 'diadema_ureo', 'caliz_oro'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La invocación del sumo sacerdote' } },
         { nombre: 'La cámara de Jepri', tesoros: ['escarabajo_jepri'] },
       ],
     },
@@ -75,11 +76,11 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-arenas',
-    guardian: { tipo: 'anubis', nombre: 'El sacerdote de Anubis' },
+    guardian: { tipo: 'anubis', nombre: 'El sacerdote de Anubis', tesoro: 'cetro_oro' },
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El obelisco del patio' } },
       { nombre: 'Los almacenes del templo', tesoros: ['daga_bronce', 'anfora_aceite', 'monedas_plata', 'cetro_bronce'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El inventario del escriba real' } },
-      { nombre: 'La necrópolis de los sacerdotes', tesoros: ['escarabajo_bronce', 'anfora_jade', 'daga_plata', 'amuleto_oro'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La letanía de los sacerdotes' } },
+      { nombre: 'La necrópolis de los sacerdotes', tesoros: ['escarabajo_bronce', 'anfora_jade', 'daga_plata', 'amuleto_oro', 'corona_plata'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'La letanía de los sacerdotes' } },
       { nombre: 'El santuario del primer faraón', tesoros: ['corona_oro'] },
     ],
     laberinto: { lado: 'abajo', puerta: [14, 16], ancho: 43, alto: 17, tesoros: ['espejo_bronce', 'collar_cornalina'] },
@@ -103,7 +104,7 @@ export const MAZMORRAS = [
 
   {
     id: 'glaciar-jarl',
-    guardian: { tipo: 'jarl', nombre: 'El Jarl de hielo' },
+    guardian: { tipo: 'jarl', nombre: 'El Jarl de hielo', tesoro: 'corona_escarcha' },
     ampliacion: [
       { nombre: 'La fortaleza', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La piedra rúnica del puente' } },
       { nombre: 'Las criptas de hielo', tesoros: ['fibula_bronce', 'runas_hueso', 'brazalete_plata', 'cuerno_heimdall'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El conjuro de la völva' } },
@@ -133,7 +134,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'cueva-drake',
-    guardian: { tipo: 'capitan', nombre: 'El capitán del galeón' },
+    guardian: { tipo: 'capitan', nombre: 'El capitán del galeón', tesoro: 'mapa_capitan' },
     ampliacion: [
       { nombre: 'La cueva', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El diario del contramaestre' } },
       { nombre: 'La bodega del galeón', tesoros: ['reales_plata', 'sable_abordaje', 'brujula_laton', 'cofrecillo_perlas'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El manifiesto de carga' } },
@@ -165,7 +166,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'templo-jaguar',
-    guardian: { tipo: 'rey_jaguar', nombre: 'El Rey Jaguar' },
+    guardian: { tipo: 'rey_jaguar', nombre: 'El Rey Jaguar', tesoro: 'macana_jaguar' },
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La estela del juego de pelota' } },
       { nombre: 'El juego de pelota', tesoros: ['amuleto_jade', 'semillas_cacao', 'orejeras_jade', 'vasija_pelota'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El marcador de piedra' } },
@@ -195,7 +196,7 @@ export const MAZMORRAS = [
 
   {
     id: 'templo-maldito',
-    guardian: { tipo: 'gran_sectario', nombre: 'El sumo sacerdote del culto' },
+    guardian: { tipo: 'gran_sectario', nombre: 'El sumo sacerdote del culto', tesoro: 'baculo_sectario' },
     ampliacion: [
       { nombre: 'El templo', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'El relieve de la puerta' } },
       { nombre: 'El patio de las campanas', tesoros: ['campana_templo', 'brazalete_marfil', 'katar_guardian', 'gema_rubi'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El canto de las campanas' } },
@@ -224,7 +225,7 @@ export const MAZMORRAS = [
   },
   {
     id: 'tumba-cruzado',
-    guardian: { tipo: 'gran_caballero', nombre: 'El Caballero Negro' },
+    guardian: { tipo: 'gran_caballero', nombre: 'El Caballero Negro', tesoro: 'cruz_negra' },
     ampliacion: [
       { nombre: 'La abadía', camaras: 2, acertijo: { dificultad: [2, 3], titulo: 'La lápida del claustro' } },
       { nombre: 'El claustro de los peregrinos', tesoros: ['cruz_peregrino', 'concha_peregrino', 'sello_templario', 'espuelas_caballero'], camaras: 2, acertijo: { dificultad: [3, 4], titulo: 'El libro de horas' } },
@@ -294,7 +295,12 @@ function ampliar(m) {
 }
 for (const m of MAZMORRAS) if (m.ampliacion) ampliar(m);
 
-// Todos los tesoros de una mazmorra: los del plano fijo, los del laberinto y los de sus zonas.
+// Los tesoros que se esconden en el mapa de una mazmorra: los del plano fijo, los del laberinto y los de sus zonas.
+export function tesorosDeMapa(m) {
+  return [...Object.values(m.tesoros || {}), ...(m.laberinto?.tesoros || []), ...(m.sectores?.zonas.flatMap(z => z.tesoros || []) || [])];
+}
+
+// Todos los tesoros de una mazmorra: los del mapa y lo que suelta su guardián.
 export function tesorosDe(m) {
-  return [...Object.values(m.tesoros || {}), ...(m.laberinto?.tesoros || []), ...(m.sectores?.zonas.flatMap(z => z.tesoros) || [])];
+  return [...tesorosDeMapa(m), ...(m.guardian?.tesoro ? [m.guardian.tesoro] : [])];
 }

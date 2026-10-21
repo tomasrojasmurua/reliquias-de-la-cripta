@@ -161,6 +161,13 @@ export const TESOROS = [
   t('monedas_maharaja', 'Monedas del maharajá', 'monedas', ORO, 'raro', 'El tesoro del palacio, escondido de la secta.'),
   t('pagina_diario', 'Página suelta del diario', 'libro', CUERO, 'comun', 'Un dibujo de la ventana de la biblioteca y un número romano.'),
   t('moneda_templaria', 'Moneda templaria', 'monedas', PLATA, 'raro', 'Dos caballeros en un solo caballo.'),
+  // Lo que suelta cada guardián al caer: una reliquia legendaria única, que solo se consigue derrotándolo
+  t('disco_jepri', 'Disco solar de Jepri', 'disco', ORO, 'legendario', 'El sol naciente que el faraón escarabajo empujaba cada mañana. Aún está caliente.'),
+  t('corona_escarcha', 'Corona de escarcha del Jarl', 'corona', HIELO, 'legendario', 'Forjada con el hielo del primer invierno. Quien la lleva no siente el frío ni el miedo.'),
+  t('mapa_capitan', 'Mapa de las siete islas', 'libro', CUERO, 'legendario', 'La carta del capitán, con una cruz roja en cada isla donde enterró algo.'),
+  t('macana_jaguar', 'Macana del Rey Jaguar', 'hacha', OBSIDIANA, 'legendario', 'Obsidiana negra con dientes de jaguar. Nunca se enfrió después de la última ofrenda.'),
+  t('baculo_sectario', 'Báculo de calaveras del sumo sacerdote', 'cetro', RUBI, 'legendario', 'Cada calavera es de alguien que se negó a rezar.'),
+  t('cruz_negra', 'Cruz negra del Caballero', 'cruz', OBSIDIANA, 'legendario', 'La que llevó setecientos años sobre el pecho, esperando a un penitente que no mintiera.'),
 ];
 
 export const TESORO = Object.fromEntries(TESOROS.map(x => [x.id, x]));

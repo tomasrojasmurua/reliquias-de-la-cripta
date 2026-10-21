@@ -112,6 +112,8 @@ function revisarMapa(def, m, donde, juego) {
   // cofres: se llega a cada uno y hay al menos una llave por cofre, todas a las que se llega
   const cofres = m.objetos.filter(o => o.cerrado), llaves = m.objetos.filter(o => o.tipo === 'llave');
   for (const o of cofres) if (!llega(Math.floor(o.x), Math.floor(o.z))) error(donde, `no se puede llegar al cofre de «${o.tesoro}»`);
+  // un cofre solo guarda reliquias (nada de armas, munición ni vendas) y de rareza rara o mejor
+  for (const o of cofres) if (o.tipo !== 'tesoro' || !TESORO[o.tesoro] || TESORO[o.tesoro].rareza === 'comun') error(donde, `un cofre guarda «${o.tesoro}», que no es una reliquia rara o mejor`);
   for (const o of llaves) if (!llega(Math.floor(o.x), Math.floor(o.z))) error(donde, `no se puede llegar a una llave en (${Math.floor(o.x)}, ${Math.floor(o.z)})`);
   if (llaves.length < cofres.length) error(donde, `hay ${cofres.length} cofres y solo ${llaves.length} llaves`);
   // la palanca de hierro: a lo más una, y si está se llega a ella (nunca hace falta para salir: solo abre sellos)
@@ -147,6 +149,22 @@ function revisarMapa(def, m, donde, juego) {
     const g = juego.guardian;
     if (!g) error(donde, `no hay lugar para el guardián «${def.guardian.nombre}»`);
     else if (!llega(Math.floor(g.x), Math.floor(g.z))) error(donde, `no se puede llegar al guardián en (${Math.floor(g.x)}, ${Math.floor(g.z)})`);
+    // la reliquia que suelta: legendaria, única de este guardián y fuera del resto del mapa
+    const botin = juego.botinGuardian, id = def.guardian.tesoro;
+    if (!id || TESORO[id]?.rareza !== 'legendario') error(donde, `el guardián «${def.guardian.nombre}» no suelta una reliquia legendaria`);
+    else if (!botin || botin.tesoro !== id || !botin.cogido) error(donde, 'la reliquia del guardián no está preparada (oculta) al empezar');
+    else if (m.objetos.some(o => o.tipo === 'tesoro' && o.tesoro === id)) error(donde, `la reliquia del guardián «${id}» también está escondida en el mapa`);
+    else if (juego.objetos.filter(o => o.tipo === 'tesoro' && o.tesoro === id).length !== 1) error(donde, `la reliquia del guardián «${id}» está repetida`);
+    else {
+      // al caer suelta su reliquia en una casilla a la que se llega, y se puede recoger
+      juego.herir(g, g.vida + 1);
+      if (botin.cogido) error(donde, 'el guardián cae y no suelta su reliquia');
+      else if (!llega(Math.floor(botin.x), Math.floor(botin.z))) error(donde, `la reliquia del guardián cae donde no se llega (${botin.x.toFixed(1)}, ${botin.z.toFixed(1)})`);
+      else {
+        juego.tomar(botin);   // (con los eventos de mentira, `recoger` espera la respuesta de un anfitrión que no hay)
+        if (!juego.tesoros.includes(id)) error(donde, 'la reliquia del guardián no se puede recoger');
+      }
+    }
   } else error(donde, 'no tiene guardián');
 
   // tesoros: existen en el catálogo y se puede llegar a ellos
