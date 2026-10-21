@@ -775,7 +775,7 @@ export class Juego {
       const d = muro - 0.05;
       const ix = j.x + fx * d, iz = j.z + fz * d, iy = j.y + OJO + Math.tan(j.cabeceo) * d;
       this.salpicar(ix, iy, iz, 'polvo', 4, 0.8);
-      if (j.arma === 'revolver' || j.arma === 'tommy') this.salpicar(ix, iy, iz, 'chispa', 3, 1.2);
+      if (j.arma === 'revolver' || j.arma === 'tommy') { this.salpicar(ix, iy, iz, 'chispa', 3, 1.2); setTimeout(() => sonar('rebote'), 60); }
       else setTimeout(() => sonar('golpe'), 90);
     }
   }
@@ -902,10 +902,12 @@ export class Juego {
       this.ev.golpear(this.enemigos.indexOf(e), daño);
       e.golpe = 0.12;
       this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);
+      sonar('impacto');
       return;
     }
     e.vida -= daño;
     e.golpe = 0.12;
+    sonar('impacto');
     e.sinVerte = 0; e.visto = { x: this.j.x, z: this.j.z };   // sabe de dónde le pegaron
     if (e.teletransporta && e.vida > 0 && Math.random() < 0.3) e.tTele = Math.min(e.tTele ?? 0, 0.2);   // herido, se escabulle
     this.salpicar(e.x, e.y + 0.55, e.z, SALPICA[e.tipo] || 'polvo', 7);

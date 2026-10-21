@@ -6,7 +6,7 @@ import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa, dibujarMinimapa, LEYENDA } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
-import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica } from './audio.js';
+import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica, retenerMusica, sonarIntro, detenerIntro, TIEMPO_TITULO } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { abrirPalancas, crearPalancas } from './palancas.js';
 import { recortarZonas, azarConSemilla } from './laberinto.js';
@@ -1182,7 +1182,40 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && jue
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 
 mostrar('portada');
+
+// ---------- Introducción ----------
+// El primer toque despierta el audio (los navegadores no dejan sonar antes) y empieza la película:
+// oscuridad, versos, antorchas que se encienden y, al final, el título que cae con el tema de la aventura.
+const intro = $('#intro');
 const invitacion = normalizarCodigo(new URLSearchParams(location.search).get('sala'));
+function terminarIntro(saltada) {
+  if (!intro || intro.classList.contains('titulo')) return;
+  clearTimeout(intro.reloj);
+  document.body.classList.remove('en-intro', 'camara');
+  $('#portada').classList.add('revela');
+  intro.classList.add('titulo');
+  if (saltada) detenerIntro();
+  retenerMusica(false);
+  setTimeout(() => intro.classList.add('fin'), 700);
+  setTimeout(() => intro.remove(), 2200);
+}
+function empezarIntro() {
+  if (intro.classList.contains('corre')) return terminarIntro(true);
+  activarAudio();
+  intro.classList.add('corre');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { terminarIntro(true); return; }
+  document.body.classList.add('camara');
+  sonarIntro();
+  intro.reloj = setTimeout(() => terminarIntro(false), TIEMPO_TITULO * 1000);
+}
+if (intro && !invitacion) {
+  document.body.classList.add('en-intro');
+  retenerMusica(true);
+  intro.addEventListener('click', empezarIntro);
+  intro.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); empezarIntro(); } });
+  intro.focus?.();
+} else intro?.remove();
+
 if (invitacion) {
   abrirUnirse(invitacion);
   // el enlace queda limpio: recargar la página no vuelve a abrir la invitación
