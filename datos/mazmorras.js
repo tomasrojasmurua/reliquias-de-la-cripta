@@ -48,7 +48,7 @@ export const MAZMORRAS = [
         { x: 63, y: 33, ancho: 21, alto: 29, zona: 3, luz: 0.5, textura: { suelo: 'arena' } },
       ],
       entrada: [9, 16],
-      inicio: { salas: 7, enemigos: ['m', 'k', 'g'] },
+      inicio: { salas: 7, enemigos: ['m', 'k'] },
       pasos: [[0, 1, 42, 25], [1, 2, 52, 32], [2, 3, 62, 47]],
       salida: [1, 2],
       zonas: [

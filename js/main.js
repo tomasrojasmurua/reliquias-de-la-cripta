@@ -4,7 +4,7 @@ import { Etiquetas } from './etiquetas.js';
 import { Entrada } from './entrada.js';
 import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
-import { dibujarAutomapa, dibujarMinimapa, LEYENDA } from './automapa.js';
+import { dibujarAutomapa, dibujarMinimapa, LEYENDA, vistaMapa, reiniciarVistaMapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
 import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica, retenerMusica, sonarIntro, detenerIntro, TIEMPO_TITULO } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
@@ -87,10 +87,45 @@ $('#btn-leyenda').onclick = () => plegarLeyenda(leyenda.hidden);
 function alternarMapa() {
   if (!juego) return;
   plegarLeyenda();
+  reiniciarVistaMapa();
   capaMapa.hidden = !capaMapa.hidden;
   if (!capaMapa.hidden) juego.avisoMapa = false;
 }
 $('#btn-cerrar-mapa').onclick = alternarMapa;
+// Zoom y desplazamiento del mapa: pellizco o rueda para acercar, arrastre para mover, doble toque para volver.
+{
+  const dedos = new Map();
+  let distancia = 0, ultimoToque = 0;
+  const k = () => capaMapa.width / (capaMapa.clientWidth || 1);
+  const acercar = (factor, px, py) => {
+    const z = Math.max(1, Math.min(8, vistaMapa.zoom * factor)), f = z / vistaMapa.zoom;
+    const cx = capaMapa.width / 2, cy = capaMapa.height / 2;
+    vistaMapa.x = px - cx - (px - cx - vistaMapa.x) * f; vistaMapa.y = py - cy - (py - cy - vistaMapa.y) * f;
+    vistaMapa.zoom = z;
+    if (z === 1) { vistaMapa.x = 0; vistaMapa.y = 0; }
+  };
+  const medir = () => { const [a, b] = [...dedos.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+  capaMapa.addEventListener('pointerdown', e => {
+    capaMapa.setPointerCapture(e.pointerId);
+    dedos.set(e.pointerId, { x: e.offsetX * k(), y: e.offsetY * k() });
+    if (dedos.size === 2) distancia = medir();
+    if (dedos.size === 1) { const ahora = performance.now(); if (ahora - ultimoToque < 300) reiniciarVistaMapa(); ultimoToque = ahora; }
+  });
+  capaMapa.addEventListener('pointermove', e => {
+    const d = dedos.get(e.pointerId); if (!d) return;
+    const x = e.offsetX * k(), y = e.offsetY * k();
+    if (dedos.size === 1) { vistaMapa.x += x - d.x; vistaMapa.y += y - d.y; }
+    d.x = x; d.y = y;
+    if (dedos.size === 2) {
+      const [a, b] = [...dedos.values()], nueva = medir();
+      if (distancia > 0) acercar(nueva / distancia, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      distancia = nueva;
+    }
+  });
+  const soltar = e => { dedos.delete(e.pointerId); distancia = 0; };
+  capaMapa.addEventListener('pointerup', soltar); capaMapa.addEventListener('pointercancel', soltar);
+  capaMapa.addEventListener('wheel', e => { e.preventDefault(); acercar(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.offsetX * k(), e.offsetY * k()); }, { passive: false });
+}
 $('#hud-arma').closest('.caja').dataset.tactil = 'recargar';   // en táctil, tocar el recuadro del arma recarga
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
@@ -1157,6 +1192,10 @@ function cuadro(t) {
   dibujarArma(ctxArma, w, h, juego.j);
   if (!capaMapa.hidden) {
     if (capaMapa.width !== w || capaMapa.height !== h) { capaMapa.width = w; capaMapa.height = h; }
+    // la leyenda abierta tapa un lado del mapa: el mapa se ajusta al resto
+    const rc = capaMapa.getBoundingClientRect(), rl = leyenda.getBoundingClientRect(), e = w / (rc.width || 1);
+    vistaMapa.reservaDer = vistaMapa.reservaAbajo = 0;
+    if (!leyenda.hidden) { if (rc.width > rc.height) vistaMapa.reservaDer = Math.max(0, (rc.right - rl.left) * e); else vistaMapa.reservaAbajo = Math.max(0, (rc.bottom - rl.top) * e); }
     dibujarAutomapa(ctxMapa, w, h, juego);
   }
   document.body.classList.toggle('mapa-abierto', !capaMapa.hidden);
