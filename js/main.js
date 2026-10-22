@@ -6,20 +6,21 @@ import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa, dibujarMinimapa, LEYENDA, vistaMapa, reiniciarVistaMapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
-import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica, retenerMusica, sonarIntro, detenerIntro, TIEMPO_TITULO } from './audio.js';
+import { activarAudio, sonar, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica, retenerMusica, sonarIntro, detenerIntro, TIEMPO_TITULO } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { abrirPalancas, crearPalancas } from './palancas.js';
 import { recortarZonas, azarConSemilla } from './laberinto.js';
 import { Sala, COLORES, HZ_POSICION, codigoValido, normalizarCodigo, enlaceDeSala, enlaceWhatsApp } from './red.js';
-import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
+import { MAZMORRAS } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 import { SALAS } from '../datos/museo.js';
 import { HISTORIAS } from '../datos/historias.js';
-import { lienzoEmblema } from '../datos/emblemas.js';
 import { progreso, guardar, mejores, anotarRecord, reloj, CALIDADES, TAMANOS, CUENTA_COMPETITIVO, MINUTOS_COOPERATIVO, prep, ajustesSala } from './progreso.js';
 import { activarZoomMapa } from './zoom-mapa.js';
 import { iniciarColeccion, pintarColeccion, ORDEN_RAREZA } from './coleccion.js';
 import { $ } from './dom.js';
+import { pintarMazmorras } from './mazmorras-ui.js';
+import { iniciarOpciones, pintarOpciones, vibrar, calidadActual } from './opciones.js';
 
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('tactil');
 
@@ -27,7 +28,6 @@ if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('tactil
 
 let elegida = null;   // la mazmorra de la pantalla de preparación
 let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
-let calidad = progreso.opciones.calidad || 'alta';
 
 // ---------- Inicio ----------
 
@@ -80,6 +80,7 @@ const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
 const entrada = new Entrada(vista, { zona: $('#zona-tactil'), base: $('#joy-base'), palanca: $('#joy-palanca'), botones });
+iniciarOpciones(entrada);
 
 let juego = null;
 let pausado = true;
@@ -171,8 +172,6 @@ document.addEventListener('pointerover', e => {
   if (enMenu(b) && !b.disabled) sonar('menu_pasar');
 });
 
-const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-
 // ---------- Preparar la expedición ----------
 
 // las mazmorras sin zonas tienen un solo tamaño
@@ -207,28 +206,6 @@ const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave]
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
 $('#btn-entrar').onclick = () => empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
 
-// Para abrir una mazmorra hay que haber reunido esta parte de los tesoros de la anterior (la primera siempre está abierta).
-const UMBRAL_DESBLOQUEO = 0.5;
-const fraccion = m => { const ids = tesorosDe(m); return ids.filter(id => progreso.tesoros.includes(id)).length / ids.length; };
-const previaPendiente = m => { const k = MAZMORRAS.indexOf(m); return k > 0 && fraccion(MAZMORRAS[k - 1]) < UMBRAL_DESBLOQUEO ? MAZMORRAS[k - 1] : null; };
-function pintarMazmorras() {
-  const lista = $('#lista-mazmorras');
-  lista.innerHTML = '';
-  for (const m of MAZMORRAS) {
-    const ids = tesorosDe(m);
-    const tengo = ids.filter(id => progreso.tesoros.includes(id)).length;
-    const est = progreso.mazmorras[m.id] || {};
-    const previa = previaPendiente(m);
-    const b = document.createElement('button');
-    b.className = 'mazmorra' + (previa ? ' bloqueada' : '');
-    b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><div class="titulo-mazmorra"><i class="marco-emblema"></i><strong>${m.nombre}</strong></div><span>${m.descripcion}</span>
-      <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
-      <small>${previa ? `🔒 Reúne el ${Math.round(UMBRAL_DESBLOQUEO * 100)} % de los tesoros de ${previa.nombre} (${Math.round(fraccion(previa) * 100)} %)` : `Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}`}</small>`;
-    b.querySelector('.marco-emblema').appendChild(lienzoEmblema(m.id));
-    b.onclick = previa ? () => { b.classList.remove('sacude'); void b.offsetWidth; b.classList.add('sacude'); } : () => abrirPreparar(m);
-    lista.appendChild(b);
-  }
-}
 
 
 // Muro común y pasadizo secreto lado a lado, con las mismas texturas del juego (los de la Cripta del Escarabajo).
@@ -239,47 +216,13 @@ function pintarAyuda() {
     g.drawImage(miniatura(atlas, tex, 1), 0, 0, 128, 128);
   }
 }
-function pintarOpciones() {
-  for (const b of document.querySelectorAll('[data-calidad]')) b.classList.toggle('activo', b.dataset.calidad === calidad);
-  pintarControles();
-}
-
-// Controles táctiles: sensibilidad, modo zurdo y vibración.
-const SENSIBILIDAD = { baja: 0.6, media: 1, alta: 1.5 };
-const SENS_RATON = { baja: 0.0015, media: 0.0024, alta: 0.0038 };
-function aplicarControles() {
-  const o = progreso.opciones;
-  entrada.sensTactil = 0.006 * SENSIBILIDAD[o.sens || 'media'];
-  entrada.sensRaton = SENS_RATON[o.sensr || 'media'];
-  entrada.zurdo = !!o.zurdo;
-  document.body.classList.toggle('zurdo', !!o.zurdo);
-}
-function pintarControles() {
-  const o = progreso.opciones;
-  for (const b of document.querySelectorAll('[data-sens]')) b.classList.toggle('activo', b.dataset.sens === (o.sens || 'media'));
-  for (const b of document.querySelectorAll('[data-sensr]')) b.classList.toggle('activo', b.dataset.sensr === (o.sensr || 'media'));
-  $('#btn-zurdo').textContent = o.zurdo ? 'Zurdo: sí' : 'Zurdo: no';
-  $('#btn-vibrar').textContent = o.sinVibrar ? 'Vibración: no' : 'Vibración: sí';
-}
-for (const b of document.querySelectorAll('[data-sensr]')) b.onclick = () => { progreso.opciones.sensr = b.dataset.sensr; guardar(); aplicarControles(); pintarControles(); };
-for (const b of document.querySelectorAll('[data-sens]')) b.onclick = () => { progreso.opciones.sens = b.dataset.sens; guardar(); aplicarControles(); pintarControles(); };
-$('#btn-zurdo').onclick = () => { progreso.opciones.zurdo = !progreso.opciones.zurdo; guardar(); aplicarControles(); pintarControles(); };
-$('#btn-vibrar').onclick = () => {
-  progreso.opciones.sinVibrar = !progreso.opciones.sinVibrar; guardar(); pintarControles();
-  if (!progreso.opciones.sinVibrar) vibrar(40);
-};
-function vibrar(ms) {
-  if (progreso.opciones.sinVibrar || !document.body.classList.contains('tactil')) return;
-  try { navigator.vibrate?.(ms); } catch (e) { /* sin vibración */ }
-}
-aplicarControles();
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-ir]');
   if (!b) return;
   activarAudio();
   const ir = b.dataset.ir;
-  if (ir === 'mazmorras') pintarMazmorras();
+  if (ir === 'mazmorras') pintarMazmorras(abrirPreparar);
   if (ir === 'coleccion') pintarColeccion();
   if (ir === 'opciones') pintarOpciones();
   if (ir === 'ayuda') pintarAyuda();
@@ -290,20 +233,6 @@ document.addEventListener('click', e => {
   mostrar(ir);
 });
 
-for (const b of document.querySelectorAll('[data-calidad]')) b.onclick = () => {
-  calidad = b.dataset.calidad; progreso.opciones.calidad = calidad; guardar(); pintarOpciones();
-  document.body.classList.toggle('retro', calidad === 'retro');
-};
-document.body.classList.toggle('retro', calidad === 'retro');
-function pintarSonido() {
-  $('#btn-sonido').textContent = progreso.opciones.silencio ? 'Sonido: no' : 'Sonido: sí';
-  $('#btn-musica').textContent = progreso.opciones.sinMusica ? 'Música: no' : 'Música: sí';
-}
-ponerSilencio(!!progreso.opciones.silencio);
-ponerMusica(!progreso.opciones.sinMusica);
-pintarSonido();
-$('#btn-sonido').onclick = () => { progreso.opciones.silencio = alternarSilencio(); guardar(); pintarSonido(); };
-$('#btn-musica').onclick = () => { progreso.opciones.sinMusica = alternarMusica(); guardar(); pintarSonido(); };
 
 // ---------- Salas con amigos ----------
 
@@ -363,7 +292,7 @@ function abrirEntrar() {
   $('#entrar-error').textContent = '';
   mostrar('entrar');
 }
-$('#btn-solo').onclick = () => { pintarMazmorras(); mostrar('mazmorras'); };
+$('#btn-solo').onclick = () => { pintarMazmorras(abrirPreparar); mostrar('mazmorras'); };
 $('#btn-unirme').onclick = () => { guardarNombreSala($('#entrar-nombre').value); abrirUnirse(); };
 $('#btn-crear').onclick = async () => {
   const nombre = guardarNombreSala($('#entrar-nombre').value);
@@ -1089,7 +1018,7 @@ function cuadro(t) {
   if (!pausado || (actual?.sala && !actual.sala.fin)) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
   else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
-  render.ajustarTamano(CALIDADES[calidad]);
+  render.ajustarTamano(CALIDADES[calidadActual()]);
   // la antorcha titila
   const linterna = (juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025);
   const sprites = juego.sprites();
