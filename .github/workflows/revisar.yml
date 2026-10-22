@@ -16,6 +16,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Pruebas de lógica
+        run: npm run unitarias
       - name: Mazmorras
         run: npm run validar
       - name: Reparto de reliquias
