@@ -1,7 +1,7 @@
 // Guarda los archivos del juego para jugar sin conexión.
 // Pide primero la versión nueva a la red y, si no hay conexión, usa la copia guardada.
 // ARCHIVOS y CACHE los escribe herramientas/cache.js: córrelo después de cambiar cualquier archivo del juego.
-const CACHE = 'reliquias-b51da84ee2';
+const CACHE = 'reliquias-7a550067eb';
 const ARCHIVOS = [
   './', 'index.html', 'css/estilo.css', 'manifest.webmanifest', 'js/acertijos.js', 'js/arma.js',
   'js/audio.js', 'js/automapa.js', 'js/coleccion.js', 'js/dom.js', 'js/entrada.js', 'js/escena.js',
