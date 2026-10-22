@@ -169,12 +169,13 @@ function revisarMapa(def, m, donde, juego) {
     }
   } else error(donde, 'no tiene guardián');
 
-  // cada coloso de piedra lleva una reliquia común de esta mazmorra que suelta al caer
+  // cada coloso de piedra lleva una reliquia común de esta mazmorra, y cada criatura rara una rara (o común), que sueltan al caer
   const comunesDe = new Set(tesorosDeMapa(def).filter(t => TESORO[t]?.rareza === 'comun'));
-  for (const e of juego.enemigos.filter(q => q.tipo === 'coloso')) {
+  const rarasDe = new Set(tesorosDeMapa(def).filter(t => TESORO[t]?.rareza === 'raro'));
+  for (const e of juego.enemigos.filter(q => q.tipo === 'coloso' || q.rara)) {
     const b = e.botin;
     if (!b || !b.oculto || !b.cogido) { error(donde, 'un coloso no lleva su reliquia'); continue; }
-    if (!comunesDe.has(b.tesoro)) error(donde, `el coloso lleva «${b.tesoro}», que no es una reliquia común de la mazmorra`);
+    if (!(e.rara && rarasDe.size ? rarasDe : comunesDe).has(b.tesoro)) error(donde, `el coloso lleva «${b.tesoro}», que no es una reliquia común de la mazmorra`);
     const total = juego.totalTesoros;
     juego.herir(e, e.vida + 1);
     if (b.cogido || b.oculto || juego.totalTesoros !== total + 1) error(donde, 'el coloso cae y no suelta su reliquia');

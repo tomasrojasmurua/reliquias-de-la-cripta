@@ -943,7 +943,7 @@ export class Juego {
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
       } else if (e.botin) this.soltarBotin(e);
-      else if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan vendas
+      if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan también vendas
     } else if (e.jefe) {
       // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
       if (e.estado === 'dormido') e.estado = 'caza';
@@ -960,18 +960,21 @@ export class Juego {
     }
   }
 
-  // Cada coloso de piedra lleva una reliquia común de la mazmorra, elegida al azar con la semilla (igual para todos en una sala):
-  // mejor una que no esté ya escondida en el mapa. Espera oculta hasta que el coloso cae.
+  // Cada coloso de piedra lleva una reliquia común de la mazmorra, y cada criatura rara una rara (o común, si no hay),
+  // elegida al azar con la semilla (igual para todos en una sala): mejor una que no esté ya escondida en el mapa.
+  // Espera oculta hasta que cae.
   prepararBotinColosos(semilla) {
     const d = this.def;
-    const comunes = [...new Set(d.reserva || [...Object.values(d.tesoros || {}), ...(d.sectores?.zonas || []).flatMap(z => z.tesoros || [])])].filter(id => TESORO[id]?.rareza === 'comun');
-    if (!comunes.length) return;
+    const todas = [...new Set(d.reserva || [...Object.values(d.tesoros || {}), ...(d.sectores?.zonas || []).flatMap(z => z.tesoros || [])])];
+    const comunes = todas.filter(id => TESORO[id]?.rareza === 'comun'), raras = todas.filter(id => TESORO[id]?.rareza === 'raro');
     const puestas = new Set(this.objetos.map(o => o.tesoro));
     this.enemigos.forEach((e, i) => {
-      if (e.tipo !== 'coloso') return;
+      if (e.tipo !== 'coloso' && !e.rara) return;
+      const pozo = e.rara && raras.length ? raras : comunes;
+      if (!pozo.length) return;
       const azarC = azarConSemilla(((semilla | 0) + 1) * 40503 + i * 977);
-      const nuevas = comunes.filter(id => !puestas.has(id));
-      const lista = nuevas.length ? nuevas : comunes;
+      const nuevas = pozo.filter(id => !puestas.has(id));
+      const lista = nuevas.length ? nuevas : pozo;
       const id = lista[Math.floor(azarC() * lista.length)];
       puestas.add(id);
       e.botin = { tipo: 'tesoro', tesoro: id, x: e.x, z: e.z, fase: 0, n: this.objetos.length, cogido: true, oculto: true };
@@ -1398,7 +1401,7 @@ export class Juego {
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
       } else if (e.botin) this.soltarBotin(e);
-      else if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan vendas
+      if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan también vendas
     } else if (nuevo === 'dolor') { e.golpe = 0.12; this.voz(e, 'dolor'); }
     else if (nuevo === 'surge') this.voz(e, 'surgir');
     else if (nuevo === 'caza' && (antes === 'dormido' || antes === 'oculto' || antes === 'surge')) { e.alerta = true; this.voz(e, 'alerta'); }
