@@ -1,16 +1,17 @@
 // Guarda los archivos del juego para jugar sin conexión.
 // Pide primero la versión nueva a la red y, si no hay conexión, usa la copia guardada.
 // ARCHIVOS y CACHE los escribe herramientas/cache.js: córrelo después de cambiar cualquier archivo del juego.
-const CACHE = 'reliquias-13907f4268';
+const CACHE = 'reliquias-6b84c97505';
 const ARCHIVOS = [
   './', 'index.html', 'css/estilo.css', 'manifest.webmanifest', 'js/acertijos.js', 'js/arma.js',
-  'js/audio.js', 'js/automapa.js', 'js/entrada.js', 'js/escena.js', 'js/etiquetas.js', 'js/fauna.js',
-  'js/hitos.js', 'js/juego.js', 'js/laberinto.js', 'js/main.js', 'js/mapa.js', 'js/musica.js',
-  'js/palancas.js', 'js/red.js', 'js/render.js', 'js/tesoros-arte.js', 'js/texturas.js',
-  'js/vendor/peerjs.min.js', 'datos/emblemas.js', 'datos/historias.js', 'datos/mazmorras.js',
-  'datos/museo.js', 'datos/pistas.js', 'datos/red.js', 'datos/tesoros.js', 'iconos/icono-192.png',
-  'iconos/icono-512.png', 'iconos/idolo.svg', 'fuentes-web/cinzel.woff2',
-  'fuentes-web/garamond-cursiva.woff2', 'fuentes-web/garamond.woff2',
+  'js/audio.js', 'js/automapa.js', 'js/coleccion.js', 'js/dom.js', 'js/entrada.js', 'js/escena.js',
+  'js/etiquetas.js', 'js/fauna.js', 'js/hitos.js', 'js/juego.js', 'js/laberinto.js', 'js/main.js',
+  'js/mapa.js', 'js/mazmorras-ui.js', 'js/musica.js', 'js/opciones.js', 'js/palancas.js', 'js/progreso.js',
+  'js/red.js', 'js/render.js', 'js/tesoros-arte.js', 'js/texturas.js', 'js/vendor/peerjs.min.js',
+  'js/zoom-mapa.js', 'datos/emblemas.js', 'datos/historias.js', 'datos/mazmorras.js', 'datos/museo.js',
+  'datos/pistas.js', 'datos/red.js', 'datos/tesoros.js', 'iconos/icono-192.png', 'iconos/icono-512.png',
+  'iconos/idolo.svg', 'fuentes-web/cinzel.woff2', 'fuentes-web/garamond-cursiva.woff2',
+  'fuentes-web/garamond.woff2',
 ];
 
 self.addEventListener('install', e => {

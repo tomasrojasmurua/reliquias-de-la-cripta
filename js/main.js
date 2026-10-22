@@ -6,69 +6,34 @@ import { Juego, pinchosArriba } from './juego.js';
 import { dibujarArma } from './arma.js';
 import { dibujarAutomapa, dibujarMinimapa, LEYENDA, vistaMapa, reiniciarVistaMapa } from './automapa.js';
 import { iniciarEscena, animarEscena } from './escena.js';
-import { activarAudio, sonar, alternarSilencio, alternarMusica, ponerSilencio, ponerMusica, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica, retenerMusica, sonarIntro, detenerIntro, TIEMPO_TITULO } from './audio.js';
+import { activarAudio, sonar, iniciarAmbiente, detenerAmbiente, atenuarAmbiente, actualizarAmbiente, tocarMusica, retenerMusica, sonarIntro, detenerIntro, TIEMPO_TITULO } from './audio.js';
 import { abrirTablilla, elegirPista } from './acertijos.js';
 import { abrirPalancas, crearPalancas } from './palancas.js';
 import { recortarZonas, azarConSemilla } from './laberinto.js';
 import { Sala, COLORES, HZ_POSICION, codigoValido, normalizarCodigo, enlaceDeSala, enlaceWhatsApp } from './red.js';
-import { MAZMORRAS, tesorosDe } from '../datos/mazmorras.js';
+import { MAZMORRAS } from '../datos/mazmorras.js';
 import { TESOROS, TESORO, RAREZAS } from '../datos/tesoros.js';
 import { SALAS } from '../datos/museo.js';
 import { HISTORIAS } from '../datos/historias.js';
-import { lienzoEmblema } from '../datos/emblemas.js';
-
-const $ = s => document.querySelector(s);
+import { progreso, guardar, mejores, anotarRecord, reloj, CALIDADES, TAMANOS, CUENTA_COMPETITIVO, MINUTOS_COOPERATIVO, prep, ajustesSala } from './progreso.js';
+import { activarZoomMapa } from './zoom-mapa.js';
+import { iniciarColeccion, pintarColeccion, ORDEN_RAREZA } from './coleccion.js';
+import { $ } from './dom.js';
+import { pintarMazmorras } from './mazmorras-ui.js';
+import { iniciarOpciones, pintarOpciones, vibrar, calidadActual } from './opciones.js';
 
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('tactil');
 
-// ---------- Progreso guardado ----------
+// ---------- Estado de la sesión ----------
 
-const CLAVE = 'reliquias:v1';
-function leerProgreso() {
-  try { const p = JSON.parse(localStorage.getItem(CLAVE)); if (p) return p; } catch (e) { /* sin almacenamiento */ }
-  return { tesoros: [], pistas: [], mazmorras: {}, opciones: {} };
-}
-const progreso = leerProgreso();
-
-// Las 3 mejores expediciones de cada mazmorra y tamaño (solo cuentan las que escapan): más puntos primero y, a igualdad, menos tiempo.
-const TOP = 3;
-const claveRecord = (id, tamano) => `${id}:${tamano}`;
-const mejores = (id, tamano) => progreso.records?.[claveRecord(id, tamano)] || [];
-// Guarda una expedición y devuelve su puesto (1 a TOP) o 0 si no entra.
-function anotarRecord(id, tamano, puntos, tiempo) {
-  const lista = (progreso.records ||= {})[claveRecord(id, tamano)] ||= [];
-  const nueva = { puntos, tiempo: Math.round(tiempo), fecha: Date.now() };
-  lista.push(nueva);
-  lista.sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo || a.fecha - b.fecha);
-  lista.length = Math.min(lista.length, TOP);
-  return lista.indexOf(nueva) + 1;
-}
-const reloj = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-progreso.opciones ||= {};
-function guardar() { try { localStorage.setItem(CLAVE, JSON.stringify(progreso)); } catch (e) { /* sin almacenamiento */ } }
-
-const CALIDADES = { alta: 1, media: 0.75, retro: 0.4 };
-// Antes de entrar se elige el modo y el tamaño (cuántas zonas de la mazmorra). El tiempo para salir depende del tamaño.
-const TAMANOS = {
-  pequena: { zonas: 1, minutos: 10 },
-  mediana: { zonas: 2, minutos: 20 },
-  grande: { zonas: Infinity, minutos: 30 },
-};
-// Salas. Competitivo: tesoros exclusivos, sin reloj hasta que el primero encuentra la salida (entonces los demás tienen esta cuenta atrás,
-// constante, para escapar) y los cazadores pueden herirse. Cooperativo: tesoros compartidos, sin daño entre amigos y un reloj fijo según el tamaño.
-const CUENTA_COMPETITIVO = { pequena: 90, mediana: 120, grande: 150 };
-const MINUTOS_COOPERATIVO = { pequena: 10, mediana: 20, grande: 30 };
-const prep = { tamano: progreso.opciones.tamano || 'grande' };
-// Lo que el anfitrión elige en el lobby de una sala (se guarda para la próxima).
-const ajustesSala = { mazmorra: progreso.opciones.salaMazmorra || MAZMORRAS[0].id, tamano: progreso.opciones.salaTamano || 'grande', modo: progreso.opciones.salaModo || 'competitivo' };
 let elegida = null;   // la mazmorra de la pantalla de preparación
 let actual = null;    // la partida en curso { def, tamano, limite }, para jugar de nuevo
-let calidad = progreso.opciones.calidad || 'alta';
 
 // ---------- Inicio ----------
 
 registrarTesoros(TESOROS);
 const atlas = crearAtlas();
+iniciarColeccion(atlas);
 const vista = $('#vista');
 let render;
 const etiquetas = new Etiquetas($('#etiquetas'), vista);
@@ -108,46 +73,14 @@ function alternarMapa() {
   if (!capaMapa.hidden) juego.avisoMapa = false;
 }
 $('#btn-cerrar-mapa').onclick = alternarMapa;
-// Zoom y desplazamiento del mapa: pellizco o rueda para acercar, arrastre para mover, doble toque para volver.
-{
-  const dedos = new Map();
-  let distancia = 0, ultimoToque = 0;
-  const k = () => capaMapa.width / (capaMapa.clientWidth || 1);
-  const acercar = (factor, px, py) => {
-    const z = Math.max(1, Math.min(8, vistaMapa.zoom * factor)), f = z / vistaMapa.zoom;
-    const cx = capaMapa.width / 2, cy = capaMapa.height / 2;
-    vistaMapa.x = px - cx - (px - cx - vistaMapa.x) * f; vistaMapa.y = py - cy - (py - cy - vistaMapa.y) * f;
-    vistaMapa.zoom = z;
-    if (z === 1) { vistaMapa.x = 0; vistaMapa.y = 0; }
-  };
-  const medir = () => { const [a, b] = [...dedos.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
-  capaMapa.addEventListener('pointerdown', e => {
-    capaMapa.setPointerCapture(e.pointerId);
-    dedos.set(e.pointerId, { x: e.offsetX * k(), y: e.offsetY * k() });
-    if (dedos.size === 2) distancia = medir();
-    if (dedos.size === 1) { const ahora = performance.now(); if (ahora - ultimoToque < 300) reiniciarVistaMapa(); ultimoToque = ahora; }
-  });
-  capaMapa.addEventListener('pointermove', e => {
-    const d = dedos.get(e.pointerId); if (!d) return;
-    const x = e.offsetX * k(), y = e.offsetY * k();
-    if (dedos.size === 1) { vistaMapa.x += x - d.x; vistaMapa.y += y - d.y; }
-    d.x = x; d.y = y;
-    if (dedos.size === 2) {
-      const [a, b] = [...dedos.values()], nueva = medir();
-      if (distancia > 0) acercar(nueva / distancia, (a.x + b.x) / 2, (a.y + b.y) / 2);
-      distancia = nueva;
-    }
-  });
-  const soltar = e => { dedos.delete(e.pointerId); distancia = 0; };
-  capaMapa.addEventListener('pointerup', soltar); capaMapa.addEventListener('pointercancel', soltar);
-  capaMapa.addEventListener('wheel', e => { e.preventDefault(); acercar(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.offsetX * k(), e.offsetY * k()); }, { passive: false });
-}
+activarZoomMapa(capaMapa);
 $('#hud-arma').closest('.caja').dataset.tactil = 'recargar';   // en táctil, tocar el recuadro del arma recarga
 $('#caja-tesoros').dataset.tactil = 'mochila';   // y el contador de reliquias abre la mochila
 const botones = new Map();
 for (const b of document.querySelectorAll('[data-tactil]')) botones.set(b, b.dataset.tactil);
 const botonUsar = $('#t-usar');
 const entrada = new Entrada(vista, { zona: $('#zona-tactil'), base: $('#joy-base'), palanca: $('#joy-palanca'), botones });
+iniciarOpciones(entrada);
 
 let juego = null;
 let pausado = true;
@@ -239,8 +172,6 @@ document.addEventListener('pointerover', e => {
   if (enMenu(b) && !b.disabled) sonar('menu_pasar');
 });
 
-const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
-
 // ---------- Preparar la expedición ----------
 
 // las mazmorras sin zonas tienen un solo tamaño
@@ -275,120 +206,7 @@ const elegir = (clave, valor) => { prep[clave] = valor; progreso.opciones[clave]
 for (const b of document.querySelectorAll('[data-tamano]')) b.onclick = () => elegir('tamano', b.dataset.tamano);
 $('#btn-entrar').onclick = () => empezar(elegida, tamanoDe(elegida), limiteDe(elegida));
 
-// Para abrir una mazmorra hay que haber reunido esta parte de los tesoros de la anterior (la primera siempre está abierta).
-const UMBRAL_DESBLOQUEO = 0.5;
-const fraccion = m => { const ids = tesorosDe(m); return ids.filter(id => progreso.tesoros.includes(id)).length / ids.length; };
-const previaPendiente = m => { const k = MAZMORRAS.indexOf(m); return k > 0 && fraccion(MAZMORRAS[k - 1]) < UMBRAL_DESBLOQUEO ? MAZMORRAS[k - 1] : null; };
-function pintarMazmorras() {
-  const lista = $('#lista-mazmorras');
-  lista.innerHTML = '';
-  for (const m of MAZMORRAS) {
-    const ids = tesorosDe(m);
-    const tengo = ids.filter(id => progreso.tesoros.includes(id)).length;
-    const est = progreso.mazmorras[m.id] || {};
-    const previa = previaPendiente(m);
-    const b = document.createElement('button');
-    b.className = 'mazmorra' + (previa ? ' bloqueada' : '');
-    b.innerHTML = `<em class="numero">${ROMANOS[MAZMORRAS.indexOf(m)]}</em><div class="titulo-mazmorra"><i class="marco-emblema"></i><strong>${m.nombre}</strong></div><span>${m.descripcion}</span>
-      <div class="barra"><i style="width:${Math.round(tengo / ids.length * 100)}%"></i></div>
-      <small>${previa ? `🔒 Reúne el ${Math.round(UMBRAL_DESBLOQUEO * 100)} % de los tesoros de ${previa.nombre} (${Math.round(fraccion(previa) * 100)} %)` : `Tesoros ${tengo} de ${ids.length}${est.completada ? ' · Completada' : ''}`}</small>`;
-    b.querySelector('.marco-emblema').appendChild(lienzoEmblema(m.id));
-    b.onclick = previa ? () => { b.classList.remove('sacude'); void b.offsetWidth; b.classList.add('sacude'); } : () => abrirPreparar(m);
-    lista.appendChild(b);
-  }
-}
 
-function mazmorraDe(id) {
-  return MAZMORRAS.find(m => tesorosDe(m).includes(id));
-}
-const esNuevo = id => (progreso.nuevos || []).includes(id);
-// Una pieza sobre su pedestal: se toca para abrir su ficha. Lleva debajo el color de su rareza y, si es nueva, un rótulo.
-function piezaMuseo(t, lo, i) {
-  const b = document.createElement('button');
-  b.className = 'pieza' + (lo ? '' : ' oculta') + (lo && esNuevo(t.id) ? ' nueva' : '');
-  b.style.setProperty('--retraso', (i % 5) * -0.7 + 's');
-  b.style.setProperty('--rareza', RAREZAS[t.rareza].color);
-  b.setAttribute('aria-label', lo ? t.nombre + (esNuevo(t.id) ? ' (nuevo)' : '') : 'Tesoro sin descubrir');
-  b.appendChild(miniatura(atlas, 'tesoro_' + t.id, 1));
-  if (b.classList.contains('nueva')) b.insertAdjacentHTML('beforeend', '<i>NUEVO</i>');
-  b.onclick = () => { abrirFicha(t, lo); b.classList.remove('nueva'); b.querySelector('i')?.remove(); };
-  return b;
-}
-const ORDEN_RAREZA = ['legendario', 'epico', 'raro', 'comun'];
-let museoIdx = 0;
-// Museo: una vitrina por mazmorra (con su historia, del tesoro más raro al más común) que se recorre deslizando hacia el lado.
-function pintarColeccion() {
-  const cont = $('#vitrinas'), puntos = $('#puntos-museo');
-  cont.innerHTML = ''; puntos.innerHTML = '';
-  const tengo = new Set(progreso.tesoros);
-  const valor = TESOROS.filter(t => tengo.has(t.id)).reduce((s, t) => s + RAREZAS[t.rareza].valor, 0);
-  MAZMORRAS.forEach((m, k) => {
-    const lista = tesorosDe(m).map(id => TESORO[id]).filter(Boolean).sort((a, b) => ORDEN_RAREZA.indexOf(a.rareza) - ORDEN_RAREZA.indexOf(b.rareza));
-    const hallados = lista.filter(t => tengo.has(t.id)).length, sala = SALAS[m.id] || {}, nuevos = lista.filter(t => tengo.has(t.id) && esNuevo(t.id)).length;
-    const v = document.createElement('section');
-    v.className = `vitrina tema-${m.id}` + (hallados === lista.length && lista.length ? ' completa' : '');
-    v.innerHTML = `<header class="cartel-sala"><h3></h3><small>${hallados} de ${lista.length}${nuevos ? ` · <b class="n-nuevos">${nuevos} nuevo${nuevos === 1 ? '' : 's'}</b>` : ''}</small></header>
-      <p class="mazmorra-sala"></p>
-      <div class="mueble">
-        <div class="remate"><i class="foco"></i></div>
-        <div class="caja-vidrio"><div class="fondo-vit"></div><div class="repisa"></div><div class="vidrio"></div></div>
-        <div class="base-mueble"><span class="placa"></span></div>
-      </div>
-      <p class="lore-sala"></p>`;
-    v.querySelector('h3').textContent = sala.sala || m.nombre;
-    v.querySelector('.mazmorra-sala').textContent = m.nombre + (m.guardian ? ` · custodia: ${m.guardian.nombre}` : '');
-    v.querySelector('.placa').textContent = `${m.nombre} · ${hallados}/${lista.length}`;
-    v.querySelector('.lore-sala').textContent = sala.lore || m.descripcion || '';
-    const repisa = v.querySelector('.repisa');
-    lista.forEach((t, i) => repisa.appendChild(piezaMuseo(t, tengo.has(t.id), i)));
-    cont.appendChild(v);
-    const p = document.createElement('button');
-    p.className = 'punto' + (nuevos ? ' con-nuevos' : '');
-    p.setAttribute('aria-label', sala.sala || m.nombre);
-    p.onclick = () => irAVitrina(k);
-    puntos.appendChild(p);
-  });
-  $('#resumen-coleccion').textContent = `${tengo.size} de ${TESOROS.length} tesoros · valor ${valor}`;
-  requestAnimationFrame(() => irAVitrina(museoIdx, false));
-}
-function irAVitrina(k, suave = true) {
-  const cont = $('#vitrinas');
-  museoIdx = Math.max(0, Math.min(MAZMORRAS.length - 1, k));
-  cont.scrollTo({ left: museoIdx * cont.clientWidth, behavior: suave ? 'smooth' : 'instant' });
-  marcarPunto();
-}
-function marcarPunto() {
-  document.querySelectorAll('#puntos-museo .punto').forEach((p, i) => p.classList.toggle('activo', i === museoIdx));
-  $('#museo-ant').hidden = museoIdx === 0;
-  $('#museo-sig').hidden = museoIdx === MAZMORRAS.length - 1;
-}
-$('#vitrinas').addEventListener('scroll', () => {
-  const cont = $('#vitrinas'), k = Math.round(cont.scrollLeft / Math.max(1, cont.clientWidth));
-  if (k !== museoIdx && k >= 0 && k < MAZMORRAS.length) { museoIdx = k; marcarPunto(); }
-}, { passive: true });
-$('#museo-ant').onclick = () => irAVitrina(museoIdx - 1);
-$('#museo-sig').onclick = () => irAVitrina(museoIdx + 1);
-addEventListener('keydown', e => {
-  if ($('#coleccion').hidden || !$('#ficha').hidden) return;
-  if (e.key === 'ArrowLeft') irAVitrina(museoIdx - 1);
-  if (e.key === 'ArrowRight') irAVitrina(museoIdx + 1);
-});
-function abrirFicha(t, lo) {
-  if (lo && esNuevo(t.id)) { progreso.nuevos = progreso.nuevos.filter(id => id !== t.id); guardar(); }
-  const f = $('#ficha'), r = RAREZAS[t.rareza], m = mazmorraDe(t.id);
-  f.className = 'f-' + t.rareza;
-  const pieza = f.querySelector('.ficha-pieza');
-  pieza.innerHTML = ''; pieza.classList.toggle('oculta', !lo);
-  pieza.appendChild(miniatura(atlas, 'tesoro_' + t.id, 3));
-  f.querySelector('h3').textContent = lo ? t.nombre : '???';
-  f.querySelector('em').textContent = r.nombre;
-  f.querySelector('p').textContent = lo ? t.descripcion : 'Aún no lo encuentras.';
-  // la historia propia de la pieza y la sala donde se expone (solo una vez hallada)
-  f.querySelector('.lore').textContent = lo ? [HISTORIAS[t.id], m && SALAS[m.id] ? `Se expone en la ${SALAS[m.id].sala}${m.guardian ? `, la que vigilaba ${m.guardian.nombre}` : ''}.` : ''].filter(Boolean).join(' ') : '';
-  f.querySelector('small').textContent = m ? (lo ? 'Hallado en ' : 'Se esconde en ') + m.nombre : '';
-  f.hidden = false;
-}
-$('#ficha').onclick = e => { if (e.target.id === 'ficha' || e.target.closest('.cerrar')) $('#ficha').hidden = true; };
 
 // Muro común y pasadizo secreto lado a lado, con las mismas texturas del juego (los de la Cripta del Escarabajo).
 function pintarAyuda() {
@@ -398,47 +216,13 @@ function pintarAyuda() {
     g.drawImage(miniatura(atlas, tex, 1), 0, 0, 128, 128);
   }
 }
-function pintarOpciones() {
-  for (const b of document.querySelectorAll('[data-calidad]')) b.classList.toggle('activo', b.dataset.calidad === calidad);
-  pintarControles();
-}
-
-// Controles táctiles: sensibilidad, modo zurdo y vibración.
-const SENSIBILIDAD = { baja: 0.6, media: 1, alta: 1.5 };
-const SENS_RATON = { baja: 0.0015, media: 0.0024, alta: 0.0038 };
-function aplicarControles() {
-  const o = progreso.opciones;
-  entrada.sensTactil = 0.006 * SENSIBILIDAD[o.sens || 'media'];
-  entrada.sensRaton = SENS_RATON[o.sensr || 'media'];
-  entrada.zurdo = !!o.zurdo;
-  document.body.classList.toggle('zurdo', !!o.zurdo);
-}
-function pintarControles() {
-  const o = progreso.opciones;
-  for (const b of document.querySelectorAll('[data-sens]')) b.classList.toggle('activo', b.dataset.sens === (o.sens || 'media'));
-  for (const b of document.querySelectorAll('[data-sensr]')) b.classList.toggle('activo', b.dataset.sensr === (o.sensr || 'media'));
-  $('#btn-zurdo').textContent = o.zurdo ? 'Zurdo: sí' : 'Zurdo: no';
-  $('#btn-vibrar').textContent = o.sinVibrar ? 'Vibración: no' : 'Vibración: sí';
-}
-for (const b of document.querySelectorAll('[data-sensr]')) b.onclick = () => { progreso.opciones.sensr = b.dataset.sensr; guardar(); aplicarControles(); pintarControles(); };
-for (const b of document.querySelectorAll('[data-sens]')) b.onclick = () => { progreso.opciones.sens = b.dataset.sens; guardar(); aplicarControles(); pintarControles(); };
-$('#btn-zurdo').onclick = () => { progreso.opciones.zurdo = !progreso.opciones.zurdo; guardar(); aplicarControles(); pintarControles(); };
-$('#btn-vibrar').onclick = () => {
-  progreso.opciones.sinVibrar = !progreso.opciones.sinVibrar; guardar(); pintarControles();
-  if (!progreso.opciones.sinVibrar) vibrar(40);
-};
-function vibrar(ms) {
-  if (progreso.opciones.sinVibrar || !document.body.classList.contains('tactil')) return;
-  try { navigator.vibrate?.(ms); } catch (e) { /* sin vibración */ }
-}
-aplicarControles();
 
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-ir]');
   if (!b) return;
   activarAudio();
   const ir = b.dataset.ir;
-  if (ir === 'mazmorras') pintarMazmorras();
+  if (ir === 'mazmorras') pintarMazmorras(abrirPreparar);
   if (ir === 'coleccion') pintarColeccion();
   if (ir === 'opciones') pintarOpciones();
   if (ir === 'ayuda') pintarAyuda();
@@ -449,20 +233,6 @@ document.addEventListener('click', e => {
   mostrar(ir);
 });
 
-for (const b of document.querySelectorAll('[data-calidad]')) b.onclick = () => {
-  calidad = b.dataset.calidad; progreso.opciones.calidad = calidad; guardar(); pintarOpciones();
-  document.body.classList.toggle('retro', calidad === 'retro');
-};
-document.body.classList.toggle('retro', calidad === 'retro');
-function pintarSonido() {
-  $('#btn-sonido').textContent = progreso.opciones.silencio ? 'Sonido: no' : 'Sonido: sí';
-  $('#btn-musica').textContent = progreso.opciones.sinMusica ? 'Música: no' : 'Música: sí';
-}
-ponerSilencio(!!progreso.opciones.silencio);
-ponerMusica(!progreso.opciones.sinMusica);
-pintarSonido();
-$('#btn-sonido').onclick = () => { progreso.opciones.silencio = alternarSilencio(); guardar(); pintarSonido(); };
-$('#btn-musica').onclick = () => { progreso.opciones.sinMusica = alternarMusica(); guardar(); pintarSonido(); };
 
 // ---------- Salas con amigos ----------
 
@@ -522,7 +292,7 @@ function abrirEntrar() {
   $('#entrar-error').textContent = '';
   mostrar('entrar');
 }
-$('#btn-solo').onclick = () => { pintarMazmorras(); mostrar('mazmorras'); };
+$('#btn-solo').onclick = () => { pintarMazmorras(abrirPreparar); mostrar('mazmorras'); };
 $('#btn-unirme').onclick = () => { guardarNombreSala($('#entrar-nombre').value); abrirUnirse(); };
 $('#btn-crear').onclick = async () => {
   const nombre = guardarNombreSala($('#entrar-nombre').value);
@@ -1248,7 +1018,7 @@ function cuadro(t) {
   if (!pausado || (actual?.sala && !actual.sala.fin)) { juego.actualizar(dt, ent); actualizarAmbiente(dt, Math.max(juego.tension(), juego.limite && juego.restante() <= 60 ? 0.7 : 0)); }
   else if (juego.limite && !$('#panel').hidden) juego.avanzarReloj(dt); // el reloj no se detiene mientras lees una tablilla
 
-  render.ajustarTamano(CALIDADES[calidad]);
+  render.ajustarTamano(CALIDADES[calidadActual()]);
   // la antorcha titila
   const linterna = (juego.j.muerto ? 0.3 : 0.92 + Math.sin(t * 0.013) * 0.05 + Math.sin(t * 0.031) * 0.04 + Math.sin(t * 0.071) * 0.025);
   const sprites = juego.sprites();
