@@ -1,11 +1,12 @@
 // Texturas y sprites pixel art generados por código (sin archivos de imagen).
 // Todo va a un atlas de COLS x FILAS casillas de T x T píxeles.
 import { crearDisenos } from './tesoros-arte.js';
+import { SPRITES_LIBRES } from '../datos/sprites-libres.js';
 
 
 export const T = 64;
 export const COLS = 16;
-export const FILAS = 32;
+export const FILAS = 40;
 
 const casillas = {};   // nombre -> [col, fila]
 const dibujos = [];
@@ -860,7 +861,7 @@ const ESTILOS = {
     capa: ['#1a1a22', '#5a1010'], hombreras: '#d8dde4', collar: ['#d8dde4', '#e8b83a'], joya: '#e0304a', detalle: 'penacho' },
 };
 const BESTIAS_ARTE = { escorpion, arana, serpiente, coloso };
-const TIPOS_ENEMIGO = [...Object.keys(ESTILOS), ...Object.keys(BESTIAS_ARTE)];
+const TIPOS_ENEMIGO = [...Object.keys(ESTILOS), ...Object.keys(BESTIAS_ARTE), ...Object.keys(SPRITES_LIBRES)];
 
 function postura(pose) {
   return {
@@ -1513,10 +1514,52 @@ function coloso(g, pose) {
   herida(g, p, 26, 28);
 }
 
-const tipoArte = tipo => BESTIAS_ARTE[tipo] ? (g, pose) => BESTIAS_ARTE[tipo](g, pose) : (g, pose) => humanoide(g, tipo, pose);
+// Criaturas de arte libre (datos/sprites-libres.js, créditos en el README): cada una es un solo dibujo, así que las
+// nueve poses se sacan deformándolo (al caminar se estira y se encoge, al atacar salta hacia ti, al caer se tumba).
+const dibujosLibres = {};
+function dibujoLibre(tipo) {
+  if (dibujosLibres[tipo]) return dibujosLibres[tipo];
+  const { paleta, filas } = SPRITES_LIBRES[tipo];
+  const c = document.createElement('canvas');
+  c.width = c.height = T;
+  const g = c.getContext('2d');
+  filas.forEach((fila, y) => {
+    for (let x = 0; x < T; x++) if (fila[x] !== '.') { g.fillStyle = paleta[FICHAS_LIBRES.indexOf(fila[x])]; g.fillRect(x, y, 1, 1); }
+  });
+  return dibujosLibres[tipo] = c;
+}
+const FICHAS_LIBRES = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function desdeSprite(g, tipo, pose) {
+  const src = dibujoLibre(tipo);
+  // `tinte` pinta encima del dibujo (solo donde hay píxeles) para el golpe y el cuerpo caído
+  const poner = (tinte, alfa) => {
+    if (!tinte) { g.drawImage(src, 0, 0); return; }
+    const t = document.createElement('canvas'); t.width = t.height = T;
+    const h = t.getContext('2d');
+    h.drawImage(src, 0, 0);
+    h.globalCompositeOperation = 'source-atop'; h.globalAlpha = alfa; h.fillStyle = tinte; h.fillRect(0, 0, T, T);
+    g.drawImage(t, 0, 0);
+  };
+  g.save();
+  g.translate(32, 62);   // los pies, como pivote
+  if (pose === 0) g.scale(1.03, 0.97);
+  else if (pose === 1) { g.translate(1, 0); g.scale(0.97, 1.03); }
+  else if (pose === 2) { g.translate(0, 3); g.scale(1.1, 1.1); }
+  else if (pose === 7) { g.translate(0, -2); g.scale(0.95, 1.07); }
+  else if (pose === 3) g.rotate(-0.07);
+  else if (pose === 5) { g.rotate(0.12); g.scale(1, 0.78); }
+  else if (pose === 6) { g.rotate(0.6); g.scale(0.85, 0.85); }
+  else if (pose === 4) { g.translate(0, -8); g.rotate(Math.PI / 2); g.scale(0.9, 0.9); g.translate(0, 25); }
+  g.translate(-32, -62);
+  poner(pose === 3 ? '#ffffff' : pose >= 4 && pose <= 6 ? '#000000' : null, pose === 3 ? 0.4 : 0.25 + (pose === 4 ? 0.1 : 0));
+  g.restore();
+}
+
+const tipoArte = tipo => SPRITES_LIBRES[tipo] ? (g, pose) => desdeSprite(g, tipo, pose)
+  : BESTIAS_ARTE[tipo] ? (g, pose) => BESTIAS_ARTE[tipo](g, pose) : (g, pose) => humanoide(g, tipo, pose);
 for (const tipo of TIPOS_ENEMIGO) {
   const dibujar = tipoArte(tipo);
-  for (let pose = 0; pose < 9; pose++) registrar(`${tipo}_${pose}`, sprite(g => dibujar(g, pose)));
+  for (let pose = 0; pose < 9; pose++) registrar(`${tipo}_${pose}`, sprite(g => dibujar(g, pose), { relieve: !SPRITES_LIBRES[tipo] }));
 }
 // Los otros cazadores de una sala: un explorador con sombrero y pañuelo del color de su puesto y una antorcha en la mano.
 // pose: 0/1 caminar (cada pie por turno), 8 quieto.

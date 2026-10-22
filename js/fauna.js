@@ -2,7 +2,7 @@
 //
 // Cada mazmorra tiene sus enemigos propios (los del plano: momias, piratas, sectarios...). Además, en
 // cada partida se sueltan una o dos bestias al azar (escorpión, araña o serpiente gigantes) y a veces
-// un coloso de piedra. Los sitios del plano son solo puntos de partida: algunos quedan vacíos, otros
+// un coloso de piedra (o una de las criaturas raras de la mazmorra, ver `raras` en datos/mazmorras.js). Los sitios del plano son solo puntos de partida: algunos quedan vacíos, otros
 // cambian de monstruo, y aparecen otros en casillas cualquiera. Muchos esperan escondidos (bajo la arena,
 // en el techo, entre los escombros) y salen cuando te acercas, así que nunca sabes qué hay en una sala.
 //
@@ -14,7 +14,8 @@ export const BESTIAS = ['escorpion', 'arana', 'serpiente'];
 const VACIO = 0.22;      // queda vacío (y el monstruo aparece en otra parte)
 const BESTIA = 0.3;      // sale una de las bestias de la partida en vez del enemigo propio
 const COLOSO = 0.07;     // sale el coloso (solo en las partidas que lo tienen, y uno o dos como mucho)
-const ESCONDIDO = { propio: 0.25, bestia: 0.6, coloso: 0.8 };
+const RARA = 0.05;       // sale una criatura rara de la mazmorra (si tiene y la partida la trae)
+const ESCONDIDO = { propio: 0.25, bestia: 0.6, coloso: 0.8, rara: 0.7 };
 // Probabilidad, por zona de la mazmorra (0 = la del plano fijo; las siguientes son más densas), de que salga en vez del enemigo propio.
 const ARQUERO = [0.14, 0.17, 0.22];
 const BRUJO = [0, 0.1, 0.16];      // el brujo (se teletransporta) solo aparece de la segunda zona en adelante
@@ -31,11 +32,14 @@ export function repartirEnemigos(m, azar) {
   const bestias = posibles.slice(0, Math.min(posibles.length, azar() < 0.5 ? 1 : 2));
   const conColoso = m.def.coloso !== false && azar() < 0.55;
   let colosos = conColoso ? 1 + (azar() < 0.4 ? 1 : 0) : 0;
+  const raraElegida = m.def.raras?.length && azar() < 0.5 ? elegir(m.def.raras) : null;
+  let rara = raraElegida;
 
   const tipo = (zona = 0) => {
     const z = Math.min(zona, 2);
     const r = azar();
     if (colosos && r < COLOSO) { colosos--; return ['coloso', 'coloso']; }
+    if (rara && r < COLOSO + RARA) { const t = rara; rara = null; return [t, 'rara']; }
     if (bestias.length && r < COLOSO + BESTIA) return [elegir(bestias), 'bestia'];
     if (azar() < ARQUERO[z]) return ['arquero', 'propio'];
     if (azar() < BRUJO[z]) return ['brujo', 'propio'];
@@ -70,5 +74,5 @@ export function repartirEnemigos(m, azar) {
     sobran--;
   }
   m.enemigos = nuevos;
-  m.fauna = { propios, bestias, coloso: conColoso };
+  m.fauna = { propios, bestias, coloso: conColoso, rara: raraElegida };
 }
