@@ -43,11 +43,11 @@ const ENEMIGOS = {
   calamar: { vida: 60, vel: 1.3, daño: [9, 14], alcance: 1.5, espera: 1.1, vista: 12, tam: 1.2 },
   acechador: { vida: 48, vel: 1.9, daño: [8, 13], alcance: 1.0, espera: 0.85, vista: 13, tam: 1.1 },
   segador: { vida: 55, vel: 1.7, daño: [9, 14], alcance: 1.1, espera: 0.9, vista: 13, tam: 1.1 },
-  manos_infernales: { vida: 50, vel: 2.2, daño: [9, 14], alcance: 1.0, espera: 0.8, vista: 13, tam: 1.15 },
-  // sorpresas duras, como el coloso (ver `raras` en js/fauna.js)
-  bestia_cadenas: { vida: 150, vel: 1.0, daño: [14, 22], alcance: 1.3, espera: 1.4, vista: 11, tam: 1.3 },
-  caballero_hielo: { vida: 130, vel: 1.15, daño: [13, 19], alcance: 1.15, espera: 1.2, vista: 12, tam: 1.25 },
-  dracomaquina: { vida: 230, vel: 1.0, daño: [16, 24], alcance: 1.3, espera: 1.5, vista: 13, tam: 1.4, fuego: [13, 19] },
+  manos_infernales: { vida: 50, vel: 2.2, daño: [8, 13], alcance: 1.0, espera: 0.8, vista: 13, tam: 1.15 },
+  // sorpresas duras, como el coloso (ver `raras` en js/fauna.js); al caer sueltan vendas
+  bestia_cadenas: { rara: true, vida: 150, vel: 1.0, daño: [14, 22], alcance: 1.3, espera: 1.4, vista: 11, tam: 1.3 },
+  caballero_hielo: { rara: true, vida: 130, vel: 1.15, daño: [13, 19], alcance: 1.15, espera: 1.2, vista: 12, tam: 1.25 },
+  dracomaquina: { rara: true, vida: 200, vel: 1.0, daño: [15, 22], alcance: 1.3, espera: 1.6, vista: 13, tam: 1.4, fuego: [11, 16] },
   // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
@@ -943,6 +943,7 @@ export class Juego {
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
       } else if (e.botin) this.soltarBotin(e);
+      else if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan vendas
     } else if (e.jefe) {
       // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
       if (e.estado === 'dormido') e.estado = 'caza';
@@ -1397,6 +1398,7 @@ export class Juego {
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
       } else if (e.botin) this.soltarBotin(e);
+      else if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan vendas
     } else if (nuevo === 'dolor') { e.golpe = 0.12; this.voz(e, 'dolor'); }
     else if (nuevo === 'surge') this.voz(e, 'surgir');
     else if (nuevo === 'caza' && (antes === 'dormido' || antes === 'oculto' || antes === 'surge')) { e.alerta = true; this.voz(e, 'alerta'); }
