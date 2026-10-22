@@ -9,8 +9,9 @@
 //   p  pirata           j  guerrero jaguar  c  sectario        n  caballero cruzado
 //   Los enemigos del plano son los propios de la mazmorra y sus sitios, solo un punto de partida: en cada
 //   partida algunos quedan vacíos, otros cambian de monstruo y otros aparecen en cualquier parte, muchos
-//   escondidos hasta que te acercas (js/fauna.js). `bestias`: cuáles de las bestias gigantes (escorpion,
-//   arana, serpiente) pueden soltarse en la mazmorra (por defecto todas); `coloso: false` quita el coloso.
+//   escondidos hasta que te acercas (js/fauna.js). `bestias`: cuáles de las bestias (escorpion, arana, serpiente
+//   y las criaturas de arte libre) pueden soltarse en la mazmorra (por defecto las tres gigantes); `raras`: criaturas
+//   duras de las que a veces sale una sola; `coloso: false` quita el coloso.
 //   ^  pinchos (suben y bajan)   ~  lava (quema)   _  abismo (caída mortal)
 //   :  puente oculto (parece abismo, pero se puede pisar)   f  cáliz falso (trampa)
 //   0-9 tesoros (según `tesoros`)
@@ -60,6 +61,8 @@ export const MAZMORRAS = [
       ],
     },
     ambiente: 'cripta',
+    bestias: ['escorpion', 'arana', 'serpiente', 'escarabajo', 'murcielago', 'espectro'],
+    raras: ['bestia_cadenas'],
     nombre: 'La Cripta del Escarabajo',
     descripcion: 'Una tumba bajo las arenas, más honda de lo que parece. Cuatro zonas y una salida que hay que encontrar.',
     muro: 'piedra', suelo: 'losa', techo: 'techo',
@@ -87,6 +90,7 @@ export const MAZMORRAS = [
     // La primera zona se talla en cada partida (js/laberinto.js, `generarInicio`): aquí su tamaño, sus monstruos y los peligros sueltos.
     inicio: { ancho: 44, alto: 17, enemigos: ['k', 'm'], peligros: {} },
     ambiente: 'desierto',
+    bestias: ['escorpion', 'arana', 'serpiente', 'escarabajo'],
     nombre: 'El Templo de las Arenas',
     descripcion: 'Dos inscripciones custodian las cámaras del templo. La más difícil guarda algo legendario.',
     muro: 'arenisca', suelo: 'arena', techo: 'techo_arena',
@@ -115,10 +119,11 @@ export const MAZMORRAS = [
     // La primera zona se talla en cada partida (js/laberinto.js, `generarInicio`): aquí su tamaño, sus monstruos y los peligros sueltos.
     inicio: { ancho: 43, alto: 19, enemigos: ['g', 'k'], peligros: {} },
     ambiente: 'nieve',
+    bestias: ['arana', 'serpiente', 'espectro', 'murcielago'],
+    raras: ['caballero_hielo'],
     nombre: 'La Fortaleza del Glaciar',
     descripcion: 'Un salón vikingo sepultado bajo el hielo del norte. Sus guerreros nunca dejaron de hacer guardia.',
     muro: 'hielo', suelo: 'nieve', techo: 'techo_hielo',
-    bestias: ['arana', 'serpiente'],
     texTablilla: 'tablilla_hielo', texSello: 'sello_runa',
     tinte: [0.86, 0.95, 1.1],
     luz: 0.72,
@@ -145,6 +150,7 @@ export const MAZMORRAS = [
     // La primera zona se talla en cada partida (js/laberinto.js, `generarInicio`): aquí su tamaño, sus monstruos y los peligros sueltos.
     inicio: { ancho: 45, alto: 19, enemigos: ['k', 'p'], peligros: {} },
     ambiente: 'mar',
+    bestias: ['arana', 'serpiente', 'pez_fantasma', 'sirena', 'calamar'],
     nombre: 'La Cueva de Drake',
     descripcion: 'Una cueva marina donde encalló un galeón del corsario Francis Drake. Su tripulación sigue a bordo.',
     muro: 'roca', suelo: 'arena_humeda', techo: 'techo_roca',
@@ -177,6 +183,7 @@ export const MAZMORRAS = [
     // La primera zona se talla en cada partida (js/laberinto.js, `generarInicio`): aquí su tamaño, sus monstruos y los peligros sueltos.
     inicio: { ancho: 27, alto: 33, enemigos: ['j', 'k'], peligros: {} },
     ambiente: 'selva',
+    bestias: ['escorpion', 'arana', 'serpiente', 'acechador', 'murcielago'],
     nombre: 'El Templo del Jaguar',
     descripcion: 'Una pirámide maya tragada por la selva. Sus guerreros jaguar defienden el ídolo del dios.',
     muro: 'selva', suelo: 'losa_selva', techo: 'techo_selva',
@@ -207,6 +214,8 @@ export const MAZMORRAS = [
     // La primera zona se talla en cada partida (js/laberinto.js, `generarInicio`): aquí su tamaño, sus monstruos y los peligros sueltos.
     inicio: { ancho: 27, alto: 33, enemigos: ['c'], peligros: { '~': 4, '^': 3 } },
     ambiente: 'lava',
+    bestias: ['arana', 'serpiente', 'manos_infernales', 'segador'],
+    raras: ['dracomaquina'],
     nombre: 'El Templo Maldito',
     descripcion: 'Bajo un palacio en las montañas, una secta esconde las tres piedras sagradas robadas a una aldea. Cuidado con la lava.',
     muro: 'volcanica', suelo: 'losa_roja', techo: 'techo_roca',
@@ -236,10 +245,11 @@ export const MAZMORRAS = [
     // La primera zona se talla en cada partida (js/laberinto.js, `generarInicio`): aquí su tamaño, sus monstruos y los peligros sueltos.
     inicio: { ancho: 27, alto: 33, enemigos: ['k', 'n'], peligros: { '_': 3, '^': 4 } },
     ambiente: 'catacumba',
+    bestias: ['arana', 'serpiente', 'espectro', 'segador', 'murcielago'],
+    raras: ['bestia_cadenas'],
     nombre: 'La Tumba del Cruzado',
     descripcion: 'Bajo una vieja biblioteca, unas catacumbas llevan a las tres pruebas que protegen el cáliz. Elige con sabiduría.',
     muro: 'catacumba', suelo: 'losa', techo: 'techo',
-    bestias: ['arana', 'serpiente'],
     texTablilla: 'tablilla_catacumba',
     tinte: [1.0, 0.97, 0.9],
     luz: 0.5,

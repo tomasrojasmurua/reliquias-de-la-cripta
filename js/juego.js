@@ -34,6 +34,20 @@ const ENEMIGOS = {
   escorpion: { vida: 70, vel: 1.5, daño: [10, 16], alcance: 1.15, espera: 1.1, vista: 12, tam: 1.2 },
   arana: { vida: 42, vel: 2.6, daño: [6, 11], alcance: 1.0, espera: 0.7, vista: 14, tam: 1.25 },
   serpiente: { vida: 45, vel: 1.4, daño: [9, 15], alcance: 1.6, espera: 1.0, vista: 12, tam: 1.1 },
+  // criaturas de arte libre (datos/sprites-libres.js): `vuelo` es lo que flotan sobre el suelo, en metros
+  escarabajo: { vida: 40, vel: 2.1, daño: [6, 10], alcance: 0.95, espera: 0.8, vista: 12, tam: 0.95 },
+  murcielago: { vida: 22, vel: 3.0, daño: [4, 8], alcance: 0.9, espera: 0.6, vista: 14, tam: 0.85, vuelo: 0.3 },
+  espectro: { vida: 36, vel: 1.7, daño: [7, 11], alcance: 1.0, espera: 0.9, vista: 13, tam: 1.05, vuelo: 0.12 },
+  pez_fantasma: { vida: 40, vel: 1.9, daño: [6, 10], alcance: 1.0, espera: 0.8, vista: 13, tam: 1.1, vuelo: 0.18 },
+  sirena: { vida: 38, vel: 1.4, daño: [7, 11], alcance: 0.95, espera: 1.0, vista: 14, tam: 1.05, fuego: [8, 12] },
+  calamar: { vida: 60, vel: 1.3, daño: [9, 14], alcance: 1.5, espera: 1.1, vista: 12, tam: 1.2 },
+  acechador: { vida: 48, vel: 1.9, daño: [8, 13], alcance: 1.0, espera: 0.85, vista: 13, tam: 1.1 },
+  segador: { vida: 55, vel: 1.7, daño: [9, 14], alcance: 1.1, espera: 0.9, vista: 13, tam: 1.1 },
+  manos_infernales: { vida: 50, vel: 2.2, daño: [8, 13], alcance: 1.0, espera: 0.8, vista: 13, tam: 1.15 },
+  // sorpresas duras, como el coloso (ver `raras` en js/fauna.js); al caer sueltan vendas
+  bestia_cadenas: { rara: true, vida: 150, vel: 1.0, daño: [14, 22], alcance: 1.3, espera: 1.4, vista: 11, tam: 1.3 },
+  caballero_hielo: { rara: true, vida: 130, vel: 1.15, daño: [13, 19], alcance: 1.15, espera: 1.2, vista: 12, tam: 1.25 },
+  dracomaquina: { rara: true, vida: 200, vel: 1.0, daño: [15, 22], alcance: 1.3, espera: 1.6, vista: 13, tam: 1.4, fuego: [11, 16] },
   // la sorpresa dura: lento, pero aguanta mucho y pega fuerte
   coloso: { vida: 190, vel: 0.85, daño: [16, 25], alcance: 1.25, espera: 1.6, vista: 11, tam: 1.3 },
 };
@@ -90,6 +104,8 @@ const SALPICA = {
   momia: 'polvo', esqueleto: 'hueso', draugr: 'polvo', pirata: 'hueso', jaguar: 'sangre', sectario: 'sangre', caballero: 'chispa',
   faraon: 'polvo', anubis: 'polvo', jarl: 'polvo', capitan: 'hueso', rey_jaguar: 'sangre', gran_sectario: 'sangre', gran_caballero: 'chispa',
   escorpion: 'icor', arana: 'icor', serpiente: 'sangre', coloso: 'polvo', arquero: 'hueso', brujo: 'sangre',
+  escarabajo: 'icor', murcielago: 'sangre', espectro: 'chispa', pez_fantasma: 'hueso', sirena: 'sangre', calamar: 'icor', acechador: 'icor',
+  segador: 'hueso', manos_infernales: 'sangre', bestia_cadenas: 'chispa', caballero_hielo: 'chispa', dracomaquina: 'chispa',
 };
 const PUNTOS_ESTRELLA = 2, PUNTOS_AYUDA = 2;   // por cada estrella de un acertijo descifrado / por cada ayuda pedida
 const SALIDA_REVELADA = 0.7;   // fracción del tiempo tras la cual se marca la salida en el automapa (en solitario y en las salas)
@@ -927,6 +943,7 @@ export class Juego {
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
       } else if (e.botin) this.soltarBotin(e);
+      if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan también vendas
     } else if (e.jefe) {
       // los guardianes no se detienen a cada golpe, y al perder cada tercio de vida piden ayuda
       if (e.estado === 'dormido') e.estado = 'caza';
@@ -943,18 +960,21 @@ export class Juego {
     }
   }
 
-  // Cada coloso de piedra lleva una reliquia común de la mazmorra, elegida al azar con la semilla (igual para todos en una sala):
-  // mejor una que no esté ya escondida en el mapa. Espera oculta hasta que el coloso cae.
+  // Cada coloso de piedra lleva una reliquia común de la mazmorra, y cada criatura rara una rara (o común, si no hay),
+  // elegida al azar con la semilla (igual para todos en una sala): mejor una que no esté ya escondida en el mapa.
+  // Espera oculta hasta que cae.
   prepararBotinColosos(semilla) {
     const d = this.def;
-    const comunes = [...new Set(d.reserva || [...Object.values(d.tesoros || {}), ...(d.sectores?.zonas || []).flatMap(z => z.tesoros || [])])].filter(id => TESORO[id]?.rareza === 'comun');
-    if (!comunes.length) return;
+    const todas = [...new Set(d.reserva || [...Object.values(d.tesoros || {}), ...(d.sectores?.zonas || []).flatMap(z => z.tesoros || [])])];
+    const comunes = todas.filter(id => TESORO[id]?.rareza === 'comun'), raras = todas.filter(id => TESORO[id]?.rareza === 'raro');
     const puestas = new Set(this.objetos.map(o => o.tesoro));
     this.enemigos.forEach((e, i) => {
-      if (e.tipo !== 'coloso') return;
+      if (e.tipo !== 'coloso' && !e.rara) return;
+      const pozo = e.rara && raras.length ? raras : comunes;
+      if (!pozo.length) return;
       const azarC = azarConSemilla(((semilla | 0) + 1) * 40503 + i * 977);
-      const nuevas = comunes.filter(id => !puestas.has(id));
-      const lista = nuevas.length ? nuevas : comunes;
+      const nuevas = pozo.filter(id => !puestas.has(id));
+      const lista = nuevas.length ? nuevas : pozo;
       const id = lista[Math.floor(azarC() * lista.length)];
       puestas.add(id);
       e.botin = { tipo: 'tesoro', tesoro: id, x: e.x, z: e.z, fase: 0, n: this.objetos.length, cogido: true, oculto: true };
@@ -1381,6 +1401,7 @@ export class Juego {
         this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });
         this.soltarBotin(e);
       } else if (e.botin) this.soltarBotin(e);
+      if (e.rara) this.objetos.push({ tipo: 'vendas', x: e.x, z: e.z, fase: 0 });   // las raras, duras de pelar, sueltan también vendas
     } else if (nuevo === 'dolor') { e.golpe = 0.12; this.voz(e, 'dolor'); }
     else if (nuevo === 'surge') this.voz(e, 'surgir');
     else if (nuevo === 'caza' && (antes === 'dormido' || antes === 'oculto' || antes === 'surge')) { e.alerta = true; this.voz(e, 'alerta'); }
@@ -1631,7 +1652,7 @@ export class Juego {
           s.push({ x: e.x + Math.cos(a) * 0.34 * (dz / dl) + dx / dl * 0.08, z: e.z - Math.cos(a) * 0.34 * (dx / dl) + dz / dl * 0.08, y: y + tam * (0.1 + t * 0.9), ancho: 0.13, alto: 0.13, tex: 'destello_' + Math.min(3, Math.floor((1 - Math.abs(t * 2 - 1)) * 4)), luz: 1.3 });
         }
       }
-      s.push({ x: e.x, z: e.z, y, ancho: tam, alto: tam, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
+      s.push({ x: e.x, z: e.z, y: y + (e.vuelo ? e.vuelo * (1 + Math.sin(this.tiempo * 3 + e.anim) * 0.35) : 0), ancho: tam, alto: tam, tex: `${e.tipo}_${pose}`, luz: e.golpe > 0 ? 1.3 : luzEn(e.x, e.z), espejo: pose < 2 && Math.floor(e.anim * 1.3) % 2 === 1 && false });
     }
     // flechas y dardos se dibujan apuntando arriba a la derecha: si cruzan la vista hacia la izquierda, se voltean
     const yaw = this.j.yaw, haciaIzq = (vx, vz) => vx * -Math.sin(yaw) + vz * Math.cos(yaw) < 0;

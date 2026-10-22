@@ -558,6 +558,9 @@ VOCES['murciélago'] = VOCES.murcielago;
 // los guardianes hablan como el enemigo de su mazmorra
 VOCES.arquero = VOCES.esqueleto;
 VOCES.brujo = VOCES.sectario;
+// criaturas de arte libre: cada una suena como la bestia que más se le parece
+Object.assign(VOCES, { escarabajo: VOCES.escorpion, espectro: VOCES.momia, pez_fantasma: VOCES.esqueleto, sirena: VOCES.sectario, calamar: VOCES.serpiente,
+  acechador: VOCES.arana, segador: VOCES.draugr, manos_infernales: VOCES.arana, bestia_cadenas: VOCES.coloso, caballero_hielo: VOCES.caballero, dracomaquina: VOCES.coloso });
 Object.assign(VOCES, { faraon: VOCES.momia, anubis: VOCES.momia, jarl: VOCES.draugr, capitan: VOCES.pirata, rey_jaguar: VOCES.jaguar, gran_sectario: VOCES.sectario, gran_caballero: VOCES.caballero });
 
 // Donde está la fuente: más lejos, más baja y más opaca; a un lado o al otro.

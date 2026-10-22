@@ -1,0 +1,13 @@
+Arte de terceros usado en el juego (las demás texturas y sprites se dibujan por código).
+
+kiovenn/  — "64x64 creature sprites" de Kiovenn, licencia CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+            https://opengameart.org/content/64x64-creature-sprites
+            Los PNG originales están sin cambios; en el juego se recolocan (recorte y alineación al suelo) y se
+            animan con transformaciones (ver js/texturas.js, `desdeSprite`).
+
+isaiah658/ — "50+ Monsters Pack 2D" de isaiah658, licencia CC0 (dominio público)
+            https://opengameart.org/content/50-monsters-pack-2d
+            Solo se usan los monstruos n.º 12 y n.º 14 (vista frontal, colores normales).
+
+Revisados y descartados: "Old school FPS wall textures" de knekko (CC0), https://opengameart.org/content/old-school-fps-wall-textures
+(ver el README, sección «Arte de terceros»).
